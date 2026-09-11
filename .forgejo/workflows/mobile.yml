@@ -4,10 +4,11 @@
 # - A tag `mobile-vX.Y.Z` builds, signs and publishes X.Y.Z to fdroid.example.net and marks it
 #   current. versionCode is the Forgejo run number, which only ever increases.
 #
-# Runs on the server host runner (label `android:host`, so `runs-on: android`): it has JDK, ~/Android/Sdk (platform 37) and
-# ~/homeserver/scripts/fdroid-publish.sh. Signing material comes from repo secrets
-# HOUSE_MOUSEION_CHAT_{KEYSTORE_BASE64,KEYSTORE_PASSWORD,KEY_ALIAS,KEY_PASSWORD}; the keystore is
-# decoded into a private temp dir and removed afterwards.
+# Shape mirrors forge's android-release.yml: the build runs in the household android-build image
+# (JDK 17 + SDK; platform 37 is installed at job start) on the `android` runner, and publishing runs
+# as a separate host job (`homeserver`) where scripts/fdroid-publish.sh and docker are available.
+# Signing material comes from repo secrets HOUSE_MOUSEION_CHAT_{KEYSTORE_BASE64,KEYSTORE_PASSWORD,
+# KEY_ALIAS,KEY_PASSWORD}; the keystore is decoded into a private temp dir and removed afterwards.
 name: mobile
 
 on:
@@ -17,16 +18,28 @@ on:
     tags: ['mobile-v*']
 
 jobs:
-  android:
+  build:
     runs-on: android
+    container:
+      image: forgejo.${{ vars.DOMAIN }}/${{ vars.REGISTRY_USER }}/android-build:jdk17-sdk36
+      volumes:
+        - mouseion-gradle-cache:/gradle-cache
+    defaults:
+      run:
+        shell: bash
     env:
-      ANDROID_HOME: /home/user/Android/Sdk
+      GRADLE_USER_HOME: /gradle-cache
+    outputs:
+      publish: ${{ steps.ver.outputs.publish }}
+      name: ${{ steps.ver.outputs.name }}
+      code: ${{ steps.ver.outputs.code }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Version
         id: ver
         run: |
+          set -euo pipefail
           if [[ "$GITHUB_REF" == refs/tags/mobile-v* ]]; then
             echo "name=${GITHUB_REF#refs/tags/mobile-v}" >> "$GITHUB_OUTPUT"
             echo "publish=true" >> "$GITHUB_OUTPUT"
@@ -36,8 +49,16 @@ jobs:
           fi
           echo "code=${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
 
+      - name: Android SDK platform 37
+        run: |
+          set -euo pipefail
+          yes 2>/dev/null | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "build-tools;37.0.0" > /dev/null
+          printf 'sdk.dir=%s\n' "$ANDROID_HOME" > mobile/local.properties
+
       - name: Decode signing keystore
         run: |
+          set -euo pipefail
           d="$(mktemp -d)"; chmod 700 "$d"
           printf '%s' "${{ secrets.HOUSE_MOUSEION_CHAT_KEYSTORE_BASE64 }}" | base64 -d > "$d/release.jks"
           chmod 600 "$d/release.jks"
@@ -50,10 +71,12 @@ jobs:
           MOUSEION_KEY_ALIAS: ${{ secrets.HOUSE_MOUSEION_CHAT_KEY_ALIAS }}
           MOUSEION_KEY_PASSWORD: ${{ secrets.HOUSE_MOUSEION_CHAT_KEY_PASSWORD }}
         run: |
-          printf 'sdk.dir=%s\n' "$ANDROID_HOME" > local.properties
+          set -euo pipefail
           ./gradlew --no-daemon --console=plain :androidApp:assembleRelease \
             -PversionCode=${{ steps.ver.outputs.code }} -PmouseionVersionName=${{ steps.ver.outputs.name }}
           cp androidApp/build/outputs/apk/release/androidApp-release.apk "house.mouseion.chat-${{ steps.ver.outputs.name }}.apk"
+          APKSIGNER=$(ls -1 "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -n1)
+          "$APKSIGNER" verify --print-certs "house.mouseion.chat-${{ steps.ver.outputs.name }}.apk" | grep -E "certificate DN|SHA-256"
 
       - name: Remove keystore
         if: always()
@@ -61,13 +84,25 @@ jobs:
 
       - uses: actions/upload-artifact@v3
         with:
-          name: house.mouseion.chat-${{ steps.ver.outputs.name }}
+          name: mouseion-apk
           path: mobile/house.mouseion.chat-${{ steps.ver.outputs.name }}.apk
 
+  publish-fdroid:
+    needs: [build]
+    if: needs.build.outputs.publish == 'true'
+    runs-on: homeserver
+    env:
+      APPDATA: /srv/data/appdata
+    steps:
+      - uses: actions/download-artifact@v3
+        with:
+          name: mouseion-apk
+          path: ./apk
+
       - name: Publish to F-Droid repo
-        if: steps.ver.outputs.publish == 'true'
         run: |
+          set -euo pipefail
           /home/user/homeserver/scripts/fdroid-publish.sh \
-            --apk "mobile/house.mouseion.chat-${{ steps.ver.outputs.name }}.apk" \
+            --apk "./apk/house.mouseion.chat-${{ needs.build.outputs.name }}.apk" \
             --app-id house.mouseion.chat \
-            --mark-current --version-code ${{ steps.ver.outputs.code }} --version-name ${{ steps.ver.outputs.name }}
+            --mark-current --version-code "${{ needs.build.outputs.code }}" --version-name "${{ needs.build.outputs.name }}"
