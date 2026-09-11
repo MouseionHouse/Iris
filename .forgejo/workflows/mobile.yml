@@ -4,7 +4,7 @@
 # - A tag `mobile-vX.Y.Z` builds, signs and publishes X.Y.Z to fdroid.example.net and marks it
 #   current. versionCode is the Forgejo run number, which only ever increases.
 #
-# Runs on the server host runner (label android:host): it has JDK, ~/Android/Sdk (platform 37) and
+# Runs on the server host runner (label `android:host`, so `runs-on: android`): it has JDK, ~/Android/Sdk (platform 37) and
 # ~/homeserver/scripts/fdroid-publish.sh. Signing material comes from repo secrets
 # HOUSE_MOUSEION_CHAT_{KEYSTORE_BASE64,KEYSTORE_PASSWORD,KEY_ALIAS,KEY_PASSWORD}; the keystore is
 # decoded into a private temp dir and removed afterwards.
@@ -18,7 +18,7 @@ on:
 
 jobs:
   android:
-    runs-on: android:host
+    runs-on: android
     env:
       ANDROID_HOME: /home/user/Android/Sdk
     steps:
