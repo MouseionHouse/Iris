@@ -1,0 +1,73 @@
+# Mouseion Android app: build a signed release APK and publish it to the household F-Droid repo.
+#
+# - Any push touching mobile/ builds the APK (artifact only) so breakage shows up early.
+# - A tag `mobile-vX.Y.Z` builds, signs and publishes X.Y.Z to fdroid.example.net and marks it
+#   current. versionCode is the Forgejo run number, which only ever increases.
+#
+# Runs on the server host runner (label android:host): it has JDK, ~/Android/Sdk (platform 37) and
+# ~/homeserver/scripts/fdroid-publish.sh. Signing material comes from repo secrets
+# HOUSE_MOUSEION_CHAT_{KEYSTORE_BASE64,KEYSTORE_PASSWORD,KEY_ALIAS,KEY_PASSWORD}; the keystore is
+# decoded into a private temp dir and removed afterwards.
+name: mobile
+
+on:
+  push:
+    branches: ['**']
+    paths: ['mobile/**', '.forgejo/workflows/mobile.yml']
+    tags: ['mobile-v*']
+
+jobs:
+  android:
+    runs-on: android:host
+    env:
+      ANDROID_HOME: /home/user/Android/Sdk
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Version
+        id: ver
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/mobile-v* ]]; then
+            echo "name=${GITHUB_REF#refs/tags/mobile-v}" >> "$GITHUB_OUTPUT"
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=0.0.0-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "code=${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+
+      - name: Decode signing keystore
+        run: |
+          d="$(mktemp -d)"; chmod 700 "$d"
+          printf '%s' "${{ secrets.HOUSE_MOUSEION_CHAT_KEYSTORE_BASE64 }}" | base64 -d > "$d/release.jks"
+          chmod 600 "$d/release.jks"
+          echo "MOUSEION_KEYSTORE_PATH=$d/release.jks" >> "$GITHUB_ENV"
+
+      - name: Build signed release APK
+        working-directory: mobile
+        env:
+          MOUSEION_KEYSTORE_PASSWORD: ${{ secrets.HOUSE_MOUSEION_CHAT_KEYSTORE_PASSWORD }}
+          MOUSEION_KEY_ALIAS: ${{ secrets.HOUSE_MOUSEION_CHAT_KEY_ALIAS }}
+          MOUSEION_KEY_PASSWORD: ${{ secrets.HOUSE_MOUSEION_CHAT_KEY_PASSWORD }}
+        run: |
+          printf 'sdk.dir=%s\n' "$ANDROID_HOME" > local.properties
+          ./gradlew --no-daemon --console=plain :androidApp:assembleRelease \
+            -PversionCode=${{ steps.ver.outputs.code }} -PmouseionVersionName=${{ steps.ver.outputs.name }}
+          cp androidApp/build/outputs/apk/release/androidApp-release.apk "house.mouseion.chat-${{ steps.ver.outputs.name }}.apk"
+
+      - name: Remove keystore
+        if: always()
+        run: rm -rf "$(dirname "$MOUSEION_KEYSTORE_PATH")"
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: house.mouseion.chat-${{ steps.ver.outputs.name }}
+          path: mobile/house.mouseion.chat-${{ steps.ver.outputs.name }}.apk
+
+      - name: Publish to F-Droid repo
+        if: steps.ver.outputs.publish == 'true'
+        run: |
+          /home/user/homeserver/scripts/fdroid-publish.sh \
+            --apk "mobile/house.mouseion.chat-${{ steps.ver.outputs.name }}.apk" \
+            --app-id house.mouseion.chat \
+            --mark-current --version-code ${{ steps.ver.outputs.code }} --version-name ${{ steps.ver.outputs.name }}
