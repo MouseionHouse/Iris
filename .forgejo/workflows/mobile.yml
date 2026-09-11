@@ -21,7 +21,9 @@ jobs:
   build:
     runs-on: android
     container:
-      image: forgejo.${{ vars.DOMAIN }}/${{ vars.REGISTRY_USER }}/android-build:jdk17-sdk36
+      # Hardcoded: the DOMAIN/REGISTRY_USER Actions variables exist on the forge repo, not here.
+      # The -bun tag is the one already present on the server docker host.
+      image: forgejo.example.net/household/android-build:jdk17-sdk36-bun
       volumes:
         - mouseion-gradle-cache:/gradle-cache
     defaults:
