@@ -1,6 +1,8 @@
 # Mouseion Android app: build a signed release APK and publish it to the household F-Droid repo.
 #
-# - Any push touching mobile/ builds the APK (artifact only) so breakage shows up early.
+# - Any push touching mobile/ runs the unit tests and builds the APK (artifact only) so
+#   breakage shows up early. Release builds are R8-minified; the R8 mapping is uploaded as an
+#   artifact (and archived locally) so release crashes can be decoded.
 # - A tag `mobile-vX.Y.Z` builds, signs and publishes X.Y.Z to fdroid.example.net and marks it
 #   current. versionCode is the Forgejo run number, which only ever increases.
 #
@@ -58,6 +60,12 @@ jobs:
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "build-tools;37.0.0" > /dev/null
           printf 'sdk.dir=%s\n' "$ANDROID_HOME" > mobile/local.properties
 
+      - name: Unit tests
+        working-directory: mobile
+        run: |
+          set -euo pipefail
+          ./gradlew --no-daemon --console=plain :shared:jvmTest
+
       - name: Decode signing keystore
         run: |
           set -euo pipefail
@@ -66,7 +74,7 @@ jobs:
           chmod 600 "$d/release.jks"
           echo "MOUSEION_KEYSTORE_PATH=$d/release.jks" >> "$GITHUB_ENV"
 
-      - name: Build signed release APK
+      - name: Build signed release APK (R8-minified)
         working-directory: mobile
         env:
           MOUSEION_KEYSTORE_PASSWORD: ${{ secrets.HOUSE_MOUSEION_CHAT_KEYSTORE_PASSWORD }}
@@ -75,6 +83,7 @@ jobs:
         run: |
           set -euo pipefail
           ./gradlew --no-daemon --console=plain :androidApp:assembleRelease \
+            -PmouseionMinify=true \
             -PversionCode=${{ steps.ver.outputs.code }} -PmouseionVersionName=${{ steps.ver.outputs.name }}
           cp androidApp/build/outputs/apk/release/androidApp-release.apk "house.mouseion.chat-${{ steps.ver.outputs.name }}.apk"
           APKSIGNER=$(ls -1 "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -n1)
@@ -84,10 +93,21 @@ jobs:
         if: always()
         run: rm -rf "$(dirname "$MOUSEION_KEYSTORE_PATH")"
 
+      - name: Compress R8 mapping
+        working-directory: mobile
+        run: |
+          set -euo pipefail
+          gzip -c androidApp/build/outputs/mapping/release/mapping.txt > "house.mouseion.chat-mapping-${{ steps.ver.outputs.name }}.txt.gz"
+
       - uses: actions/upload-artifact@v3
         with:
           name: mouseion-apk
           path: mobile/house.mouseion.chat-${{ steps.ver.outputs.name }}.apk
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: mouseion-mapping
+          path: mobile/house.mouseion.chat-mapping-${{ steps.ver.outputs.name }}.txt.gz
 
   publish-fdroid:
     needs: [build]
