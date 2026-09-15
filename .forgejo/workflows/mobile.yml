@@ -60,6 +60,16 @@ jobs:
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "build-tools;37.0.0" > /dev/null
           printf 'sdk.dir=%s\n' "$ANDROID_HOME" > mobile/local.properties
 
+      # The Compose UI tests in :shared:jvmTest load Skiko's native library, which links libGL and
+      # libX11; the android-build image has neither, so every Compose UI test failed with
+      # UnsatisfiedLinkError (runs #44–#90). The container runs as root, so install them here.
+      - name: Native libraries for Compose UI tests
+        run: |
+          set -euo pipefail
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends libgl1 libx11-6 > /dev/null
+
       - name: Unit tests
         working-directory: mobile
         run: |
