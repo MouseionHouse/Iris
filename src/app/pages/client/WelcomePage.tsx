@@ -1,7 +1,10 @@
 import React from 'react';
 import { Box, Button, Icon, Icons, Text, config, toRem } from 'folds';
 import { Page, PageHero, PageHeroSection } from '../../components/page';
-import CinnySVG from '../../../../public/res/svg/cinny.svg';
+import MouseionLogo from '../../../../public/res/mouseion-logo.png';
+
+export const MOUSEION_SOURCE_URL = 'https://forgejo.example.net/mouseion/chat';
+export const CINNY_URL = 'https://cinny.in';
 
 export function WelcomePage() {
   return (
@@ -14,26 +17,23 @@ export function WelcomePage() {
       >
         <PageHeroSection>
           <PageHero
-            icon={<img width="70" height="70" src={CinnySVG} alt="Cinny Logo" />}
-            title="Welcome to Cinny"
-            subTitle={
-              <span>
-                Yet another matrix client.{' '}
-                <a
-                  href="https://github.com/cinnyapp/cinny/releases"
-                  target="_blank"
-                  rel="noreferrer noopener"
-                >
-                  v4.12.6
-                </a>
-              </span>
+            icon={
+              <img
+                width="70"
+                height="70"
+                src={MouseionLogo}
+                alt="Mouseion Chat logo"
+                style={{ borderRadius: config.radii.R400 }}
+              />
             }
+            title="Welcome to Mouseion Chat"
+            subTitle="The household's chat. Pick a conversation on the left to get going."
           >
             <Box justifyContent="Center">
               <Box grow="Yes" style={{ maxWidth: toRem(300) }} direction="Column" gap="300">
                 <Button
                   as="a"
-                  href="https://github.com/cinnyapp/cinny"
+                  href={MOUSEION_SOURCE_URL}
                   target="_blank"
                   rel="noreferrer noopener"
                   before={<Icon size="200" src={Icons.Code} />}
@@ -44,14 +44,14 @@ export function WelcomePage() {
                 </Button>
                 <Button
                   as="a"
-                  href="https://cinny.in/#sponsor"
+                  href={CINNY_URL}
                   target="_blank"
                   rel="noreferrer noopener"
                   fill="Soft"
                   before={<Icon size="200" src={Icons.Heart} />}
                 >
                   <Text as="span" size="B400" truncate>
-                    Support
+                    Built on Cinny
                   </Text>
                 </Button>
               </Box>
