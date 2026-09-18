@@ -27,7 +27,7 @@ export function WelcomePage() {
               />
             }
             title="Mouseion Chat"
-            subTitle="Pick a conversation on the left to get going."
+            subTitle="Pick a conversation on the left to get going"
           >
             <Box justifyContent="Center">
               <Box grow="Yes" style={{ maxWidth: toRem(300) }} direction="Column" gap="300">
