@@ -49,6 +49,7 @@ import {
   RoomNotificationMode,
 } from '../../hooks/useRoomsNotificationPreferences';
 import { RoomNotificationModeSwitcher } from '../../components/RoomNotificationSwitcher';
+import { RoomSectionSwitcher } from './RoomSectionSwitcher';
 import { getRoomCreatorsForRoomId, useRoomCreators } from '../../hooks/useRoomCreators';
 import { getRoomPermissionsAPI, useRoomPermissions } from '../../hooks/useRoomPermissions';
 import { InviteUserPrompt } from '../../components/invite-user-prompt';
@@ -147,6 +148,21 @@ const RoomNavItemMenu = forwardRef<HTMLDivElement, RoomNavItemMenuProps>(
               </MenuItem>
             )}
           </RoomNotificationModeSwitcher>
+          <RoomSectionSwitcher room={room}>
+            {(handleOpen, opened) => (
+              <MenuItem
+                size="300"
+                after={<Icon size="100" src={Icons.Star} />}
+                radii="300"
+                aria-pressed={opened}
+                onClick={handleOpen}
+              >
+                <Text style={{ flexGrow: 1 }} as="span" size="T300" truncate>
+                  Move to…
+                </Text>
+              </MenuItem>
+            )}
+          </RoomSectionSwitcher>
         </Box>
         <Line variant="Surface" size="300" />
         <Box direction="Column" gap="100" style={{ padding: config.space.S100 }}>

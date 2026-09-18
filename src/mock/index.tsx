@@ -74,12 +74,40 @@ type MockRoom = {
 };
 
 const ROOMS: MockRoom[] = [
-  { id: '!andromache:example.org', name: 'Andromache', direct: true, unread: 2, highlight: true, activityMin: 2, favourite: true },
-  { id: '!mouseion:example.org', name: 'Mouseion', direct: false, privateRoom: true, unread: 3, activityMin: 9 },
+  {
+    id: '!andromache:example.org',
+    name: 'Andromache',
+    direct: true,
+    unread: 2,
+    highlight: true,
+    activityMin: 2,
+    favourite: true,
+  },
+  {
+    id: '!mouseion:example.org',
+    name: 'Mouseion',
+    direct: false,
+    privateRoom: true,
+    unread: 3,
+    activityMin: 9,
+  },
   { id: '!dad:example.org', name: 'Dad', direct: true, activityMin: 65 },
   { id: '!mum:example.org', name: 'Mum', direct: true, activityMin: 60 * 3 },
-  { id: '!kitchen:example.org', name: 'Kitchen', direct: false, privateRoom: true, activityMin: 60 * 26, muted: true },
-  { id: '!trips:example.org', name: 'Trips', direct: false, unread: 1, activityMin: 60 * 24 * 5 },
+  {
+    id: '!kitchen:example.org',
+    name: 'Kitchen',
+    direct: false,
+    privateRoom: true,
+    activityMin: 60 * 26,
+    muted: true,
+  },
+  {
+    id: '!trips:example.org',
+    name: 'Trips',
+    direct: false,
+    unread: 1,
+    activityMin: 60 * 24 * 5,
+  },
 ];
 
 const byActivity = (a: MockRoom, b: MockRoom) => a.activityMin - b.activityMin;
@@ -87,9 +115,21 @@ const byName = (a: MockRoom, b: MockRoom) => a.name.localeCompare(b.name);
 
 type Variant = 'cinny' | 'a' | 'b' | 'c';
 const VARIANTS: { id: Variant; title: string; blurb: string }[] = [
-  { id: 'cinny', title: 'Cinny today', blurb: 'Home = rooms only (A→Z). Direct chats live on a separate Direct tab.' },
-  { id: 'a', title: 'Option A — Chats above Rooms', blurb: 'One Home page: Chats (by activity) over Rooms (A→Z). No Direct tab.' },
-  { id: 'b', title: 'Option B — One list by activity', blurb: 'Favourites, then everything by latest activity. No Direct tab.' },
+  {
+    id: 'cinny',
+    title: 'Cinny today',
+    blurb: 'Home = rooms only (A→Z). Direct chats live on a separate Direct tab.',
+  },
+  {
+    id: 'a',
+    title: 'Option A — Chats above Rooms',
+    blurb: 'One Home page: Chats (by activity) over Rooms (A→Z). No Direct tab.',
+  },
+  {
+    id: 'b',
+    title: 'Option B — One list by activity',
+    blurb: 'Favourites, then everything by latest activity. No Direct tab.',
+  },
   {
     id: 'c',
     title: 'Option C — Slack-style sections',
@@ -101,7 +141,15 @@ const VARIANTS: { id: Variant; title: string; blurb: string }[] = [
 // ---------------------------------------------------------------------------------------------
 // Pieces, written against the same components Cinny's Home/Direct/RoomNavItem use.
 
-function RoomRow({ room, selected, showAvatar }: { room: MockRoom; selected?: boolean; showAvatar: boolean }) {
+function RoomRow({
+  room,
+  selected,
+  showAvatar,
+}: {
+  room: MockRoom;
+  selected?: boolean;
+  showAvatar: boolean;
+}) {
   const unread = room.unread !== undefined;
   return (
     <NavItem variant="Background" radii="400" highlight={unread} aria-selected={selected}>
@@ -110,7 +158,9 @@ function RoomRow({ room, selected, showAvatar }: { room: MockRoom; selected?: bo
           <Box as="span" grow="Yes" alignItems="Center" gap="200">
             <Avatar size="200" radii="400">
               {showAvatar ? (
-                <AvatarFallback style={{ backgroundColor: colorMXID(room.id), color: color.Surface.Container }}>
+                <AvatarFallback
+                  style={{ backgroundColor: colorMXID(room.id), color: color.Surface.Container }}
+                >
                   <Text as="span" size="H6">
                     {room.name[0]}
                   </Text>
@@ -142,7 +192,7 @@ function RoomRow({ room, selected, showAvatar }: { room: MockRoom; selected?: bo
   );
 }
 
-function ActionRow({ icon, label }: { icon: (typeof Icons)[keyof typeof Icons]; label: string }) {
+function ActionRow({ icon, label }: { icon: typeof Icons[keyof typeof Icons]; label: string }) {
   return (
     <NavItem variant="Background" radii="400">
       <NavButton>
@@ -163,33 +213,66 @@ function ActionRow({ icon, label }: { icon: (typeof Icons)[keyof typeof Icons]; 
   );
 }
 
-function Category({ label, rooms, showAvatar, selectedId }: { label: string; rooms: MockRoom[]; showAvatar: (r: MockRoom) => boolean; selectedId?: string }) {
+function Category({
+  label,
+  rooms,
+  showAvatar,
+  selectedId,
+}: {
+  label: string;
+  rooms: MockRoom[];
+  showAvatar: (r: MockRoom) => boolean;
+  selectedId?: string;
+}) {
   return (
     <NavCategory>
       <NavCategoryHeader>
         <RoomNavCategoryButton closed={false}>{label}</RoomNavCategoryButton>
       </NavCategoryHeader>
       {rooms.map((room) => (
-        <RoomRow key={room.id} room={room} showAvatar={showAvatar(room)} selected={room.id === selectedId} />
+        <RoomRow
+          key={room.id}
+          room={room}
+          showAvatar={showAvatar(room)}
+          selected={room.id === selectedId}
+        />
       ))}
     </NavCategory>
   );
 }
 
 /** Slack-style section header: caret + emoji + name (Cinny's category button), and + / ⋯ that Slack shows on hover. */
-function SectionHeader({ label, emoji, closed, actions }: { label: string; emoji?: string; closed?: boolean; actions?: boolean }) {
+function SectionHeader({
+  label,
+  emoji,
+  closed,
+  actions,
+}: {
+  label: string;
+  emoji?: string;
+  closed?: boolean;
+  actions?: boolean;
+}) {
   return (
     <NavCategoryHeader>
       <Box grow="Yes" alignItems="Center" gap="100">
         <Box grow="Yes">
-          <RoomNavCategoryButton closed={closed}>{emoji ? `${emoji}  ${label}` : label}</RoomNavCategoryButton>
+          <RoomNavCategoryButton closed={closed}>
+            {emoji ? `${emoji}  ${label}` : label}
+          </RoomNavCategoryButton>
         </Box>
         {actions && (
           <Box shrink="No" gap="100">
             <IconButton size="300" radii="300" variant="Background" aria-label="Add to section">
               <Icon size="50" src={Icons.Plus} />
             </IconButton>
-            <IconButton size="300" radii="300" variant="Background" aria-label="Section options" aria-pressed={label === 'Family'}>
+            <IconButton
+              size="300"
+              radii="300"
+              variant="Background"
+              aria-label="Section options"
+              aria-pressed={label === 'Family'}
+            >
               <Icon size="50" src={Icons.VerticalDots} />
             </IconButton>
           </Box>
@@ -201,7 +284,13 @@ function SectionHeader({ label, emoji, closed, actions }: { label: string; emoji
 
 function SectionOptionsMenu() {
   const item = (label: string, checked?: boolean, danger?: boolean) => (
-    <MenuItem size="300" radii="300" variant={danger ? 'Critical' : 'Surface'} fill="None" after={checked ? <Icon size="100" src={Icons.Check} /> : undefined}>
+    <MenuItem
+      size="300"
+      radii="300"
+      variant={danger ? 'Critical' : 'Surface'}
+      fill="None"
+      after={checked ? <Icon size="100" src={Icons.Check} /> : undefined}
+    >
       <Text style={{ flexGrow: 1 }} as="span" size="T300" truncate>
         {label}
       </Text>
@@ -210,14 +299,18 @@ function SectionOptionsMenu() {
   return (
     <Menu style={{ width: toRem(200) }}>
       <Box direction="Column" gap="100" style={{ padding: config.space.S100 }}>
-        <Text size="L400" style={{ padding: `0 ${config.space.S200}` }}>Sort</Text>
+        <Text size="L400" style={{ padding: `0 ${config.space.S200}` }}>
+          Sort
+        </Text>
         {item('Alphabetically')}
         {item('Recent activity', true)}
         {item('Priority')}
       </Box>
       <Line variant="Surface" size="300" />
       <Box direction="Column" gap="100" style={{ padding: config.space.S100 }}>
-        <Text size="L400" style={{ padding: `0 ${config.space.S200}` }}>Show</Text>
+        <Text size="L400" style={{ padding: `0 ${config.space.S200}` }}>
+          Show
+        </Text>
         {item('All conversations', true)}
         {item('Unreads only')}
         {item('Mentions only')}
@@ -253,7 +346,15 @@ function NavHeader({ title }: { title: string }) {
 }
 
 /** The room-list column for each variant. `page` is which sidebar tab is open (Cinny today only). */
-function HomeNav({ variant, page, selectedId }: { variant: Variant; page: 'home' | 'direct'; selectedId?: string }) {
+function HomeNav({
+  variant,
+  page,
+  selectedId,
+}: {
+  variant: Variant;
+  page: 'home' | 'direct';
+  selectedId?: string;
+}) {
   const chats = ROOMS.filter((r) => r.direct).sort(byActivity);
   const rooms = ROOMS.filter((r) => !r.direct).sort(byName);
   const favourites = ROOMS.filter((r) => r.favourite).sort(byActivity);
@@ -286,16 +387,40 @@ function HomeNav({ variant, page, selectedId }: { variant: Variant; page: 'home'
             <ActionRow icon={Icons.Link} label="Join with Address" />
             <ActionRow icon={Icons.Search} label="Message Search" />
           </NavCategory>
-          {variant === 'cinny' && <Category label="Rooms" rooms={rooms} showAvatar={() => false} selectedId={selectedId} />}
+          {variant === 'cinny' && (
+            <Category
+              label="Rooms"
+              rooms={rooms}
+              showAvatar={() => false}
+              selectedId={selectedId}
+            />
+          )}
           {variant === 'a' && (
             <>
-              <Category label="Chats" rooms={chats} showAvatar={() => true} selectedId={selectedId} />
-              <Category label="Rooms" rooms={rooms} showAvatar={() => false} selectedId={selectedId} />
+              <Category
+                label="Chats"
+                rooms={chats}
+                showAvatar={() => true}
+                selectedId={selectedId}
+              />
+              <Category
+                label="Rooms"
+                rooms={rooms}
+                showAvatar={() => false}
+                selectedId={selectedId}
+              />
             </>
           )}
           {variant === 'b' && (
             <>
-              {favourites.length > 0 && <Category label="Favourites" rooms={favourites} showAvatar={isDirect} selectedId={selectedId} />}
+              {favourites.length > 0 && (
+                <Category
+                  label="Favourites"
+                  rooms={favourites}
+                  showAvatar={isDirect}
+                  selectedId={selectedId}
+                />
+              )}
               <Category label="All" rooms={rest} showAvatar={isDirect} selectedId={selectedId} />
             </>
           )}
@@ -303,15 +428,29 @@ function HomeNav({ variant, page, selectedId }: { variant: Variant; page: 'home'
             <>
               <NavCategory>
                 <SectionHeader label="Starred" emoji="⭐" actions />
-                {ROOMS.filter((r) => ['Andromache', 'Mouseion'].includes(r.name)).sort(byActivity).map((r) => (
-                  <RoomRow key={r.id} room={r} showAvatar={r.direct} selected={r.id === selectedId} />
-                ))}
+                {ROOMS.filter((r) => ['Andromache', 'Mouseion'].includes(r.name))
+                  .sort(byActivity)
+                  .map((r) => (
+                    <RoomRow
+                      key={r.id}
+                      room={r}
+                      showAvatar={r.direct}
+                      selected={r.id === selectedId}
+                    />
+                  ))}
               </NavCategory>
               <NavCategory>
                 <SectionHeader label="Family" emoji="🏡" actions />
-                {ROOMS.filter((r) => ['Dad', 'Kitchen'].includes(r.name)).sort(byName).map((r) => (
-                  <RoomRow key={r.id} room={r} showAvatar={r.direct} selected={r.id === selectedId} />
-                ))}
+                {ROOMS.filter((r) => ['Dad', 'Kitchen'].includes(r.name))
+                  .sort(byName)
+                  .map((r) => (
+                    <RoomRow
+                      key={r.id}
+                      room={r}
+                      showAvatar={r.direct}
+                      selected={r.id === selectedId}
+                    />
+                  ))}
               </NavCategory>
               <NavCategory>
                 <SectionHeader label="Chats" actions />
@@ -334,7 +473,19 @@ function HomeNav({ variant, page, selectedId }: { variant: Variant; page: 'home'
   );
 }
 
-function SideItem({ icon, active, badge, highlight, label }: { icon: (typeof Icons)[keyof typeof Icons]; active?: boolean; badge?: number; highlight?: boolean; label: string }) {
+function SideItem({
+  icon,
+  active,
+  badge,
+  highlight,
+  label,
+}: {
+  icon: typeof Icons[keyof typeof Icons];
+  active?: boolean;
+  badge?: number;
+  highlight?: boolean;
+  label: string;
+}) {
   return (
     <SidebarItem active={active}>
       <SidebarAvatar as="button" outlined aria-label={label}>
@@ -349,7 +500,15 @@ function SideItem({ icon, active, badge, highlight, label }: { icon: (typeof Ico
   );
 }
 
-function SideNav({ variant, page, onPage }: { variant: Variant; page: 'home' | 'direct'; onPage: (p: 'home' | 'direct') => void }) {
+function SideNav({
+  variant,
+  page,
+  onPage,
+}: {
+  variant: Variant;
+  page: 'home' | 'direct';
+  onPage: (p: 'home' | 'direct') => void;
+}) {
   const chatUnread = ROOMS.filter((r) => r.direct).reduce((n, r) => n + (r.unread ?? 0), 0);
   const roomUnread = ROOMS.filter((r) => !r.direct).reduce((n, r) => n + (r.unread ?? 0), 0);
   const chatHighlight = ROOMS.some((r) => r.direct && r.highlight);
@@ -370,7 +529,13 @@ function SideNav({ variant, page, onPage }: { variant: Variant; page: 'home' | '
               </div>
               {(variant === 'cinny' || variant === 'c') && (
                 <div onClick={() => onPage('direct')} role="presentation">
-                  <SideItem icon={Icons.User} active={page === 'direct'} label="Direct Messages" badge={chatUnread} highlight={chatHighlight} />
+                  <SideItem
+                    icon={Icons.User}
+                    active={page === 'direct'}
+                    label="Direct Messages"
+                    badge={chatUnread}
+                    highlight={chatHighlight}
+                  />
                 </div>
               )}
             </SidebarStack>
@@ -388,7 +553,12 @@ function SideNav({ variant, page, onPage }: { variant: Variant; page: 'home' | '
               <SideItem icon={Icons.Inbox} label="Inbox" />
               <SidebarItem>
                 <SidebarAvatar as="button" aria-label="User Settings">
-                  <AvatarFallback style={{ backgroundColor: colorMXID('@hector:example.org'), color: color.Surface.Container }}>
+                  <AvatarFallback
+                    style={{
+                      backgroundColor: colorMXID('@hector:example.org'),
+                      color: color.Surface.Container,
+                    }}
+                  >
                     <Text size="H4">J</Text>
                   </AvatarFallback>
                 </SidebarAvatar>
@@ -403,18 +573,54 @@ function SideNav({ variant, page, onPage }: { variant: Variant; page: 'home' | '
 
 // A stand-in for the open room: Cinny's header and modern message layout on fake messages.
 const MESSAGES = [
-  { who: 'Andromache', id: '@andromache:example.org', time: '9:41 AM', text: 'Are we still on for the market tomorrow?' },
-  { who: 'John', id: '@hector:example.org', time: '9:44 AM', text: 'Yes — I’ll bring the bags. Leaving at 8?' },
-  { who: 'Andromache', id: '@andromache:example.org', time: '9:45 AM', text: 'Perfect. Can you grab the list off the fridge?' },
+  {
+    who: 'Andromache',
+    id: '@andromache:example.org',
+    time: '9:41 AM',
+    text: 'Are we still on for the market tomorrow?',
+  },
+  {
+    who: 'John',
+    id: '@hector:example.org',
+    time: '9:44 AM',
+    text: 'Yes — I’ll bring the bags. Leaving at 8?',
+  },
+  {
+    who: 'Andromache',
+    id: '@andromache:example.org',
+    time: '9:45 AM',
+    text: 'Perfect. Can you grab the list off the fridge?',
+  },
 ];
 
 function RoomView() {
   return (
-    <Box direction="Column" grow="Yes" style={{ backgroundColor: color.Surface.Container, color: color.Surface.OnContainer, minWidth: 0 }}>
-      <Header size="600" variant="Surface" style={{ paddingLeft: config.space.S400, paddingRight: config.space.S200, borderBottomWidth: config.borderWidth.B300 }}>
+    <Box
+      direction="Column"
+      grow="Yes"
+      style={{
+        backgroundColor: color.Surface.Container,
+        color: color.Surface.OnContainer,
+        minWidth: 0,
+      }}
+    >
+      <Header
+        size="600"
+        variant="Surface"
+        style={{
+          paddingLeft: config.space.S400,
+          paddingRight: config.space.S200,
+          borderBottomWidth: config.borderWidth.B300,
+        }}
+      >
         <Box grow="Yes" alignItems="Center" gap="300">
           <Avatar size="300">
-            <AvatarFallback style={{ backgroundColor: colorMXID('!andromache:example.org'), color: color.Surface.Container }}>
+            <AvatarFallback
+              style={{
+                backgroundColor: colorMXID('!andromache:example.org'),
+                color: color.Surface.Container,
+              }}
+            >
               <Text size="H4">A</Text>
             </AvatarFallback>
           </Avatar>
@@ -423,19 +629,32 @@ function RoomView() {
               Andromache
             </Text>
           </Box>
-          <IconButton fill="None"><Icon size="400" src={Icons.Search} /></IconButton>
-          <IconButton fill="None"><Icon size="400" src={Icons.Pin} /></IconButton>
-          <IconButton fill="None"><Icon size="400" src={Icons.VerticalDots} /></IconButton>
+          <IconButton fill="None">
+            <Icon size="400" src={Icons.Search} />
+          </IconButton>
+          <IconButton fill="None">
+            <Icon size="400" src={Icons.Pin} />
+          </IconButton>
+          <IconButton fill="None">
+            <Icon size="400" src={Icons.VerticalDots} />
+          </IconButton>
         </Box>
       </Header>
-      <Box grow="Yes" direction="Column" justifyContent="End" style={{ padding: `${config.space.S600} 0` }}>
+      <Box
+        grow="Yes"
+        direction="Column"
+        justifyContent="End"
+        style={{ padding: `${config.space.S600} 0` }}
+      >
         {MESSAGES.map((m, i) => (
           <MessageBase key={i} space="400">
             <ModernLayout
               before={
                 <AvatarBase>
                   <Avatar size="300">
-                    <AvatarFallback style={{ backgroundColor: colorMXID(m.id), color: color.Surface.Container }}>
+                    <AvatarFallback
+                      style={{ backgroundColor: colorMXID(m.id), color: color.Surface.Container }}
+                    >
                       <Text size="H4">{m.who[0]}</Text>
                     </AvatarFallback>
                   </Avatar>
@@ -468,16 +687,25 @@ function RoomView() {
           }}
         >
           <Box style={{ padding: config.space.S200 }}>
-            <IconButton variant="SurfaceVariant" size="300" radii="300"><Icon src={Icons.PlusCircle} /></IconButton>
+            <IconButton variant="SurfaceVariant" size="300" radii="300">
+              <Icon src={Icons.PlusCircle} />
+            </IconButton>
           </Box>
           <Box grow="Yes">
-            <Text size="T400" style={{ opacity: config.opacity.Placeholder, padding: `${toRem(13)} ${toRem(1)}` }}>
+            <Text
+              size="T400"
+              style={{ opacity: config.opacity.Placeholder, padding: `${toRem(13)} ${toRem(1)}` }}
+            >
               Send a message...
             </Text>
           </Box>
           <Box style={{ padding: config.space.S200 }} gap="100">
-            <IconButton variant="SurfaceVariant" size="300" radii="300"><Icon src={Icons.Smile} /></IconButton>
-            <IconButton variant="SurfaceVariant" size="300" radii="300"><Icon src={Icons.Send} /></IconButton>
+            <IconButton variant="SurfaceVariant" size="300" radii="300">
+              <Icon src={Icons.Smile} />
+            </IconButton>
+            <IconButton variant="SurfaceVariant" size="300" radii="300">
+              <Icon src={Icons.Send} />
+            </IconButton>
           </Box>
         </Box>
       </Box>
@@ -488,7 +716,17 @@ function RoomView() {
 // ---------------------------------------------------------------------------------------------
 // Frames
 
-function Frame({ title, width, height, children }: { title: string; width: number; height: number; children: React.ReactNode }) {
+function Frame({
+  title,
+  width,
+  height,
+  children,
+}: {
+  title: string;
+  width: number;
+  height: number;
+  children: React.ReactNode;
+}) {
   return (
     <Box direction="Column" gap="200" shrink="No">
       <Text size="L400" priority="300">
@@ -522,7 +760,11 @@ function Desktop({ variant }: { variant: Variant }) {
 
   return (
     <ScreenSizeProvider value={ScreenSize.Desktop}>
-      <Frame title={`Desktop — ${VARIANTS.find((v) => v.id === variant)?.title}`} width={1100} height={720}>
+      <Frame
+        title={`Desktop — ${VARIANTS.find((v) => v.id === variant)?.title}`}
+        width={1100}
+        height={720}
+      >
         <SideNav variant={variant} page={page} onPage={setPage} />
         <HomeNav variant={variant} page={page} selectedId={selectedId} />
         {variant === 'c' && page === 'home' && (
@@ -533,7 +775,12 @@ function Desktop({ variant }: { variant: Variant }) {
         {selectedId ? (
           <RoomView />
         ) : (
-          <Box grow="Yes" alignItems="Center" justifyContent="Center" style={{ backgroundColor: color.Surface.Container }}>
+          <Box
+            grow="Yes"
+            alignItems="Center"
+            justifyContent="Center"
+            style={{ backgroundColor: color.Surface.Container }}
+          >
             <Text priority="300">(no room open — Andromache is on the Direct tab)</Text>
           </Box>
         )}
@@ -561,22 +808,42 @@ function Mobile({ variant }: { variant: Variant }) {
 function MockApp() {
   const [variant, setVariant] = useState<Variant>('c');
   const [dark, setDark] = useState(false);
-  const themeClasses = useMemo(() => (dark ? ['dark-theme', darkTheme, onDarkFontWeight] : [lightTheme, onLightFontWeight]), [dark]);
+  const themeClasses = useMemo(
+    () => (dark ? ['dark-theme', darkTheme, onDarkFontWeight] : [lightTheme, onLightFontWeight]),
+    [dark]
+  );
   React.useEffect(() => {
     document.body.className = '';
     document.body.classList.add(configClass, varsClass, ...themeClasses);
   }, [themeClasses]);
   const current = VARIANTS.find((v) => v.id === variant)!;
   return (
-    <div style={{ padding: 24, minHeight: '100%', boxSizing: 'border-box', backgroundColor: color.Background.Container, color: color.Background.OnContainer }}>
+    <div
+      style={{
+        padding: 24,
+        minHeight: '100%',
+        boxSizing: 'border-box',
+        backgroundColor: color.Background.Container,
+        color: color.Background.OnContainer,
+      }}
+    >
       <Box direction="Column" gap="500">
         <Box direction="Column" gap="200">
           <Text size="H2">Home page: where do direct chats go?</Text>
-          <Text priority="300">Real Cinny/folds components on fake rooms. Nothing here is wired to a server; clicks only switch the variant.</Text>
+          <Text priority="300">
+            Real Cinny/folds components on fake rooms. Nothing here is wired to a server; clicks
+            only switch the variant.
+          </Text>
         </Box>
         <Box gap="200" wrap="Wrap" alignItems="Center">
           {VARIANTS.map((v) => (
-            <Chip key={v.id} variant={v.id === variant ? 'Primary' : 'SurfaceVariant'} outlined={v.id === variant} radii="Pill" onClick={() => setVariant(v.id)}>
+            <Chip
+              key={v.id}
+              variant={v.id === variant ? 'Primary' : 'SurfaceVariant'}
+              outlined={v.id === variant}
+              radii="Pill"
+              onClick={() => setVariant(v.id)}
+            >
               <Text size="B300">{v.title}</Text>
             </Chip>
           ))}
@@ -585,7 +852,9 @@ function MockApp() {
             <Text size="B300">{dark ? 'Light theme' : 'Dark theme'}</Text>
           </Chip>
         </Box>
-        <Text size="T300" priority="400">{current.blurb}</Text>
+        <Text size="T300" priority="400">
+          {current.blurb}
+        </Text>
         <Box gap="600" wrap="Wrap" alignItems="Start">
           <Desktop variant={variant} />
           <Mobile variant={variant} />
