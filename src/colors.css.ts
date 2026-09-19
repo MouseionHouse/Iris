@@ -236,3 +236,50 @@ export const butterTheme = createTheme(color, {
     OnContainer: '#F2EED3',
   },
 });
+
+/**
+ * The Mouseion dark palette, used when the client is framed inside the
+ * household hub (which is dark). The page background is `#0c1016` with
+ * `#05080c` as the deeper, recessed tone, and the accent is a quiet
+ * forest-to-sage green. Everything else stays neutral (inherited from
+ * `darkThemeData`) so chat content sits comfortably in it.
+ */
+export const mouseionTheme = createTheme(color, {
+  ...darkThemeData,
+  Background: {
+    Container: '#0c1016',
+    ContainerHover: '#111722',
+    ContainerActive: '#141b28',
+    ContainerLine: '#1e2836',
+    OnContainer: '#e6edf3',
+  },
+
+  Surface: {
+    Container: '#05080c',
+    ContainerHover: '#0c1016',
+    ContainerActive: '#111722',
+    ContainerLine: '#1a2432',
+    OnContainer: '#e6edf3',
+  },
+
+  SurfaceVariant: {
+    Container: '#10161f',
+    ContainerHover: '#141b26',
+    ContainerActive: '#182029',
+    ContainerLine: '#212c3a',
+    OnContainer: '#dbe3ec',
+  },
+
+  Primary: {
+    Main: 'oklch(0.73 0.078 152)',
+    MainHover: 'oklch(0.79 0.082 152)',
+    MainActive: 'oklch(0.68 0.074 152)',
+    MainLine: 'oklch(0.62 0.07 152)',
+    OnMain: '#05080c',
+    Container: 'oklch(0.27 0.04 152)',
+    ContainerHover: 'oklch(0.32 0.045 152)',
+    ContainerActive: 'oklch(0.38 0.05 152)',
+    ContainerLine: 'oklch(0.44 0.055 152)',
+    OnContainer: 'oklch(0.86 0.07 152)',
+  },
+});

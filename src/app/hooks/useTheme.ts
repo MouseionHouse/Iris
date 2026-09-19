@@ -1,7 +1,8 @@
 import { lightTheme } from 'folds';
+import { atom, useAtomValue } from 'jotai';
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { onDarkFontWeight, onLightFontWeight } from '../../config.css';
-import { butterTheme, darkTheme, silverTheme } from '../../colors.css';
+import { butterTheme, darkTheme, mouseionTheme, silverTheme } from '../../colors.css';
 import { settingsAtom } from '../state/settings';
 import { useSetting } from '../state/hooks/settings';
 
@@ -37,9 +38,25 @@ export const ButterTheme: Theme = {
   kind: ThemeKind.Dark,
   classNames: ['butter-theme', butterTheme, onDarkFontWeight, 'prism-dark'],
 };
+export const MouseionTheme: Theme = {
+  id: 'mouseion-theme',
+  kind: ThemeKind.Dark,
+  classNames: ['mouseion-theme', mouseionTheme, onDarkFontWeight, 'prism-dark'],
+};
+
+/**
+ * A theme override driven by the framing hub (see `useHubBridge`). When the
+ * hub sends `hub.theme` the bridge sets this atom, and `useActiveTheme` gives
+ * it top priority. It stays `null` when the client is not framed, so a member
+ * opening the client on its own keeps their own theme choice.
+ */
+export const hubThemeAtom = atom<Theme | null>(null);
 
 export const useThemes = (): Theme[] => {
-  const themes: Theme[] = useMemo(() => [LightTheme, SilverTheme, DarkTheme, ButterTheme], []);
+  const themes: Theme[] = useMemo(
+    () => [LightTheme, SilverTheme, DarkTheme, ButterTheme, MouseionTheme],
+    []
+  );
 
   return themes;
 };
@@ -51,6 +68,7 @@ export const useThemeNames = (): Record<string, string> =>
       [SilverTheme.id]: 'Silver',
       [DarkTheme.id]: 'Dark',
       [ButterTheme.id]: 'Butter',
+      [MouseionTheme.id]: 'Mouseion',
     }),
     []
   );
@@ -78,10 +96,17 @@ export const useSystemThemeKind = (): ThemeKind => {
 export const useActiveTheme = (): Theme => {
   const systemThemeKind = useSystemThemeKind();
   const themes = useThemes();
+  const hubTheme = useAtomValue(hubThemeAtom);
   const [systemTheme] = useSetting(settingsAtom, 'useSystemTheme');
   const [themeId] = useSetting(settingsAtom, 'themeId');
   const [lightThemeId] = useSetting(settingsAtom, 'lightThemeId');
   const [darkThemeId] = useSetting(settingsAtom, 'darkThemeId');
+
+  // A hub-driven override (only ever set when framed) wins over the member's
+  // own choice, so the client matches the hub's light/dark mode.
+  if (hubTheme) {
+    return hubTheme;
+  }
 
   if (!systemTheme) {
     const selectedTheme = themes.find((theme) => theme.id === themeId) ?? LightTheme;
