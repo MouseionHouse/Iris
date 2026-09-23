@@ -5,6 +5,7 @@ import { onDarkFontWeight, onLightFontWeight } from '../../config.css';
 import { butterTheme, darkTheme, mouseionTheme, silverTheme } from '../../colors.css';
 import { settingsAtom } from '../state/settings';
 import { useSetting } from '../state/hooks/settings';
+import { isFramed } from '../hub/hubBridge';
 
 export enum ThemeKind {
   Light = 'light',
@@ -46,11 +47,18 @@ export const MouseionTheme: Theme = {
 
 /**
  * A theme override driven by the framing hub (see `useHubBridge`). When the
- * hub sends `hub.theme` the bridge sets this atom, and `useActiveTheme` gives
- * it top priority. It stays `null` when the client is not framed, so a member
- * opening the client on its own keeps their own theme choice.
+ * hub sends `hub.theme` the bridge sets this atom, and both
+ * `AuthRouteThemeManager` and `UnAuthRouteThemeManager` give it top priority.
+ *
+ * Its initial value is `MouseionTheme` whenever the client is framed, not
+ * `null`: `useHubBridge` only mounts once the member is authenticated
+ * (`ClientRoot`), so the login screen paints and sits there, however briefly,
+ * before any `hub.theme` message can arrive. Defaulting to the hub's theme as
+ * soon as we know we are framed avoids a light login screen flashing inside
+ * the hub's dark shell. A member opening the client on its own (`isFramed()`
+ * false) keeps their own theme choice, as before.
  */
-export const hubThemeAtom = atom<Theme | null>(null);
+export const hubThemeAtom = atom<Theme | null>(isFramed() ? MouseionTheme : null);
 
 export const useThemes = (): Theme[] => {
   const themes: Theme[] = useMemo(
