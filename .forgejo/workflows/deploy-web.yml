@@ -18,8 +18,8 @@
 # and sits on `homeserver_default`, so it can reach the service as http://cinny/. It cannot reach
 # https://chat.example.org over the tailnet, so the checks below never use the public URL.
 #
-# Merging a change to this file does not deploy (the file is not in `paths`). Deploy by hand with
-# "Run workflow" on dev, or let the next web change do it.
+# Every merge to dev that touches a web path deploys, including a change to this file, so merging
+# a deploy fix redeploys straight away. "Run workflow" on dev redeploys by hand.
 #
 # Kept separate from mobile.yml on purpose: mobile.yml's release logic (versioning, signing,
 # F-Droid publishing) is unchanged and still owns the Android app.
@@ -43,6 +43,7 @@ on:
         '.dockerignore',
         'Dockerfile',
         'docker-nginx.conf',
+        '.forgejo/workflows/deploy-web.yml',
       ]
   workflow_dispatch:
 
