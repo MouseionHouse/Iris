@@ -22,10 +22,11 @@ document.body.classList.add(configClass, varsClass);
 
 // Register Service Worker
 if ('serviceWorker' in navigator) {
-  const swUrl =
-    import.meta.env.MODE === 'production'
-      ? `${trimTrailingSlash(import.meta.env.BASE_URL)}/sw.js`
-      : `/dev-sw.js?dev-sw`;
+  // `PROD`, not `MODE === 'production'`: a `vite build --mode mobile` (the wrapper's bundle,
+  // capacitor.config.ts) is still a production build, but its MODE is 'mobile'.
+  const swUrl = import.meta.env.PROD
+    ? `${trimTrailingSlash(import.meta.env.BASE_URL)}/sw.js`
+    : `/dev-sw.js?dev-sw`;
 
   const sendSessionToSW = () => {
     const session = getFallbackSession();
