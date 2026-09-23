@@ -12,6 +12,7 @@ import { FeatureCheck } from './FeatureCheck';
 import { createRouter } from './Router';
 import { ScreenSizeProvider, useScreenSize } from '../hooks/useScreenSize';
 import { useCompositionEndTracking } from '../hooks/useComposingCheck';
+import { SharedContentBridge } from '../native/share';
 
 const queryClient = new QueryClient();
 
@@ -37,6 +38,7 @@ function App() {
                   <ClientConfigProvider value={clientConfig}>
                     <QueryClientProvider client={queryClient}>
                       <JotaiProvider>
+                        <SharedContentBridge />
                         <RouterProvider router={createRouter(clientConfig, screenSize)} />
                       </JotaiProvider>
                       <ReactQueryDevtools initialIsOpen={false} />

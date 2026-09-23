@@ -1,6 +1,6 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { Box, Line } from 'folds';
-import { useParams } from 'react-router-dom';
+import { useLocation, useParams } from 'react-router-dom';
 import { isKeyHotkey } from 'is-hotkey';
 import { useAtomValue } from 'jotai';
 import { RoomView } from './RoomView';
@@ -20,11 +20,22 @@ import { callChatAtom } from '../../state/callEmbed';
 import { CallChatView } from './CallChatView';
 import { useCallEmbed } from '../../hooks/useCallEmbed';
 import { useCallMembers, useCallSession } from '../../hooks/useCall';
+import { setLastOpenedRoom } from '../../state/lastOpenedRoom';
 
 export function Room() {
   const { eventId } = useParams();
+  const location = useLocation();
   const room = useRoom();
   const mx = useMatrixClient();
+
+  // Remember the last room shown so shared text (src/app/native/share.ts) has a
+  // destination even after the app has been closed and relaunched.
+  useEffect(() => {
+    const userId = mx.getUserId();
+    if (userId) {
+      setLastOpenedRoom(userId, { path: location.pathname, roomId: room.roomId });
+    }
+  }, [location.pathname, room.roomId, mx]);
 
   const callSession = useCallSession(room);
   const callMembers = useCallMembers(callSession);

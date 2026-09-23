@@ -91,6 +91,15 @@ Other Capacitor plugins: `@capacitor/app` (back button → `history.back()`, res
 for external links. File and camera pickers come from the WebView's `<input type=file>` (Capacitor
 implements the file chooser, including `capture`).
 
+Text share target (done 2026-09-23, see WORKTRACK): `MouseionShare` plugin (Java,
+`mobile/android/app/src/main/java/house/mouseion/chat/`) + an `ACTION_SEND`/`text/*`
+intent filter on MainActivity. The plugin's `handleOnNewIntent` (cold start and warm)
+notifies `sharedContent` with `retainUntilConsumed`, so cold-start shares survive until
+the web registers a listener. Web: `src/app/native/share.ts` holds the text in
+`pendingSharedTextAtom`; `SharedContentConsumer` (ClientNonUIFeatures) puts it in the
+composer of the room on screen or the last opened room (`src/app/state/lastOpenedRoom.ts`)
+as a draft — never auto-sent.
+
 ## Phases
 
 ### Phase 1 — shell (`mobile-v0.4.0-rc1`)

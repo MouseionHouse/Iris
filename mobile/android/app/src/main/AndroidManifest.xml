@@ -32,6 +32,15 @@
                 <data android:scheme="http" android:host="matrix.to" />
             </intent-filter>
 
+            <!-- Text share target: the app appears in the Android share sheet for text shares.
+                 The MouseionShare plugin forwards the shared text to the web app, which puts it
+                 in the composer of the current (or last opened) room. -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/*" />
+            </intent-filter>
+
         </activity>
 
         <provider
