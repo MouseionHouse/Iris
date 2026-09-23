@@ -1,0 +1,104 @@
+# Mouseion Chat web client: on every push to dev that touches web paths, build a Docker image of
+# the web app, push it to the household registry, and deploy it to server by pointing the `cinny`
+# compose service at the new image and restarting it. chat.example.org then serves the merged
+# code with no hand-built step.
+#
+# Same one-build-and-deploy pattern as the hub (mouseion/hub ADR-0005, its
+# .forgejo/workflows/deploy.yml): no gates between build and deploy, and a failed build or pull
+# leaves the running service untouched.
+#
+# Registry credentials come from the ORG-level Actions secret REGISTRY_TOKEN and variable
+# REGISTRY_USER on org `mouseion` — the same ones the hub's deploy uses, available to every repo
+# in the org. They are deliberately not duplicated at repo level: the only repo-level secrets here
+# are the Android keystore ones that mobile.yml uses.
+#
+# The compose file on server (/home/user/homeserver/docker-compose.yml) is backed up in the
+# house's .bak style before the first edit of every deploy, and the cinny service is pinned to the
+# <sha7> tag (never :latest) so the stack's Watchtower cannot move it on its own.
+#
+# The first run of this workflow switches cinny's image source from a locally built image
+# (mouseion-chat-web:<sha>) to the registry image and replaces the production container; it was
+# merged to dev only with the owner's go-ahead (see the PR and issue #4).
+#
+# Kept separate from mobile.yml on purpose: mobile.yml's release logic (versioning, signing,
+# F-Droid publishing) is unchanged and still owns the Android app.
+name: deploy-web
+
+on:
+  push:
+    branches: ['dev']
+    paths:
+      [
+        'src/**',
+        'public/**',
+        'index.html',
+        'config.json',
+        'vite.config.js',
+        'build.config.ts',
+        'tsconfig.json',
+        'package.json',
+        'package-lock.json',
+        '.npmrc',
+        'Dockerfile',
+        'docker-nginx.conf',
+        '.forgejo/workflows/deploy-web.yml',
+      ]
+
+jobs:
+  build-and-push:
+    runs-on: builder
+    steps:
+      - uses: actions/checkout@v4
+      - name: Login to Forgejo Packages
+        run: echo "${{ secrets.REGISTRY_TOKEN }}" | docker login forgejo.example.net -u ${{ vars.REGISTRY_USER }} --password-stdin
+      - name: Build and push
+        run: |
+          set -euo pipefail
+          sha="${GITHUB_SHA:0:7}"
+          docker buildx build --platform linux/amd64 \
+            --tag "forgejo.example.net/mouseion/chat-web:${sha}" \
+            --tag "forgejo.example.net/mouseion/chat-web:latest" \
+            --push .
+
+  deploy:
+    needs: [build-and-push]
+    runs-on: homeserver
+    env:
+      COMPOSE_FILE: /home/user/homeserver/docker-compose.yml
+    steps:
+      # House convention (see the .bak.* files in the same directory): back up before the first
+      # edit of every deploy, as the 2026-09-18 hand deploy did.
+      - name: Back up the compose file
+        run: cp -a "$COMPOSE_FILE" "$COMPOSE_FILE.bak.chat-web-$(date +%Y%m%d-%H%M%S)"
+
+      # Rewrite the cinny service's image line to the new tag. The pattern matches both the old
+      # locally-built form (mouseion-chat-web:<sha>) and the registry form this line takes from
+      # the first automatic deploy onwards. If the line is not what we expect, abort before
+      # touching the running service.
+      - name: Point the cinny service at the new image
+        run: |
+          set -euo pipefail
+          sha="${GITHUB_SHA:0:7}"
+          sed -E -i \
+            -e "s#^([[:space:]]+image: )(mouseion-chat-web|forgejo\.example\.net/mouseion/chat-web):.*#\1forgejo.example.net/mouseion/chat-web:${sha}#" \
+            "$COMPOSE_FILE"
+          grep -q "image: forgejo.example.net/mouseion/chat-web:${sha}$" "$COMPOSE_FILE" \
+            || { echo "the cinny image line was not updated; aborting before touching the running service" >&2; exit 1; }
+          docker compose -f "$COMPOSE_FILE" config -q
+
+      - name: Pull and restart
+        run: docker compose -f "$COMPOSE_FILE" pull cinny && docker compose -f "$COMPOSE_FILE" up -d cinny
+
+      # The hub's chat spoke (mouseion/hub#51) depends on the frame-ancestors header being live,
+      # so fail the run if the restarted service does not serve it.
+      - name: Verify the live site
+        run: |
+          set -euo pipefail
+          for _ in $(seq 1 15); do
+            if curl -sfI https://chat.example.org/ | grep -qi 'content-security-policy:.*frame-ancestors'; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "frame-ancestors header not served by chat.example.org after the restart" >&2
+          exit 1
