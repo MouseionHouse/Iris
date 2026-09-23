@@ -5,7 +5,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 // desktop dist/, so `npx cap sync` never picks up a stray desktop build by accident.
 const config: CapacitorConfig = {
   appId: 'house.mouseion.chat',
-  appName: 'Mouseion',
+  appName: 'Mouseion Chat',
   webDir: 'dist-mobile',
   android: {
     path: 'mobile/android',
