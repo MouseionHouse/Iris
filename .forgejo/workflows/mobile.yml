@@ -5,12 +5,19 @@
 # for mobile (npm run build:mobile), let Capacitor copy it into the Android project (cap sync),
 # then build the APK with Gradle as any Android app would.
 #
-# - Any push touching the web app or the wrapper (paths below) builds a debug APK (artifact only)
-#   so breakage shows up early — nothing is published.
-# - A tag `mobile-vX.Y.Z` builds, signs and publishes X.Y.Z to fdroid.example.net and marks it
-#   current. Release builds are R8-minified once verified stable (mouseionMinify below); the R8
-#   mapping is uploaded as an artifact so release crashes can be decoded. versionCode is the
-#   Forgejo run number, which only ever increases — required for F-Droid to offer the update.
+# Versioning is automatic, not manual tags: every push to RELEASE_BRANCH (the "Version" step,
+# below) that touches a tracked path computes the next semantic version from the latest
+# `mobile-vX.Y.Z` tag and the commit messages since it — a `feat:` commit bumps minor, a
+# `BREAKING CHANGE:` footer or a `!` after the type (`feat!:`, `fix!:`) bumps major, anything else
+# (including this project's own informal `mobile: ...`/`web: ...` commits) bumps patch — then
+# builds, signs and publishes that version to fdroid.example.net and marks it current. A push
+# to any other branch (or a PR) still builds an (unsigned, unminified) APK as a build-only check.
+# The git tag itself is best-effort (see "tag this release" below): it is never what triggers a
+# release, only a record of one after the fact.
+#
+# Release builds are R8-minified once verified stable (mouseionMinify below); the R8 mapping is
+# uploaded as an artifact so release crashes can be decoded. versionCode is the Forgejo run
+# number, which only ever increases — required for F-Droid to offer the update.
 #
 # Runs in the household android-build image on the `android` runner; publishing runs as a
 # separate host job (`homeserver`) where scripts/fdroid-publish.sh and docker are available.
@@ -35,7 +42,6 @@ on:
         'mobile/**',
         '.forgejo/workflows/mobile.yml',
       ]
-    tags: ['mobile-v*']
 
 jobs:
   build:
@@ -51,19 +57,58 @@ jobs:
         shell: bash
     env:
       GRADLE_USER_HOME: /gradle-cache
+      # The branch that gets an automatic release on every push. mobile/WRAPPER-PLAN.md has not
+      # merged to dev yet (owner sign-off after the Fold hands-on is still pending); move this
+      # once it has.
+      RELEASE_BRANCH: mobile/phase-2
     outputs:
       publish: ${{ steps.ver.outputs.publish }}
       name: ${{ steps.ver.outputs.name }}
       code: ${{ steps.ver.outputs.code }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history and tags: the version step needs every `mobile-v*` tag and the commits
+          # since the latest one, which a shallow clone would not have.
+          fetch-depth: 0
 
-      - name: Version
+      - name: Version — the next semantic release, or a build-only marker
         id: ver
         run: |
           set -euo pipefail
-          if [[ "$GITHUB_REF" == refs/tags/mobile-v* ]]; then
-            echo "name=${GITHUB_REF#refs/tags/mobile-v}" >> "$GITHUB_OUTPUT"
+          git fetch --tags --force > /dev/null 2>&1 || true
+
+          if [[ "$GITHUB_EVENT_NAME" == "push" && "$GITHUB_REF" == "refs/heads/$RELEASE_BRANCH" ]]; then
+            latest="$(git tag -l 'mobile-v*' | grep -E '^mobile-v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1 || true)"
+            lmajor=0; lminor=0
+            if [[ -n "$latest" ]]; then
+              IFS=. read -r lmajor lminor _ <<< "${latest#mobile-v}"
+            fi
+            if [[ -z "$latest" ]] || (( lmajor == 0 && lminor < 4 )); then
+              # First release of the Capacitor wrapper (mobile/WRAPPER-PLAN.md). There is an old
+              # clean mobile-v0.1.1 tag from the very first Compose bring-up (everything since used
+              # -rcN suffixes, so this loop never saw them as "latest") — the Compose app's last
+              # version was 0.3.0, so the wrapper starts fresh at 0.4.0 rather than bumping 0.1.1.
+              next="0.4.0"
+            else
+              msgs="$(git log --format=%B "$latest..HEAD")"
+              bump=patch
+              if echo "$msgs" | grep -qiE '^BREAKING CHANGE:'; then
+                bump=major
+              elif echo "$msgs" | grep -qE '^[a-zA-Z]+(\([^)]*\))?!:'; then
+                bump=major
+              elif echo "$msgs" | grep -qE '^feat(\([^)]*\))?:'; then
+                bump=minor
+              fi
+              IFS=. read -r major minor patch <<< "${latest#mobile-v}"
+              case "$bump" in
+                major) major=$((major + 1)); minor=0; patch=0 ;;
+                minor) minor=$((minor + 1)); patch=0 ;;
+                patch) patch=$((patch + 1)) ;;
+              esac
+              next="$major.$minor.$patch"
+            fi
+            echo "name=$next" >> "$GITHUB_OUTPUT"
             echo "publish=true" >> "$GITHUB_OUTPUT"
           else
             echo "name=0.0.0-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
@@ -109,8 +154,8 @@ jobs:
           echo "MOUSEION_KEYSTORE_PATH=$d/release.jks" >> "$GITHUB_ENV"
 
       # Every push builds a release APK so breakage in the Gradle/Capacitor wiring shows up early;
-      # it is only signed (and only R8-minified) on a release tag, mirroring the old workflow's
-      # "opt-in minify until verified on a device" caution.
+      # it is only signed (and only R8-minified) when it will actually be published, mirroring the
+      # old workflow's "opt-in minify until verified on a device" caution.
       - name: Build release APK
         working-directory: mobile/android
         env:
@@ -132,6 +177,22 @@ jobs:
       - name: Remove keystore
         if: always() && steps.ver.outputs.publish == 'true'
         run: rm -rf "$(dirname "$MOUSEION_KEYSTORE_PATH")"
+
+      # Best-effort only: nothing above depended on a git tag existing, and nothing below does
+      # either (F-Droid publishing uses the computed name/code directly). This just leaves a
+      # human-readable marker in the repo's history for a release that already happened. If the
+      # checkout's token turns out not to have push access on this instance, this step fails
+      # loudly in the log but never fails the run.
+      - name: Tag this release in git (best-effort)
+        if: steps.ver.outputs.publish == 'true'
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          git config user.name "mouseion-ci"
+          git config user.email "ci@mouseion.house"
+          git tag -a "mobile-v${{ steps.ver.outputs.name }}" \
+            -m "mobile-v${{ steps.ver.outputs.name }} (auto-released by run ${{ steps.ver.outputs.code }})"
+          git push origin "mobile-v${{ steps.ver.outputs.name }}"
 
       - name: Compress R8 mapping
         if: steps.ver.outputs.publish == 'true'

@@ -9,8 +9,17 @@ Phase 0 decisions (owner, "LGTM"):
 - Web assets **bundled** in the APK; updates ship through the existing Forgejo → F-Droid pipeline.
 - Push stays **UnifiedPush/ntfy**; the existing native push code is reused.
 - Same repo, same application id `house.mouseion.chat` (F-Droid updates in place), wrapper replaces
-  `mobile/`. Versions restart at `mobile-v0.4.0-rcN`; `versionCode` keeps being the Forgejo run number.
+  `mobile/`. `versionCode` keeps being the Forgejo run number.
 - The Compose app is archived (tag `mobile-compose-final` at rc131's commit), never merged to `dev`.
+
+**Versioning (added 2026-09-23, owner request):** no more manual `-rcN` tags. Every push to
+`mobile/phase-2` touching a tracked path is a release: `.forgejo/workflows/mobile.yml` computes the
+next clean semver from the latest `mobile-vX.Y.Z` tag and the pushed commits' messages (`feat:` →
+minor, `BREAKING CHANGE:`/`type!:` → major, anything else, including this project's own `mobile: …`
+style, → patch), then builds, signs and publishes it — no manual tag, no staging gate. The wrapper's
+own line starts at `0.4.0`. The git tag it leaves afterward is a best-effort record, never what
+triggers the release. This means: **every push to that branch that touches mobile-relevant files
+becomes a real, signed, F-Droid-published version as soon as CI goes green.**
 
 ## Why
 
