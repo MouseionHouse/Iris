@@ -36,6 +36,8 @@ import { SyncStatus } from './SyncStatus';
 import { AuthMetadataProvider } from '../../hooks/useAuthMetadata';
 import { getFallbackSession } from '../../state/sessions';
 import { AutoDiscovery } from './AutoDiscovery';
+import { useHubBridge } from '../../hub/useHubBridge';
+import { notifyHubSignedOut } from '../../hub/hubBridge';
 
 function ClientRootLoading() {
   return (
@@ -129,6 +131,7 @@ const useLogoutListener = (mx?: MatrixClient) => {
       mx?.stopClient();
       await mx?.clearStores();
       window.localStorage.clear();
+      notifyHubSignedOut();
       window.location.reload();
     };
 
@@ -161,6 +164,7 @@ export function ClientRoot({ children }: ClientRootProps) {
   );
 
   useLogoutListener(mx);
+  useHubBridge(mx, loading);
 
   useEffect(() => {
     if (loadState.status === AsyncStatus.Idle) {

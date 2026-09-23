@@ -1,10 +1,12 @@
 import React, { ReactNode, useEffect } from 'react';
 import { configClass, varsClass } from 'folds';
+import { useAtomValue } from 'jotai';
 import {
   DarkTheme,
   LightTheme,
   ThemeContextProvider,
   ThemeKind,
+  hubThemeAtom,
   useActiveTheme,
   useSystemThemeKind,
 } from '../hooks/useTheme';
@@ -13,17 +15,23 @@ import { settingsAtom } from '../state/settings';
 
 export function UnAuthRouteThemeManager() {
   const systemThemeKind = useSystemThemeKind();
+  // Framed inside the hub, the login screen matches the hub's theme instead
+  // of the browser's `prefers-color-scheme` (see `hubThemeAtom`'s doc comment
+  // for why this has to be read pre-authentication, not just in
+  // `AuthRouteThemeManager`).
+  const hubTheme = useAtomValue(hubThemeAtom);
 
   useEffect(() => {
     document.body.className = '';
     document.body.classList.add(configClass, varsClass);
-    if (systemThemeKind === ThemeKind.Dark) {
+    if (hubTheme) {
+      document.body.classList.add(...hubTheme.classNames);
+    } else if (systemThemeKind === ThemeKind.Dark) {
       document.body.classList.add(...DarkTheme.classNames);
-    }
-    if (systemThemeKind === ThemeKind.Light) {
+    } else if (systemThemeKind === ThemeKind.Light) {
       document.body.classList.add(...LightTheme.classNames);
     }
-  }, [systemThemeKind]);
+  }, [systemThemeKind, hubTheme]);
 
   return null;
 }

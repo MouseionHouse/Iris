@@ -2,6 +2,7 @@ import { createClient, MatrixClient, IndexedDBStore, IndexedDBCryptoStore } from
 
 import { cryptoCallbacks } from './secretStorageKeys';
 import { clearNavToActivePathStore } from '../app/state/navToActivePath';
+import { notifyHubSignedOut } from '../app/hub/hubBridge';
 import { pushSessionToSW } from '../sw-session';
 
 type Session = {
@@ -63,6 +64,7 @@ export const logoutClient = async (mx: MatrixClient) => {
   }
   await mx.clearStores();
   window.localStorage.clear();
+  notifyHubSignedOut();
   window.location.reload();
 };
 
@@ -77,5 +79,6 @@ export const clearLoginData = async () => {
   });
 
   window.localStorage.clear();
+  notifyHubSignedOut();
   window.location.reload();
 };
