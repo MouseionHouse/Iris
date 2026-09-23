@@ -4,11 +4,16 @@ import {
   Avatar,
   Box,
   Button,
+  Dialog,
+  Header,
   Icon,
   IconButton,
   Icons,
   Menu,
   MenuItem,
+  Overlay,
+  OverlayBackdrop,
+  OverlayCenter,
   PopOut,
   RectCords,
   Text,
@@ -16,13 +21,11 @@ import {
   toRem,
 } from 'folds';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { useAtom, useAtomValue } from 'jotai';
+import { useAtomValue } from 'jotai';
 import FocusTrap from 'focus-trap-react';
-import { factoryRoomIdByActivity, factoryRoomIdByAtoZ } from '../../../utils/sort';
 import {
   NavButton,
   NavCategory,
-  NavCategoryHeader,
   NavEmptyCenter,
   NavEmptyLayout,
   NavItem,
@@ -31,6 +34,8 @@ import {
 } from '../../../components/nav';
 import {
   encodeSearchParamValueArray,
+  getDirectCreatePath,
+  getDirectRoomPath,
   getExplorePath,
   getHomeCreatePath,
   getHomeRoomPath,
@@ -43,18 +48,19 @@ import {
   useHomeCreateSelected,
   useHomeSearchSelected,
 } from '../../../hooks/router/useHomeSelected';
-import { useHomeRooms } from './useHomeRooms';
+import { useHomeConversations, useSidebar } from '../../../hooks/useSidebar';
+import { SidebarSectionHeader } from '../../../features/room-nav/SidebarSectionHeader';
+import { SectionDialog } from '../../../features/room-nav/SectionDialog';
+import { SidebarSection, sectionName } from '../../../state/sidebar';
+import { mDirectAtom } from '../../../state/mDirectList';
 import { useMatrixClient } from '../../../hooks/useMatrixClient';
 import { VirtualTile } from '../../../components/virtualizer';
-import { RoomNavCategoryButton, RoomNavItem } from '../../../features/room-nav';
-import { makeNavCategoryId } from '../../../state/closedNavCategories';
+import { RoomNavItem } from '../../../features/room-nav';
 import { roomToUnreadAtom } from '../../../state/room/roomToUnread';
-import { useCategoryHandler } from '../../../hooks/useCategoryHandler';
 import { useNavToActivePathMapper } from '../../../hooks/useNavToActivePathMapper';
 import { PageNav, PageNavHeader, PageNavContent } from '../../../components/page';
 import { useRoomsUnread } from '../../../state/hooks/unread';
 import { markAsRead } from '../../../utils/notifications';
-import { useClosedNavCategoriesAtom } from '../../../state/hooks/closedNavCategories';
 import { stopPropagation } from '../../../utils/keyboard';
 import { useSetting } from '../../../state/hooks/settings';
 import { settingsAtom } from '../../../state/settings';
@@ -70,7 +76,7 @@ type HomeMenuProps = {
   requestClose: () => void;
 };
 const HomeMenu = forwardRef<HTMLDivElement, HomeMenuProps>(({ requestClose }, ref) => {
-  const orphanRooms = useHomeRooms();
+  const orphanRooms = useHomeConversations();
   const [hideActivity] = useSetting(settingsAtom, 'hideActivity');
   const unread = useRoomsUnread(orphanRooms, roomToUnreadAtom);
   const mx = useMatrixClient();
@@ -193,48 +199,125 @@ function HomeEmpty() {
   );
 }
 
-const DEFAULT_CATEGORY_ID = makeNavCategoryId('home', 'room');
+type DeleteSectionPromptProps = {
+  section: SidebarSection;
+  onConfirm: () => void;
+  onCancel: () => void;
+};
+function DeleteSectionPrompt({ section, onConfirm, onCancel }: DeleteSectionPromptProps) {
+  return (
+    <Overlay open backdrop={<OverlayBackdrop />}>
+      <OverlayCenter>
+        <FocusTrap
+          focusTrapOptions={{
+            initialFocus: false,
+            onDeactivate: onCancel,
+            clickOutsideDeactivates: true,
+            escapeDeactivates: stopPropagation,
+          }}
+        >
+          <Dialog variant="Surface">
+            <Header
+              style={{ padding: `0 ${config.space.S200} 0 ${config.space.S400}` }}
+              variant="Surface"
+              size="500"
+            >
+              <Box grow="Yes">
+                <Text size="H4">Delete {sectionName(section)}?</Text>
+              </Box>
+              <IconButton size="300" onClick={onCancel} radii="300">
+                <Icon src={Icons.Cross} />
+              </IconButton>
+            </Header>
+            <Box style={{ padding: config.space.S400, paddingTop: 0 }} direction="Column" gap="400">
+              <Text priority="400">Its chats and rooms go back to Chats and Rooms.</Text>
+              <Button variant="Critical" onClick={onConfirm}>
+                <Text size="B400">Delete</Text>
+              </Button>
+            </Box>
+          </Dialog>
+        </FocusTrap>
+      </OverlayCenter>
+    </Overlay>
+  );
+}
+
+type HomeRow =
+  | { kind: 'header'; view: ReturnType<typeof useSidebar>['views'][number] }
+  | { kind: 'room'; roomId: string; sectionTag: string };
+
 export function Home() {
   const mx = useMatrixClient();
   useNavToActivePathMapper('home');
   const scrollRef = useRef<HTMLDivElement>(null);
-  const rooms = useHomeRooms();
+  const rooms = useHomeConversations();
+  const mDirects = useAtomValue(mDirectAtom);
+  const sidebar = useSidebar();
   const notificationPreferences = useRoomsNotificationPreferencesContext();
-  const roomToUnread = useAtomValue(roomToUnreadAtom);
   const navigate = useNavigate();
 
   const selectedRoomId = useSelectedRoom();
   const createRoomSelected = useHomeCreateSelected();
   const searchSelected = useHomeSearchSelected();
   const noRoomToDisplay = rooms.length === 0;
-  const [closedCategories, setClosedCategories] = useAtom(useClosedNavCategoriesAtom());
 
-  const sortedRooms = useMemo(() => {
-    const items = Array.from(rooms).sort(
-      closedCategories.has(DEFAULT_CATEGORY_ID)
-        ? factoryRoomIdByActivity(mx)
-        : factoryRoomIdByAtoZ(mx)
-    );
-    if (closedCategories.has(DEFAULT_CATEGORY_ID)) {
-      return items.filter((rId) => roomToUnread.has(rId) || rId === selectedRoomId);
-    }
-    return items;
-  }, [mx, rooms, closedCategories, roomToUnread, selectedRoomId]);
+  const [newSection, setNewSection] = useState(false);
+  const [renameSection, setRenameSection] = useState<SidebarSection>();
+  const [deleteSection, setDeleteSection] = useState<SidebarSection>();
+
+  // One flat list of section headers and their rooms, so a single virtualizer covers the sidebar.
+  const rows = useMemo<HomeRow[]>(
+    () =>
+      sidebar.views.flatMap((view) => [
+        { kind: 'header', view } as HomeRow,
+        ...view.rooms.map(
+          (r) => ({ kind: 'room', roomId: r.roomId, sectionTag: view.section.tag } as HomeRow)
+        ),
+      ]),
+    [sidebar.views]
+  );
 
   const virtualizer = useVirtualizer({
-    count: sortedRooms.length,
+    count: rows.length,
     getScrollElement: () => scrollRef.current,
     estimateSize: () => 38,
     overscan: 10,
   });
 
-  const handleCategoryClick = useCategoryHandler(setClosedCategories, (categoryId) =>
-    closedCategories.has(categoryId)
-  );
-
   return (
     <PageNav>
       <HomeHeader />
+      {newSection && (
+        <SectionDialog
+          onSubmit={(name, emoji) => {
+            setNewSection(false);
+            sidebar.create(name, emoji);
+          }}
+          onCancel={() => setNewSection(false)}
+        />
+      )}
+      {renameSection && (
+        <SectionDialog
+          section={renameSection}
+          onSubmit={(name, emoji) => {
+            const target = renameSection;
+            setRenameSection(undefined);
+            sidebar.rename(target, name, emoji);
+          }}
+          onCancel={() => setRenameSection(undefined)}
+        />
+      )}
+      {deleteSection && (
+        <DeleteSectionPrompt
+          section={deleteSection}
+          onConfirm={() => {
+            const target = deleteSection;
+            setDeleteSection(undefined);
+            sidebar.remove(target);
+          }}
+          onCancel={() => setDeleteSection(undefined)}
+        />
+      )}
       {noRoomToDisplay ? (
         <HomeEmpty />
       ) : (
@@ -251,6 +334,22 @@ export function Home() {
                       <Box as="span" grow="Yes">
                         <Text as="span" size="Inherit" truncate>
                           Create Room
+                        </Text>
+                      </Box>
+                    </Box>
+                  </NavItemContent>
+                </NavButton>
+              </NavItem>
+              <NavItem variant="Background" radii="400">
+                <NavButton onClick={() => navigate(getDirectCreatePath())}>
+                  <NavItemContent>
+                    <Box as="span" grow="Yes" alignItems="Center" gap="200">
+                      <Avatar size="200" radii="400">
+                        <Icon src={Icons.Plus} size="100" />
+                      </Avatar>
+                      <Box as="span" grow="Yes">
+                        <Text as="span" size="Inherit" truncate>
+                          Create Chat
                         </Text>
                       </Box>
                     </Box>
@@ -313,15 +412,6 @@ export function Home() {
               </NavItem>
             </NavCategory>
             <NavCategory>
-              <NavCategoryHeader>
-                <RoomNavCategoryButton
-                  closed={closedCategories.has(DEFAULT_CATEGORY_ID)}
-                  data-category-id={DEFAULT_CATEGORY_ID}
-                  onClick={handleCategoryClick}
-                >
-                  Rooms
-                </RoomNavCategoryButton>
-              </NavCategoryHeader>
               <div
                 style={{
                   position: 'relative',
@@ -329,21 +419,45 @@ export function Home() {
                 }}
               >
                 {virtualizer.getVirtualItems().map((vItem) => {
-                  const roomId = sortedRooms[vItem.index];
+                  const row = rows[vItem.index];
+                  if (row.kind === 'header') {
+                    return (
+                      <VirtualTile
+                        virtualItem={vItem}
+                        key={`header:${row.view.section.tag}`}
+                        ref={virtualizer.measureElement}
+                      >
+                        <SidebarSectionHeader
+                          view={row.view}
+                          sidebar={sidebar}
+                          onNewSection={() => setNewSection(true)}
+                          onRename={setRenameSection}
+                          onDelete={setDeleteSection}
+                        />
+                      </VirtualTile>
+                    );
+                  }
+                  const { roomId } = row;
                   const room = mx.getRoom(roomId);
                   if (!room) return null;
                   const selected = selectedRoomId === roomId;
-
+                  const direct = mDirects.has(roomId);
                   return (
                     <VirtualTile
                       virtualItem={vItem}
-                      key={vItem.index}
+                      key={`${row.sectionTag}:${roomId}`}
                       ref={virtualizer.measureElement}
                     >
                       <RoomNavItem
                         room={room}
                         selected={selected}
-                        linkPath={getHomeRoomPath(getCanonicalAliasOrRoomId(mx, roomId))}
+                        showAvatar={direct}
+                        direct={direct}
+                        linkPath={
+                          direct
+                            ? getDirectRoomPath(getCanonicalAliasOrRoomId(mx, roomId))
+                            : getHomeRoomPath(getCanonicalAliasOrRoomId(mx, roomId))
+                        }
                         notificationMode={getRoomNotificationMode(
                           notificationPreferences,
                           room.roomId

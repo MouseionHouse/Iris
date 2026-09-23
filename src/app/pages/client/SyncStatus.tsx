@@ -30,12 +30,10 @@ export function SyncStatus({ mx }: SyncStatusProps) {
     }, [])
   );
 
-  if (
-    (stateData.current === SyncState.Prepared ||
-      stateData.current === SyncState.Syncing ||
-      stateData.current === SyncState.Catchup) &&
-    stateData.previous !== SyncState.Syncing
-  ) {
+  // Upstream kept "Connecting..." until a second Syncing event; on a quiet server the next
+  // /sync response only comes after the 30 s long poll, so the bar sat there for 30 s on every
+  // load. The first Syncing state already means a sync completed: hide it then.
+  if (stateData.current === SyncState.Prepared || stateData.current === SyncState.Catchup) {
     return (
       <Box direction="Column" shrink="No">
         <Box
