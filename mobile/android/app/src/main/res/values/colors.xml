@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Cinny's folds Light theme Background.Container, so the WebView's first paint is not a flash of white. -->
+    <color name="mouseion_background">#F2F2F2</color>
+    <color name="colorPrimary">#5E6B3A</color>
+    <color name="colorPrimaryDark">#414A28</color>
+    <color name="colorAccent">#5E6B3A</color>
+</resources>

@@ -11,39 +11,46 @@ import fs from 'fs';
 import path from 'path';
 import buildConfig from './build.config';
 
-const copyFiles = {
-  targets: [
-    {
-      src: 'node_modules/@element-hq/element-call-embedded/dist/*',
-      dest: 'public/element-call',
-    },
-    {
-      src: 'node_modules/pdfjs-dist/build/pdf.worker.min.mjs',
-      dest: '',
-      rename: 'pdf.worker.min.js',
-    },
-    {
-      src: 'netlify.toml',
-      dest: '',
-    },
-    {
-      src: 'config.json',
-      dest: '',
-    },
-    {
-      src: 'public/manifest.json',
-      dest: '',
-    },
-    {
-      src: 'public/res/android',
-      dest: 'public/',
-    },
-    {
-      src: 'public/locales',
-      dest: 'public/',
-    },
-  ],
-};
+// `vite build --mode mobile` (npm run build:mobile) produces the bundle the Capacitor Android
+// wrapper embeds: config.mobile.json instead of config.json (mouseion.house only, hash router
+// on — the wrapper serves the app from https://localhost/ with no server-side rewrites), and its
+// own dist-mobile/ so a desktop build in dist/ is never clobbered. See mobile/WRAPPER-PLAN.md.
+function copyFilesFor(mode) {
+  return {
+    targets: [
+      {
+        src: 'node_modules/@element-hq/element-call-embedded/dist/*',
+        dest: 'public/element-call',
+      },
+      {
+        src: 'node_modules/pdfjs-dist/build/pdf.worker.min.mjs',
+        dest: '',
+        rename: 'pdf.worker.min.js',
+      },
+      {
+        src: 'netlify.toml',
+        dest: '',
+      },
+      {
+        src: mode === 'mobile' ? 'config.mobile.json' : 'config.json',
+        dest: '',
+        rename: 'config.json',
+      },
+      {
+        src: 'public/manifest.json',
+        dest: '',
+      },
+      {
+        src: 'public/res/android',
+        dest: 'public/',
+      },
+      {
+        src: 'public/locales',
+        dest: 'public/',
+      },
+    ],
+  };
+}
 
 function serverMatrixSdkCryptoWasm(wasmFilePath) {
   return {
@@ -74,10 +81,12 @@ function serverMatrixSdkCryptoWasm(wasmFilePath) {
   };
 }
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   appType: 'spa',
   publicDir: false,
-  base: buildConfig.base,
+  // Capacitor serves the bundle from a fixed origin (https://localhost/), so its assets are
+  // always at the root regardless of where the APK's WebView thinks the "page" is.
+  base: mode === 'mobile' ? './' : buildConfig.base,
   server: {
     port: 8080,
     host: true,
@@ -94,7 +103,7 @@ export default defineConfig({
       // The function to generate import names of top-level await promise in each chunk module
       promiseImportName: (i) => `__tla_${i}`,
     }),
-    viteStaticCopy(copyFiles),
+    viteStaticCopy(copyFilesFor(mode)),
     vanillaExtractPlugin(),
     wasm(),
     react(),
@@ -128,11 +137,11 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: 'dist',
+    outDir: mode === 'mobile' ? 'dist-mobile' : 'dist',
     sourcemap: true,
     copyPublicDir: false,
     rollupOptions: {
       plugins: [inject({ Buffer: ['buffer', 'Buffer'] })],
     },
   },
-});
+}));

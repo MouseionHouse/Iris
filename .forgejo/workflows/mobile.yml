@@ -1,14 +1,19 @@
 # Mouseion Android app: build a signed release APK and publish it to the household F-Droid repo.
 #
-# - Any push touching mobile/ runs the unit tests and builds the APK (artifact only) so
-#   breakage shows up early. Release builds are R8-minified; the R8 mapping is uploaded as an
-#   artifact (and archived locally) so release crashes can be decoded.
-# - A tag `mobile-vX.Y.Z` builds, signs and publishes X.Y.Z to fdroid.example.net and marks it
-#   current. versionCode is the Forgejo run number, which only ever increases.
+# This is a Capacitor wrapper around the mobile build of this fork's own web UI (see
+# mobile/WRAPPER-PLAN.md) — not a separate native app. "Build" here means: build the web bundle
+# for mobile (npm run build:mobile), let Capacitor copy it into the Android project (cap sync),
+# then build the APK with Gradle as any Android app would.
 #
-# Shape mirrors forge's android-release.yml: the build runs in the household android-build image
-# (JDK 17 + SDK; platform 37 is installed at job start) on the `android` runner, and publishing runs
-# as a separate host job (`homeserver`) where scripts/fdroid-publish.sh and docker are available.
+# - Any push touching the web app or the wrapper (paths below) builds a debug APK (artifact only)
+#   so breakage shows up early — nothing is published.
+# - A tag `mobile-vX.Y.Z` builds, signs and publishes X.Y.Z to fdroid.example.net and marks it
+#   current. Release builds are R8-minified once verified stable (mouseionMinify below); the R8
+#   mapping is uploaded as an artifact so release crashes can be decoded. versionCode is the
+#   Forgejo run number, which only ever increases — required for F-Droid to offer the update.
+#
+# Runs in the household android-build image on the `android` runner; publishing runs as a
+# separate host job (`homeserver`) where scripts/fdroid-publish.sh and docker are available.
 # Signing material comes from repo secrets HOUSE_MOUSEION_CHAT_{KEYSTORE_BASE64,KEYSTORE_PASSWORD,
 # KEY_ALIAS,KEY_PASSWORD}; the keystore is decoded into a private temp dir and removed afterwards.
 name: mobile
@@ -16,7 +21,20 @@ name: mobile
 on:
   push:
     branches: ['**']
-    paths: ['mobile/**', '.forgejo/workflows/mobile.yml']
+    paths:
+      [
+        'src/**',
+        'public/**',
+        'config.json',
+        'config.mobile.json',
+        'vite.config.js',
+        'build.config.ts',
+        'capacitor.config.ts',
+        'package.json',
+        'package-lock.json',
+        'mobile/**',
+        '.forgejo/workflows/mobile.yml',
+      ]
     tags: ['mobile-v*']
 
 jobs:
@@ -24,7 +42,7 @@ jobs:
     runs-on: android
     container:
       # Hardcoded: the DOMAIN/REGISTRY_USER Actions variables exist on the forge repo, not here.
-      # The -bun tag is the one already present on the server docker host.
+      # The -bun tag (Node 22 + JDK 17 + Android SDK 36 baked in) is the one already on server.
       image: forgejo.example.net/household/android-build:jdk17-sdk36-bun
       volumes:
         - mouseion-gradle-cache:/gradle-cache
@@ -53,30 +71,36 @@ jobs:
           fi
           echo "code=${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
 
-      - name: Android SDK platform 37
-        run: |
-          set -euo pipefail
-          yes 2>/dev/null | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "build-tools;37.0.0" > /dev/null
-          printf 'sdk.dir=%s\n' "$ANDROID_HOME" > mobile/local.properties
-
-      # The Compose UI tests in :shared:jvmTest load Skiko's native library, which links libGL and
-      # libX11; the android-build image has neither, so every Compose UI test failed with
-      # UnsatisfiedLinkError (runs #44–#90). The container runs as root, so install them here.
-      - name: Native libraries for Compose UI tests
+      # @capacitor/android 8 requires source/target 21 (`invalid source release: 21` under the
+      # image's baked-in JDK 17); the image only ships 17, so install 21 alongside it and point
+      # Gradle at it for every later step. Verified on Ubuntu 22.04 (this image's base): the
+      # universe repo carries openjdk-21-jdk-headless without extra repos.
+      - name: JDK 21 (for @capacitor/android; keep JDK 17 as the default `java`)
         run: |
           set -euo pipefail
           export DEBIAN_FRONTEND=noninteractive
           apt-get update -qq
-          apt-get install -y -qq --no-install-recommends libgl1 libx11-6 > /dev/null
+          apt-get install -y -qq --no-install-recommends openjdk-21-jdk-headless > /dev/null
+          echo "JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64" >> "$GITHUB_ENV"
 
-      - name: Unit tests
-        working-directory: mobile
+      - name: Android SDK platform 36
         run: |
           set -euo pipefail
-          ./gradlew --no-daemon --console=plain :shared:jvmTest
+          yes 2>/dev/null | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0" > /dev/null
+          printf 'sdk.dir=%s\n' "$ANDROID_HOME" > mobile/android/local.properties
+
+      - name: npm ci
+        run: npm ci
+
+      - name: Build the mobile web bundle
+        run: npm run build:mobile
+
+      - name: Capacitor sync (copy the web bundle into the Android project)
+        run: npx cap sync android
 
       - name: Decode signing keystore
+        if: steps.ver.outputs.publish == 'true'
         run: |
           set -euo pipefail
           d="$(mktemp -d)"; chmod 700 "$d"
@@ -84,30 +108,36 @@ jobs:
           chmod 600 "$d/release.jks"
           echo "MOUSEION_KEYSTORE_PATH=$d/release.jks" >> "$GITHUB_ENV"
 
-      - name: Build signed release APK (R8-minified)
-        working-directory: mobile
+      # Every push builds a release APK so breakage in the Gradle/Capacitor wiring shows up early;
+      # it is only signed (and only R8-minified) on a release tag, mirroring the old workflow's
+      # "opt-in minify until verified on a device" caution.
+      - name: Build release APK
+        working-directory: mobile/android
         env:
           MOUSEION_KEYSTORE_PASSWORD: ${{ secrets.HOUSE_MOUSEION_CHAT_KEYSTORE_PASSWORD }}
           MOUSEION_KEY_ALIAS: ${{ secrets.HOUSE_MOUSEION_CHAT_KEY_ALIAS }}
           MOUSEION_KEY_PASSWORD: ${{ secrets.HOUSE_MOUSEION_CHAT_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          ./gradlew --no-daemon --console=plain :androidApp:assembleRelease \
-            -PmouseionMinify=true \
+          ./gradlew --no-daemon --console=plain :app:assembleRelease \
+            -PmouseionMinify=${{ steps.ver.outputs.publish }} \
             -PversionCode=${{ steps.ver.outputs.code }} -PmouseionVersionName=${{ steps.ver.outputs.name }}
-          cp androidApp/build/outputs/apk/release/androidApp-release.apk "house.mouseion.chat-${{ steps.ver.outputs.name }}.apk"
-          APKSIGNER=$(ls -1 "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -n1)
-          "$APKSIGNER" verify --print-certs "house.mouseion.chat-${{ steps.ver.outputs.name }}.apk" | grep -E "certificate DN|SHA-256"
+          apk=$(find app/build/outputs/apk/release -name '*.apk' | head -1)
+          cp "$apk" "../house.mouseion.chat-${{ steps.ver.outputs.name }}.apk"
+          if [[ "${{ steps.ver.outputs.publish }}" == "true" ]]; then
+            APKSIGNER=$(ls -1 "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -n1)
+            "$APKSIGNER" verify --print-certs "../house.mouseion.chat-${{ steps.ver.outputs.name }}.apk" | grep -E "certificate DN|SHA-256"
+          fi
 
       - name: Remove keystore
-        if: always()
+        if: always() && steps.ver.outputs.publish == 'true'
         run: rm -rf "$(dirname "$MOUSEION_KEYSTORE_PATH")"
 
       - name: Compress R8 mapping
-        working-directory: mobile
+        if: steps.ver.outputs.publish == 'true'
         run: |
           set -euo pipefail
-          gzip -c androidApp/build/outputs/mapping/release/mapping.txt > "house.mouseion.chat-mapping-${{ steps.ver.outputs.name }}.txt.gz"
+          gzip -c mobile/android/app/build/outputs/mapping/release/mapping.txt > "mobile/house.mouseion.chat-mapping-${{ steps.ver.outputs.name }}.txt.gz"
 
       - uses: actions/upload-artifact@v3
         with:
@@ -115,6 +145,7 @@ jobs:
           path: mobile/house.mouseion.chat-${{ steps.ver.outputs.name }}.apk
 
       - uses: actions/upload-artifact@v3
+        if: steps.ver.outputs.publish == 'true'
         with:
           name: mouseion-mapping
           path: mobile/house.mouseion.chat-mapping-${{ steps.ver.outputs.name }}.txt.gz
