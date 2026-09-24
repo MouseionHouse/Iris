@@ -3,7 +3,16 @@
   <head>
     <meta charset="UTF-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+    <!--
+      Mobile / foldable display best practices:
+      - `viewport-fit=cover` opts into edge-to-edge so the page can read the display
+        cutout / status-bar / home-indicator safe-area insets (notched phones, foldable
+        punch-holes, Android 15+ forced edge-to-edge, iOS standalone). The app shell
+        consumes them in src/index.css.
+      - `maximum-scale` is intentionally NOT set: pinching to zoom is an accessibility
+        requirement (WCAG 1.4.4) and the layout is fully fluid, so zooming stays usable.
+    -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Mouseion Chat</title>
     <meta name="name" content="Mouseion Chat" />
     <meta name="author" content="Ajay Bura" />

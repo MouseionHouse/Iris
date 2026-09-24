@@ -17,10 +17,19 @@ const config: CapacitorConfig = {
     androidScheme: 'https',
   },
   plugins: {
+    // Android 15+ (targetSdk 36) forces edge-to-edge: the status/navigation bars always
+    // overlay the WebView, so the legacy `overlaysWebView` flag below is a no-op on
+    // Android. The SystemBars plugin owns the safe-area insets: with `viewport-fit=cover`
+    // in index.html it makes the WebView edge-to-edge and injects `--safe-area-inset-*`
+    // CSS variables that the app shell consumes (src/index.css). `initialViewportFitValueHint`
+    // matches the meta tag to avoid a first-frame layout jump before it is parsed.
+    SystemBars: {
+      insetsHandling: 'css',
+      initialViewportFitValueHint: 'cover',
+    },
     StatusBar: {
-      // The status bar reserves its own space rather than overlaying the WebView. Cinny's CSS
-      // does not account for a transparent status bar yet (no safe-area insets); true edge-to-edge
-      // is Phase 3 (mobile/WRAPPER-PLAN.md) once that is done properly.
+      // Kept for the web `@capacitor/status-bar` API and any non-Android target; inert on
+      // Android 15+ (see above).
       overlaysWebView: false,
     },
   },

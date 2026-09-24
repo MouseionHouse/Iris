@@ -42,6 +42,12 @@
 html {
   height: 100%;
   overflow: hidden;
+  /* App-like feel: no page-level rubber-banding / pull-to-refresh chaining from the
+     inner scroll containers (the timeline etc. keep their own scroll behaviour). */
+  overscroll-behavior: none;
+  /* Keep text from being auto-scaled by the browser (e.g. iOS landscape). */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
@@ -51,6 +57,9 @@ body {
   font-family: var(--font-secondary);
   font-size: 16px;
   font-weight: 400;
+  overscroll-behavior: none;
+  /* Remove the double-tap-to-zoom delay on taps (pinch-zoom and panning still work). */
+  touch-action: manipulation;
 
   /*Why font-variant-ligatures => https://github.com/rsms/inter/issues/222 */
   font-variant-ligatures: no-contextual;
@@ -60,6 +69,18 @@ body {
   height: 100%;
   display: flex;
   flex-direction: column;
+  /*
+   * Keep the app out of the display's unsafe areas: the status bar / display cutout
+   * (notched phones, foldable punch-holes) and the home-indicator / gesture area.
+   * `--safe-area-inset-*` are injected by the Capacitor wrapper on edge-to-edge WebViews
+   * (SystemBars plugin, `insetsHandling: css`); `env(safe-area-inset-*)` covers PWA /
+   * standalone and regular browsers. Both are 0 on desktop and in the non-edge-to-edge
+   * wrapper, so this is a no-op there.
+   */
+  padding: var(--safe-area-inset-top, env(safe-area-inset-top, 0px))
+    var(--safe-area-inset-right, env(safe-area-inset-right, 0px))
+    var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px))
+    var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
 }
 
 *,
@@ -135,4 +156,37 @@ audio:not([controls]) {
 li p::before {
   content: '';
   display: inline-block;
+}
+
+/*
+ * Mobile touch best practices:
+ * - `touch-action: manipulation` on interactive controls removes the double-tap-to-zoom
+ *   delay on taps while still allowing panning and pinch-zoom (so accessibility zoom is
+ *   preserved). Applied to the controls themselves rather than the whole page so that
+ *   free-form text areas keep their native gesture handling.
+ */
+a,
+button,
+input,
+select,
+label,
+[role='button'],
+[role='switch'],
+[role='tab'],
+[role='menuitem'],
+[role='checkbox'],
+[role='radio'] {
+  touch-action: manipulation;
+}
+
+/* Respect the user's reduced-motion preference: neutralise non-essential animation. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

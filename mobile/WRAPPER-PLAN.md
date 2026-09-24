@@ -132,7 +132,12 @@ as a draft — never auto-sent.
    (owner enters the ntfy password themselves).
 
 ### Phase 3 — mobile polish in the web code (both platforms)
-- Whatever the Fold hands-on shows: safe-area insets, touch targets, the composer on a soft
+- **Done (2026-09-23):** safe-area insets + true edge-to-edge. `viewport-fit=cover` in
+  `index.html`, `SystemBars: { insetsHandling: 'css', initialViewportFitValueHint: 'cover' }` in
+  `capacitor.config.ts`, `#root` padded by `var(--safe-area-inset-*, env(safe-area-inset-*, 0px))`
+  in `src/index.css`, and `src/app/native/systemChrome.ts` painting the page background /
+  `theme-color` / status-bar style per theme. See the STATUS entry above.
+- Remaining (whatever the Fold hands-on shows): touch targets, the composer on a soft
   keyboard, the sidebar sections at phone width, long-press menus. Each fix is a `web:` commit.
 
 ### Phase 4 — retire the rest

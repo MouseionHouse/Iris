@@ -4,12 +4,14 @@ import { useAtomValue } from 'jotai';
 import {
   DarkTheme,
   LightTheme,
+  Theme,
   ThemeContextProvider,
   ThemeKind,
   hubThemeAtom,
   useActiveTheme,
   useSystemThemeKind,
 } from '../hooks/useTheme';
+import { applyThemeChrome } from '../native/systemChrome';
 import { useSetting } from '../state/hooks/settings';
 import { settingsAtom } from '../state/settings';
 
@@ -24,13 +26,22 @@ export function UnAuthRouteThemeManager() {
   useEffect(() => {
     document.body.className = '';
     document.body.classList.add(configClass, varsClass);
+
+    let theme: Theme;
     if (hubTheme) {
+      theme = hubTheme;
       document.body.classList.add(...hubTheme.classNames);
     } else if (systemThemeKind === ThemeKind.Dark) {
+      theme = DarkTheme;
       document.body.classList.add(...DarkTheme.classNames);
-    } else if (systemThemeKind === ThemeKind.Light) {
+    } else {
+      theme = LightTheme;
       document.body.classList.add(...LightTheme.classNames);
     }
+
+    // Paint the page background / theme-color / status bar to match (safe-area +
+    // edge-to-edge chrome, mobile/WRAPPER-PLAN.md Phase 3).
+    applyThemeChrome(theme);
   }, [systemThemeKind, hubTheme]);
 
   return null;
@@ -51,6 +62,10 @@ export function AuthRouteThemeManager({ children }: { children: ReactNode }) {
     } else {
       document.body.style.filter = '';
     }
+
+    // Paint the page background / theme-color / status bar to match (safe-area +
+    // edge-to-edge chrome, mobile/WRAPPER-PLAN.md Phase 3).
+    applyThemeChrome(activeTheme);
   }, [activeTheme, monochromeMode]);
 
   return <ThemeContextProvider value={activeTheme}>{children}</ThemeContextProvider>;
