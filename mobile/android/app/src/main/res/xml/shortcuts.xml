@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Direct Share (Sharing Shortcuts API): the dynamic shortcuts MouseionSharePlugin publishes
+     for recent chats carry this category, so the share sheet lists them as per-chat targets.
+     Picking one sends ACTION_SEND to MainActivity with Intent.EXTRA_SHORTCUT_ID set. -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <share-target android:targetClass="house.mouseion.iris.MainActivity">
+        <data android:mimeType="text/*" />
+        <category android:name="house.mouseion.iris.category.TEXT_SHARE_TARGET" />
+    </share-target>
+</shortcuts>
