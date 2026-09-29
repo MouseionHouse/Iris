@@ -15,9 +15,33 @@ export const HUB_PROTOCOL_VERSION = 1;
 /** Origin the hub lives at. Overridable via the `VITE_HUB_ORIGIN` env var. */
 export const DEFAULT_HUB_ORIGIN = 'https://hub.example.org';
 
+/**
+ * The hub and its pull-request previews (hub-pr-<n>.example.org). The same
+ * set `docker-nginx.conf` lets frame this client; keep the two in step.
+ */
+const HUB_ORIGIN_PATTERN = /^https:\/\/hub(-pr-\d+)?\.example\.org$/;
+
+/**
+ * The framing page's origin as the browser reports it: `ancestorOrigins`
+ * where it exists (not Firefox), else the origin of the referrer, which for a
+ * framed document is the parent. The browser sets both, so a page cannot
+ * claim to be the hub; one that hides its referrer just falls back.
+ */
+const parentOrigin = (): string | undefined => {
+  const ancestor = window.location.ancestorOrigins?.[0];
+  if (ancestor) return ancestor;
+  try {
+    return new URL(document.referrer).origin;
+  } catch {
+    return undefined;
+  }
+};
+
 export const getHubOrigin = (): string => {
   const configured = (import.meta.env.VITE_HUB_ORIGIN as string | undefined)?.trim();
-  return configured && configured.length > 0 ? configured : DEFAULT_HUB_ORIGIN;
+  if (configured && configured.length > 0) return configured;
+  const parent = parentOrigin();
+  return parent && HUB_ORIGIN_PATTERN.test(parent) ? parent : DEFAULT_HUB_ORIGIN;
 };
 
 /**
