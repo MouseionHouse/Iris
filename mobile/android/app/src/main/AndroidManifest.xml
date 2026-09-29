@@ -72,4 +72,6 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- MouseionPushService posts message notifications (runtime permission on API 33+). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- navigator.vibrate() in the WebView: the tick confirming a long-press on a message. -->
+    <uses-permission android:name="android.permission.VIBRATE" />
 </manifest>
