@@ -5,6 +5,7 @@ import { MatrixClient } from 'matrix-js-sdk';
 import { getMemberDisplayName } from '../utils/room';
 import { RoomToUnread } from '../../types/matrix/room';
 import { roomToUnreadAtom } from '../state/room/roomToUnread';
+import { mDirectAtom } from '../state/mDirectList';
 import { clearLoginData, logoutClient, startClient } from '../../client/initMatrix';
 import { LightTheme, MouseionTheme, hubThemeAtom } from '../hooks/useTheme';
 import {
@@ -17,28 +18,33 @@ import {
 } from './hubBridge';
 
 /**
- * Summarise the per-room unread map into the three numbers the hub wants.
+ * Summarise the per-room unread map into the numbers the hub wants.
  *
  * Only leaf rooms (entries whose `from` is `null`) are counted: space rooms
  * appear in the map as aggregators of their children, so counting them too
  * would double-count. `total` is always >= `highlight` (see `getUnreadInfo`),
- * so a room with any unread has `total > 0`.
+ * so a room with any unread has `total > 0`. `direct` is the unread in direct
+ * messages: like a mention, a DM is addressed to the member, and the hub turns
+ * its cue red for either.
  */
 const computeUnreadSummary = (
-  roomToUnread: RoomToUnread
-): { rooms: number; messages: number; highlights: number } => {
+  roomToUnread: RoomToUnread,
+  directs: Set<string>
+): { rooms: number; messages: number; highlights: number; direct: number } => {
   let rooms = 0;
   let messages = 0;
   let highlights = 0;
-  roomToUnread.forEach((unread) => {
+  let direct = 0;
+  roomToUnread.forEach((unread, roomId) => {
     if (unread.from !== null) return;
     if (unread.total > 0 || unread.highlight > 0) {
       rooms += 1;
       messages += unread.total;
       highlights += unread.highlight;
+      if (directs.has(roomId)) direct += unread.total;
     }
   });
-  return { rooms, messages, highlights };
+  return { rooms, messages, highlights, direct };
 };
 
 /**
@@ -82,6 +88,7 @@ export const useHubBridge = (mx: MatrixClient | undefined, loading: boolean): vo
   const navigate = useNavigate();
   const setHubTheme = useSetAtom(hubThemeAtom);
   const roomToUnread = useAtomValue(roomToUnreadAtom);
+  const directs = useAtomValue(mDirectAtom);
 
   /* ---- inbound (hub -> chat) ---- */
 
@@ -171,7 +178,10 @@ export const useHubBridge = (mx: MatrixClient | undefined, loading: boolean): vo
   }, [location.pathname]);
 
   // chat.unread — whenever the unread/notification counts change.
-  const unreadSummary = useMemo(() => computeUnreadSummary(roomToUnread), [roomToUnread]);
+  const unreadSummary = useMemo(
+    () => computeUnreadSummary(roomToUnread, directs),
+    [roomToUnread, directs]
+  );
   useEffect(() => {
     postToHub({ type: 'chat.unread', ...unreadSummary });
   }, [unreadSummary]);

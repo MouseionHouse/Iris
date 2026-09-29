@@ -66,6 +66,8 @@ export type ChatUnreadMessage = {
   rooms: number;
   messages: number;
   highlights: number;
+  /** Unread messages in direct messages; a v1 hub that predates it ignores it. */
+  direct: number;
 };
 export type ChatHighlightMessage = {
   type: 'chat.highlight';
