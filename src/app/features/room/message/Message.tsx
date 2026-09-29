@@ -79,6 +79,14 @@ import { MemberPowerTag, StateEvent } from '../../../../types/matrix/room';
 import { PowerIcon } from '../../../components/power';
 import colorMXID from '../../../../util/colorMXID';
 import { getPowerTagIconSrc } from '../../../hooks/useMemberPowerTag';
+import { useLongPress } from '../../../hooks/useLongPress';
+import { isTouchInput } from '../../../utils/pointer';
+import { hapticTick } from '../../../native/haptics';
+import { MessageCopyTextItem, MessageSheet, MessageSheetReactions } from './MessageSheet';
+
+// Descendants of a message which keep their own press behaviour on touch screens.
+const LONG_PRESS_IGNORE =
+  'a, input, textarea, select, [contenteditable="true"], [data-user-id], [data-reaction-key]';
 
 export type ReactionHandler = (keyOrMxc: string, shortcode: string) => void;
 
@@ -724,9 +732,27 @@ export const Message = as<'div', MessageProps>(
 
     const [hover, setHover] = useState(false);
     const { hoverProps } = useHover({ onHoverChange: setHover });
-    const { focusWithinProps } = useFocusWithin({ onFocusWithinChange: setHover });
+    // a tap focuses the message, but the options bar is for pointer and keyboard
+    const { focusWithinProps } = useFocusWithin({
+      onFocusWithinChange: (focus) => setHover(focus && !isTouchInput()),
+    });
     const [menuAnchor, setMenuAnchor] = useState<RectCords>();
     const [emojiBoardAnchor, setEmojiBoardAnchor] = useState<RectCords>();
+    const [sheet, setSheet] = useState(false);
+    const [emojiSheet, setEmojiSheet] = useState(false);
+
+    const openSheet = () => {
+      if (sheet || emojiSheet) return;
+      hapticTick();
+      setSheet(true);
+    };
+    const closeSheet = () => {
+      setSheet(false);
+    };
+    const longPressProps = useLongPress<HTMLDivElement>(openSheet, {
+      disabled: edit,
+      ignore: LONG_PRESS_IGNORE,
+    });
 
     const senderDisplayName =
       getMemberDisplayName(room, senderId) ?? getMxIdLocalPart(senderId) ?? senderId;
@@ -840,6 +866,11 @@ export const Message = as<'div', MessageProps>(
       const tag = (evt.target as any).tagName;
       if (typeof tag === 'string' && tag.toLowerCase() === 'a') return;
       evt.preventDefault();
+      // Android reports a long-press as context menu
+      if (isTouchInput()) {
+        openSheet();
+        return;
+      }
       setMenuAnchor({
         x: evt.clientX,
         y: evt.clientY,
@@ -856,6 +887,38 @@ export const Message = as<'div', MessageProps>(
     const closeMenu = () => {
       setMenuAnchor(undefined);
     };
+
+    const handleSheetAddReactions = () => {
+      closeSheet();
+      // open it with timeout because closeSheet
+      // FocusTrap will return focus from emojiBoard
+
+      setTimeout(() => {
+        setEmojiSheet(true);
+      }, 100);
+    };
+
+    const handleEmojiBoardClose = () => {
+      setEmojiBoardAnchor(undefined);
+      setEmojiSheet(false);
+    };
+
+    const emojiBoardJSX = (
+      <EmojiBoard
+        imagePackRooms={imagePackRooms ?? []}
+        returnFocusOnDeactivate={false}
+        allowTextCustomEmoji
+        onEmojiSelect={(key) => {
+          onReactionToggle(mEvent.getId()!, key);
+          handleEmojiBoardClose();
+        }}
+        onCustomEmojiSelect={(mxc, shortcode) => {
+          onReactionToggle(mEvent.getId()!, mxc, shortcode);
+          handleEmojiBoardClose();
+        }}
+        requestClose={handleEmojiBoardClose}
+      />
+    );
 
     const handleOpenEmojiBoard: MouseEventHandler<HTMLButtonElement> = (evt) => {
       const target = evt.currentTarget.parentElement?.parentElement ?? evt.currentTarget;
@@ -874,19 +937,111 @@ export const Message = as<'div', MessageProps>(
 
     const isThreadedMessage = mEvent.threadRootId !== undefined;
 
+    const renderMenuItems = (close: () => void, touch?: boolean) => (
+      <>
+        <Box direction="Column" gap="100" className={css.MessageMenuGroup}>
+          {canSendReaction && !touch && (
+            <MenuItem
+              size="300"
+              after={<Icon size="100" src={Icons.SmilePlus} />}
+              radii="300"
+              onClick={handleAddReactions}
+            >
+              <Text className={css.MessageMenuItemText} as="span" size="T300" truncate>
+                Add Reaction
+              </Text>
+            </MenuItem>
+          )}
+          {relations && (
+            <MessageAllReactionItem room={room} relations={relations} onClose={close} />
+          )}
+          <MenuItem
+            size="300"
+            after={<Icon size="100" src={Icons.ReplyArrow} />}
+            radii="300"
+            data-event-id={mEvent.getId()}
+            onClick={(evt: any) => {
+              onReplyClick(evt);
+              close();
+            }}
+          >
+            <Text className={css.MessageMenuItemText} as="span" size="T300" truncate>
+              Reply
+            </Text>
+          </MenuItem>
+          {!isThreadedMessage && (
+            <MenuItem
+              size="300"
+              after={<Icon src={Icons.ThreadPlus} size="100" />}
+              radii="300"
+              data-event-id={mEvent.getId()}
+              onClick={(evt: any) => {
+                onReplyClick(evt, true);
+                close();
+              }}
+            >
+              <Text className={css.MessageMenuItemText} as="span" size="T300" truncate>
+                Reply in Thread
+              </Text>
+            </MenuItem>
+          )}
+          {canEditEvent(mx, mEvent) && onEditId && (
+            <MenuItem
+              size="300"
+              after={<Icon size="100" src={Icons.Pencil} />}
+              radii="300"
+              data-event-id={mEvent.getId()}
+              onClick={() => {
+                onEditId(mEvent.getId());
+                close();
+              }}
+            >
+              <Text className={css.MessageMenuItemText} as="span" size="T300" truncate>
+                Edit Message
+              </Text>
+            </MenuItem>
+          )}
+          {touch && <MessageCopyTextItem room={room} mEvent={mEvent} onClose={close} />}
+          {!hideReadReceipts && (
+            <MessageReadReceiptItem room={room} eventId={mEvent.getId() ?? ''} onClose={close} />
+          )}
+          {showDeveloperTools && (
+            <MessageSourceCodeItem room={room} mEvent={mEvent} onClose={close} />
+          )}
+          <MessageCopyLinkItem room={room} mEvent={mEvent} onClose={close} />
+          {canPinEvent && <MessagePinItem room={room} mEvent={mEvent} onClose={close} />}
+        </Box>
+        {((!mEvent.isRedacted() && canDelete) || mEvent.getSender() !== mx.getUserId()) && (
+          <>
+            <Line size="300" />
+            <Box direction="Column" gap="100" className={css.MessageMenuGroup}>
+              {!mEvent.isRedacted() && canDelete && (
+                <MessageDeleteItem room={room} mEvent={mEvent} onClose={close} />
+              )}
+              {mEvent.getSender() !== mx.getUserId() && (
+                <MessageReportItem room={room} mEvent={mEvent} onClose={close} />
+              )}
+            </Box>
+          </>
+        )}
+      </>
+    );
+
     return (
       <MessageBase
         className={classNames(css.MessageBase, className, {
           [css.MessageBaseBubbleCollapsed]: messageLayout === MessageLayout.Bubble && collapse,
+          [css.MessageTouchActions]: !edit,
         })}
         tabIndex={0}
         space={messageSpacing}
         collapse={collapse}
         highlight={highlight}
-        selected={!!menuAnchor || !!emojiBoardAnchor}
+        selected={!!menuAnchor || !!emojiBoardAnchor || sheet || emojiSheet}
         {...props}
         {...hoverProps}
         {...focusWithinProps}
+        {...longPressProps}
         ref={ref}
       >
         {!edit && (hover || !!menuAnchor || !!emojiBoardAnchor) && (
@@ -899,24 +1054,7 @@ export const Message = as<'div', MessageProps>(
                     align={emojiBoardAnchor?.width === 0 ? 'Start' : 'End'}
                     offset={emojiBoardAnchor?.width === 0 ? 0 : undefined}
                     anchor={emojiBoardAnchor}
-                    content={
-                      <EmojiBoard
-                        imagePackRooms={imagePackRooms ?? []}
-                        returnFocusOnDeactivate={false}
-                        allowTextCustomEmoji
-                        onEmojiSelect={(key) => {
-                          onReactionToggle(mEvent.getId()!, key);
-                          setEmojiBoardAnchor(undefined);
-                        }}
-                        onCustomEmojiSelect={(mxc, shortcode) => {
-                          onReactionToggle(mEvent.getId()!, mxc, shortcode);
-                          setEmojiBoardAnchor(undefined);
-                        }}
-                        requestClose={() => {
-                          setEmojiBoardAnchor(undefined);
-                        }}
-                      />
-                    }
+                    content={emojiBoardJSX}
                   >
                     <IconButton
                       onClick={handleOpenEmojiBoard}
@@ -984,133 +1122,7 @@ export const Message = as<'div', MessageProps>(
                             }}
                           />
                         )}
-                        <Box direction="Column" gap="100" className={css.MessageMenuGroup}>
-                          {canSendReaction && (
-                            <MenuItem
-                              size="300"
-                              after={<Icon size="100" src={Icons.SmilePlus} />}
-                              radii="300"
-                              onClick={handleAddReactions}
-                            >
-                              <Text
-                                className={css.MessageMenuItemText}
-                                as="span"
-                                size="T300"
-                                truncate
-                              >
-                                Add Reaction
-                              </Text>
-                            </MenuItem>
-                          )}
-                          {relations && (
-                            <MessageAllReactionItem
-                              room={room}
-                              relations={relations}
-                              onClose={closeMenu}
-                            />
-                          )}
-                          <MenuItem
-                            size="300"
-                            after={<Icon size="100" src={Icons.ReplyArrow} />}
-                            radii="300"
-                            data-event-id={mEvent.getId()}
-                            onClick={(evt: any) => {
-                              onReplyClick(evt);
-                              closeMenu();
-                            }}
-                          >
-                            <Text
-                              className={css.MessageMenuItemText}
-                              as="span"
-                              size="T300"
-                              truncate
-                            >
-                              Reply
-                            </Text>
-                          </MenuItem>
-                          {!isThreadedMessage && (
-                            <MenuItem
-                              size="300"
-                              after={<Icon src={Icons.ThreadPlus} size="100" />}
-                              radii="300"
-                              data-event-id={mEvent.getId()}
-                              onClick={(evt: any) => {
-                                onReplyClick(evt, true);
-                                closeMenu();
-                              }}
-                            >
-                              <Text
-                                className={css.MessageMenuItemText}
-                                as="span"
-                                size="T300"
-                                truncate
-                              >
-                                Reply in Thread
-                              </Text>
-                            </MenuItem>
-                          )}
-                          {canEditEvent(mx, mEvent) && onEditId && (
-                            <MenuItem
-                              size="300"
-                              after={<Icon size="100" src={Icons.Pencil} />}
-                              radii="300"
-                              data-event-id={mEvent.getId()}
-                              onClick={() => {
-                                onEditId(mEvent.getId());
-                                closeMenu();
-                              }}
-                            >
-                              <Text
-                                className={css.MessageMenuItemText}
-                                as="span"
-                                size="T300"
-                                truncate
-                              >
-                                Edit Message
-                              </Text>
-                            </MenuItem>
-                          )}
-                          {!hideReadReceipts && (
-                            <MessageReadReceiptItem
-                              room={room}
-                              eventId={mEvent.getId() ?? ''}
-                              onClose={closeMenu}
-                            />
-                          )}
-                          {showDeveloperTools && (
-                            <MessageSourceCodeItem
-                              room={room}
-                              mEvent={mEvent}
-                              onClose={closeMenu}
-                            />
-                          )}
-                          <MessageCopyLinkItem room={room} mEvent={mEvent} onClose={closeMenu} />
-                          {canPinEvent && (
-                            <MessagePinItem room={room} mEvent={mEvent} onClose={closeMenu} />
-                          )}
-                        </Box>
-                        {((!mEvent.isRedacted() && canDelete) ||
-                          mEvent.getSender() !== mx.getUserId()) && (
-                          <>
-                            <Line size="300" />
-                            <Box direction="Column" gap="100" className={css.MessageMenuGroup}>
-                              {!mEvent.isRedacted() && canDelete && (
-                                <MessageDeleteItem
-                                  room={room}
-                                  mEvent={mEvent}
-                                  onClose={closeMenu}
-                                />
-                              )}
-                              {mEvent.getSender() !== mx.getUserId() && (
-                                <MessageReportItem
-                                  room={room}
-                                  mEvent={mEvent}
-                                  onClose={closeMenu}
-                                />
-                              )}
-                            </Box>
-                          </>
-                        )}
+                        {renderMenuItems(closeMenu)}
                       </Menu>
                     </FocusTrap>
                   }
@@ -1145,6 +1157,36 @@ export const Message = as<'div', MessageProps>(
             {msgContentJSX}
           </ModernLayout>
         )}
+        {sheet && (
+          <MessageSheet
+            room={room}
+            mEvent={mEvent}
+            open={sheet}
+            requestClose={closeSheet}
+            reactions={
+              canSendReaction && (
+                <MessageSheetReactions
+                  onReaction={(key, shortcode) => {
+                    onReactionToggle(mEvent.getId()!, key, shortcode);
+                    closeSheet();
+                  }}
+                  onMore={handleSheetAddReactions}
+                />
+              )
+            }
+          >
+            {renderMenuItems(closeSheet, true)}
+          </MessageSheet>
+        )}
+        {emojiSheet && (
+          <Overlay
+            open={emojiSheet}
+            backdrop={<OverlayBackdrop />}
+            onContextMenu={(evt: any) => evt.stopPropagation()}
+          >
+            <div className={css.MessageEmojiSheet}>{emojiBoardJSX}</div>
+          </Overlay>
+        )}
       </MessageBase>
     );
   }
@@ -1178,15 +1220,34 @@ export const Event = as<'div', EventProps>(
     const mx = useMatrixClient();
     const [hover, setHover] = useState(false);
     const { hoverProps } = useHover({ onHoverChange: setHover });
-    const { focusWithinProps } = useFocusWithin({ onFocusWithinChange: setHover });
+    const { focusWithinProps } = useFocusWithin({
+      onFocusWithinChange: (focus) => setHover(focus && !isTouchInput()),
+    });
     const [menuAnchor, setMenuAnchor] = useState<RectCords>();
+    const [sheet, setSheet] = useState(false);
     const stateEvent = typeof mEvent.getStateKey() === 'string';
+
+    const openSheet = () => {
+      if (sheet) return;
+      hapticTick();
+      setSheet(true);
+    };
+    const closeSheet = () => {
+      setSheet(false);
+    };
+    const longPressProps = useLongPress<HTMLDivElement>(openSheet, {
+      ignore: LONG_PRESS_IGNORE,
+    });
 
     const handleContextMenu: MouseEventHandler<HTMLDivElement> = (evt) => {
       if (evt.altKey || !window.getSelection()?.isCollapsed) return;
       const tag = (evt.target as any).tagName;
       if (typeof tag === 'string' && tag.toLowerCase() === 'a') return;
       evt.preventDefault();
+      if (isTouchInput()) {
+        openSheet();
+        return;
+      }
       setMenuAnchor({
         x: evt.clientX,
         y: evt.clientY,
@@ -1204,17 +1265,46 @@ export const Event = as<'div', EventProps>(
       setMenuAnchor(undefined);
     };
 
+    const renderMenuItems = (close: () => void) => (
+      <>
+        <Box direction="Column" gap="100" className={css.MessageMenuGroup}>
+          {!hideReadReceipts && (
+            <MessageReadReceiptItem room={room} eventId={mEvent.getId() ?? ''} onClose={close} />
+          )}
+          {showDeveloperTools && (
+            <MessageSourceCodeItem room={room} mEvent={mEvent} onClose={close} />
+          )}
+          <MessageCopyLinkItem room={room} mEvent={mEvent} onClose={close} />
+        </Box>
+        {((!mEvent.isRedacted() && canDelete && !stateEvent) ||
+          (mEvent.getSender() !== mx.getUserId() && !stateEvent)) && (
+          <>
+            <Line size="300" />
+            <Box direction="Column" gap="100" className={css.MessageMenuGroup}>
+              {!mEvent.isRedacted() && canDelete && (
+                <MessageDeleteItem room={room} mEvent={mEvent} onClose={close} />
+              )}
+              {mEvent.getSender() !== mx.getUserId() && (
+                <MessageReportItem room={room} mEvent={mEvent} onClose={close} />
+              )}
+            </Box>
+          </>
+        )}
+      </>
+    );
+
     return (
       <MessageBase
-        className={classNames(css.MessageBase, className)}
+        className={classNames(css.MessageBase, css.MessageTouchActions, className)}
         tabIndex={0}
         space={messageSpacing}
         autoCollapse
         highlight={highlight}
-        selected={!!menuAnchor}
+        selected={!!menuAnchor || sheet}
         {...props}
         {...hoverProps}
         {...focusWithinProps}
+        {...longPressProps}
         ref={ref}
       >
         {(hover || !!menuAnchor) && (
@@ -1238,45 +1328,7 @@ export const Event = as<'div', EventProps>(
                       }}
                     >
                       <Menu {...props} ref={ref}>
-                        <Box direction="Column" gap="100" className={css.MessageMenuGroup}>
-                          {!hideReadReceipts && (
-                            <MessageReadReceiptItem
-                              room={room}
-                              eventId={mEvent.getId() ?? ''}
-                              onClose={closeMenu}
-                            />
-                          )}
-                          {showDeveloperTools && (
-                            <MessageSourceCodeItem
-                              room={room}
-                              mEvent={mEvent}
-                              onClose={closeMenu}
-                            />
-                          )}
-                          <MessageCopyLinkItem room={room} mEvent={mEvent} onClose={closeMenu} />
-                        </Box>
-                        {((!mEvent.isRedacted() && canDelete && !stateEvent) ||
-                          (mEvent.getSender() !== mx.getUserId() && !stateEvent)) && (
-                          <>
-                            <Line size="300" />
-                            <Box direction="Column" gap="100" className={css.MessageMenuGroup}>
-                              {!mEvent.isRedacted() && canDelete && (
-                                <MessageDeleteItem
-                                  room={room}
-                                  mEvent={mEvent}
-                                  onClose={closeMenu}
-                                />
-                              )}
-                              {mEvent.getSender() !== mx.getUserId() && (
-                                <MessageReportItem
-                                  room={room}
-                                  mEvent={mEvent}
-                                  onClose={closeMenu}
-                                />
-                              )}
-                            </Box>
-                          </>
-                        )}
+                        {renderMenuItems(closeMenu)}
                       </Menu>
                     </FocusTrap>
                   }
@@ -1296,6 +1348,11 @@ export const Event = as<'div', EventProps>(
           </div>
         )}
         <div onContextMenu={handleContextMenu}>{children}</div>
+        {sheet && (
+          <MessageSheet room={room} mEvent={mEvent} open={sheet} requestClose={closeSheet}>
+            {renderMenuItems(closeSheet)}
+          </MessageSheet>
+        )}
       </MessageBase>
     );
   }
