@@ -63,6 +63,11 @@ dependencies {
     implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
     implementation project(':capacitor-android')
+    // UnifiedPush (ntfy) receiver: MouseionPushService / MouseionPushPlugin. Same version the
+    // Compose app shipped, so its stored registration carries over on upgrade.
+    implementation "org.unifiedpush.android:connector:$unifiedPushConnectorVersion"
+    // org.json is an Android stub on the plain JVM; the unit tests need the real one.
+    testImplementation "org.json:json:$orgJsonVersion"
     testImplementation "junit:junit:$junitVersion"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"

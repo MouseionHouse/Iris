@@ -120,6 +120,9 @@ as a draft — never auto-sent.
    button behaves, edge-to-edge is right. Owner installs rc1 from F-Droid on the Fold.
 
 ### Phase 2 — OS bridges (`rc2`–`rcN`)
+- **Done (2026-09-28):** items 1–2 (push) — see WORKTRACK. Java, not Kotlin (the wrapper has no
+  Kotlin toolchain); the token uses an Android Keystore AES-GCM key instead of the deprecated
+  EncryptedSharedPreferences; the pusher is set at every start rather than only when missing.
 1. `MouseionPush` plugin + moved `MouseionPushService`/`PushSummary` on OkHttp/ktor with the stored
    token (`/rooms/{id}/event/{eid}`, room name from `/state/m.room.name`, member display name).
 2. Web side: `src/app/native/` — plugin typings, `useNativePush()`, pusher registration on `endpoint`,

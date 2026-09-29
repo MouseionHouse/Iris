@@ -52,6 +52,16 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths"></meta-data>
         </provider>
+
+        <!-- UnifiedPush (MouseionPushService): must not be exported; the connector delivers the
+             distributor's PUSH_EVENT intents here. Without it every push ntfy forwards is dropped. -->
+        <service
+            android:name=".MouseionPushService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="org.unifiedpush.android.connector.PUSH_EVENT" />
+            </intent-filter>
+        </service>
     </application>
 
     <!-- Camera is optional: the app still works on devices without one (file picker only). -->
@@ -60,8 +70,6 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
-    <!-- Phase 2 (mobile/WRAPPER-PLAN.md): the UnifiedPush push service will need this to post
-         notifications on API 33+. Requested here (harmless unused permission until then) so the
-         manifest does not need touching again for it. -->
+    <!-- MouseionPushService posts message notifications (runtime permission on API 33+). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 </manifest>

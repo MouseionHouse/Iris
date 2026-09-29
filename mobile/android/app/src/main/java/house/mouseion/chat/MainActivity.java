@@ -10,6 +10,7 @@ public class MainActivity extends BridgeActivity {
         // Must run before super.onCreate(): the bridge is created (and the launch intent
         // replayed through onNewIntent) at the end of BridgeActivity.onCreate.
         registerPlugin(MouseionSharePlugin.class);
+        registerPlugin(MouseionPushPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

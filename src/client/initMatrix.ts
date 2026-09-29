@@ -4,6 +4,7 @@ import { cryptoCallbacks } from './secretStorageKeys';
 import { clearNavToActivePathStore } from '../app/state/navToActivePath';
 import { notifyHubSignedOut } from '../app/hub/hubBridge';
 import { pushSessionToSW } from '../sw-session';
+import { clearNativePushSession } from '../app/native/pushBridge';
 
 type Session = {
   baseUrl: string;
@@ -56,6 +57,7 @@ export const clearCacheAndReload = async (mx: MatrixClient) => {
 
 export const logoutClient = async (mx: MatrixClient) => {
   pushSessionToSW();
+  await clearNativePushSession();
   mx.stopClient();
   try {
     await mx.logout();
