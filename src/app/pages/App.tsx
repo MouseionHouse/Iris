@@ -13,6 +13,7 @@ import { createRouter } from './Router';
 import { ScreenSizeProvider, useScreenSize } from '../hooks/useScreenSize';
 import { useCompositionEndTracking } from '../hooks/useComposingCheck';
 import { SharedContentBridge } from '../native/share';
+import { BackButtonBridge } from '../native/backButton';
 
 const queryClient = new QueryClient();
 
@@ -39,6 +40,7 @@ function App() {
                     <QueryClientProvider client={queryClient}>
                       <JotaiProvider>
                         <SharedContentBridge />
+                        <BackButtonBridge />
                         <RouterProvider router={createRouter(clientConfig, screenSize)} />
                       </JotaiProvider>
                       <ReactQueryDevtools initialIsOpen={false} />

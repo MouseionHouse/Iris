@@ -6,7 +6,18 @@ import { createRoot } from 'react-dom/client';
 import '@fontsource/inter/variable.css';
 import 'folds/dist/style.css';
 import '../index.css';
-import { Box, Scroll, Text, color, config, configClass, lightTheme, varsClass } from 'folds';
+import {
+  Box,
+  OverlayContainerProvider,
+  PopOutContainerProvider,
+  Scroll,
+  Text,
+  color,
+  config,
+  configClass,
+  lightTheme,
+  varsClass,
+} from 'folds';
 import { MatrixClient, MatrixEvent, Room } from 'matrix-js-sdk';
 import { onDarkFontWeight, onLightFontWeight } from '../config.css';
 import { darkTheme } from '../colors.css';
@@ -15,6 +26,7 @@ import { SpecVersionsProvider } from '../app/hooks/useSpecVersions';
 import { Event, Message } from '../app/features/room/message';
 import { MessageTextBody } from '../app/components/message';
 import { MessageLayout, MessageSpacing } from '../app/state/settings';
+import { handleBackButton } from '../app/native/backButton';
 
 const MY_ID = '@hector:example.org';
 const NAMES: Record<string, string> = {
@@ -135,6 +147,9 @@ function MockTimeline() {
   );
 }
 
+// the Android back button, for the console and for scripted checks
+(window as any).mockBack = () => handleBackButton(false);
+
 const dark = window.location.search.includes('dark');
 document.body.classList.add(
   configClass,
@@ -146,10 +161,16 @@ const style = document.createElement('style');
 style.textContent = `#mock-root { width: 100%; height: 100%; }`;
 document.head.appendChild(style);
 
+const portalContainer = document.getElementById('portalContainer') ?? undefined;
+
 createRoot(document.getElementById('mock-root')!).render(
   <SpecVersionsProvider value={{ versions: ['v1.11'] }}>
     <MatrixClientProvider value={mx}>
-      <MockTimeline />
+      <PopOutContainerProvider value={portalContainer}>
+        <OverlayContainerProvider value={portalContainer}>
+          <MockTimeline />
+        </OverlayContainerProvider>
+      </PopOutContainerProvider>
     </MatrixClientProvider>
   </SpecVersionsProvider>
 );
