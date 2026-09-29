@@ -88,6 +88,23 @@ import { MessageCopyTextItem, MessageSheet, MessageSheetReactions } from './Mess
 const LONG_PRESS_IGNORE =
   'a, input, textarea, select, [contenteditable="true"], [data-user-id], [data-reaction-key]';
 
+// What answers a tap by itself: links, buttons, media, mentions, spoilers.
+const TAP_IGNORE = `${LONG_PRESS_IGNORE}, button, summary, video, audio, [role="button"], [tabindex], [data-mx-spoiler]`;
+
+// A tap on the message itself, not on something inside of it that is interactive.
+const isMessageTap = (evt: React.MouseEvent<HTMLElement>): boolean => {
+  const message = evt.currentTarget;
+  let element = evt.target as Element | null;
+  // React bubbles events out of portals
+  if (!element || !message.contains(element)) return false;
+
+  while (element && element !== message) {
+    if (element.matches(TAP_IGNORE)) return false;
+    element = element.parentElement;
+  }
+  return true;
+};
+
 export type ReactionHandler = (keyOrMxc: string, shortcode: string) => void;
 
 type MessageQuickReactionsProps = {
@@ -732,7 +749,7 @@ export const Message = as<'div', MessageProps>(
 
     const [hover, setHover] = useState(false);
     const { hoverProps } = useHover({ onHoverChange: setHover });
-    // a tap focuses the message, but the options bar is for pointer and keyboard
+    // a tap opens the action sheet, the options bar is for pointer and keyboard
     const { focusWithinProps } = useFocusWithin({
       onFocusWithinChange: (focus) => setHover(focus && !isTouchInput()),
     });
@@ -741,18 +758,22 @@ export const Message = as<'div', MessageProps>(
     const [sheet, setSheet] = useState(false);
     const [emojiSheet, setEmojiSheet] = useState(false);
 
-    const openSheet = () => {
+    const openSheet = (haptic?: boolean) => {
       if (sheet || emojiSheet) return;
-      hapticTick();
+      if (haptic) hapticTick();
       setSheet(true);
     };
     const closeSheet = () => {
       setSheet(false);
     };
-    const longPressProps = useLongPress<HTMLDivElement>(openSheet, {
+    const longPressProps = useLongPress<HTMLDivElement>(() => openSheet(true), {
       disabled: edit,
       ignore: LONG_PRESS_IGNORE,
     });
+    const handleTap: MouseEventHandler<HTMLDivElement> = (evt) => {
+      if (edit || !isTouchInput() || !window.getSelection()?.isCollapsed) return;
+      if (isMessageTap(evt)) openSheet();
+    };
 
     const senderDisplayName =
       getMemberDisplayName(room, senderId) ?? getMxIdLocalPart(senderId) ?? senderId;
@@ -868,7 +889,7 @@ export const Message = as<'div', MessageProps>(
       evt.preventDefault();
       // Android reports a long-press as context menu
       if (isTouchInput()) {
-        openSheet();
+        openSheet(true);
         return;
       }
       setMenuAnchor({
@@ -1042,6 +1063,7 @@ export const Message = as<'div', MessageProps>(
         {...hoverProps}
         {...focusWithinProps}
         {...longPressProps}
+        onClick={handleTap}
         ref={ref}
       >
         {!edit && (hover || !!menuAnchor || !!emojiBoardAnchor) && (
@@ -1227,17 +1249,21 @@ export const Event = as<'div', EventProps>(
     const [sheet, setSheet] = useState(false);
     const stateEvent = typeof mEvent.getStateKey() === 'string';
 
-    const openSheet = () => {
+    const openSheet = (haptic?: boolean) => {
       if (sheet) return;
-      hapticTick();
+      if (haptic) hapticTick();
       setSheet(true);
     };
     const closeSheet = () => {
       setSheet(false);
     };
-    const longPressProps = useLongPress<HTMLDivElement>(openSheet, {
+    const longPressProps = useLongPress<HTMLDivElement>(() => openSheet(true), {
       ignore: LONG_PRESS_IGNORE,
     });
+    const handleTap: MouseEventHandler<HTMLDivElement> = (evt) => {
+      if (!isTouchInput() || !window.getSelection()?.isCollapsed) return;
+      if (isMessageTap(evt)) openSheet();
+    };
 
     const handleContextMenu: MouseEventHandler<HTMLDivElement> = (evt) => {
       if (evt.altKey || !window.getSelection()?.isCollapsed) return;
@@ -1245,7 +1271,7 @@ export const Event = as<'div', EventProps>(
       if (typeof tag === 'string' && tag.toLowerCase() === 'a') return;
       evt.preventDefault();
       if (isTouchInput()) {
-        openSheet();
+        openSheet(true);
         return;
       }
       setMenuAnchor({
@@ -1305,6 +1331,7 @@ export const Event = as<'div', EventProps>(
         {...hoverProps}
         {...focusWithinProps}
         {...longPressProps}
+        onClick={handleTap}
         ref={ref}
       >
         {(hover || !!menuAnchor) && (

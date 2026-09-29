@@ -138,7 +138,17 @@ function MockTimeline() {
               hour24Clock={false}
               dateFormatString="D MMM YYYY"
             >
-              <MessageTextBody>{mEvent.getContent().body}</MessageTextBody>
+              <MessageTextBody>
+                {mEvent.getContent().body}
+                {mEvent.getId() === '$event4' && (
+                  <>
+                    {' '}
+                    <a href="#link" onClick={() => setLog('link')}>
+                      mouseion.house/list
+                    </a>
+                  </>
+                )}
+              </MessageTextBody>
             </Message>
           ))}
         </Box>
