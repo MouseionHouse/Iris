@@ -28,7 +28,9 @@ export const UrlPreviewCard = as<'div', { url: string; ts: number }>(
     );
 
     useEffect(() => {
-      loadPreview();
+      // A link the server cannot preview (blocked, private, or the site refuses bots) is
+      // normal: the Error state below hides the card, so the rejection is already handled.
+      loadPreview().catch(() => undefined);
     }, [loadPreview]);
 
     if (previewStatus.status === AsyncStatus.Error) return null;

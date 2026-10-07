@@ -27,7 +27,13 @@ import * as css from './style.css';
 import { bytesToSize } from '../../../utils/common';
 import { FALLBACK_MIMETYPE } from '../../../utils/mimeTypes';
 import { stopPropagation } from '../../../utils/keyboard';
-import { decryptFile, downloadEncryptedMedia, mxcUrlToHttp } from '../../../utils/matrix';
+import {
+  decryptFile,
+  downloadEncryptedMedia,
+  downloadMedia,
+  mxcUrlToHttp,
+} from '../../../utils/matrix';
+import { heicToDisplayable, isHeic } from '../../../utils/heic';
 import { useMediaAuthentication } from '../../../hooks/useMediaAuthentication';
 import { ModalWide } from '../../../styles/Modal.css';
 import { validBlurHash } from '../../../utils/blurHash';
@@ -89,14 +95,18 @@ export const ImageContent = as<'div', ImageContentProps>(
       useCallback(async () => {
         const mediaUrl = mxcUrlToHttp(mx, url, useAuthentication);
         if (!mediaUrl) throw new Error('Invalid media URL');
+        const heic = isHeic(mimeType, body);
         if (encInfo) {
           const fileContent = await downloadEncryptedMedia(mediaUrl, (encBuf) =>
             decryptFile(encBuf, mimeType ?? FALLBACK_MIMETYPE, encInfo)
           );
-          return URL.createObjectURL(fileContent);
+          return URL.createObjectURL(heic ? await heicToDisplayable(fileContent) : fileContent);
+        }
+        if (heic) {
+          return URL.createObjectURL(await heicToDisplayable(await downloadMedia(mediaUrl)));
         }
         return mediaUrl;
-      }, [mx, url, useAuthentication, mimeType, encInfo])
+      }, [mx, url, useAuthentication, mimeType, encInfo, body])
     );
 
     const handleLoad = () => {
