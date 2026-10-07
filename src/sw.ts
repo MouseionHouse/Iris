@@ -137,6 +137,62 @@ function fetchConfig(token: string): RequestInit {
   };
 }
 
+// A picture that failed to arrive is asked for again after these waits. Returning to the app
+// drops its connections, and a transfer cut then left the picture broken until a manual retry.
+const IMAGE_RETRY_DELAYS_MS = [500, 1500, 4000];
+// How long the server may take to start answering before the attempt is given up.
+const IMAGE_RESPONSE_TIMEOUT_MS = 20000;
+
+const sleep = (ms: number) =>
+  new Promise<void>((resolve) => {
+    setTimeout(resolve, ms);
+  });
+
+/** One attempt at a picture, read to the end so that a transfer cut short fails here. */
+async function fetchImage(request: Request, token: string): Promise<Response> {
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  request.signal.addEventListener('abort', abort);
+  const timeout = setTimeout(abort, IMAGE_RESPONSE_TIMEOUT_MS);
+  try {
+    const response = await fetch(request.url, { ...fetchConfig(token), signal: controller.signal });
+    clearTimeout(timeout);
+    if (!response.ok) return response;
+    const body = await response.blob();
+    return new Response(body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: { 'Content-Type': response.headers.get('Content-Type') ?? body.type },
+    });
+  } finally {
+    clearTimeout(timeout);
+    request.signal.removeEventListener('abort', abort);
+  }
+}
+
+const retriable = (status: number): boolean => status >= 500 || status === 429;
+
+/**
+ * Fetches media with the session's token. Pictures are retried when the network fails them;
+ * anything else (video and audio stream in ranges, downloads can be large) passes through.
+ */
+async function fetchMedia(request: Request, token: string): Promise<Response> {
+  if (request.destination !== 'image') return fetch(request.url, fetchConfig(token));
+
+  for (let attempt = 0; ; attempt += 1) {
+    const last = attempt === IMAGE_RETRY_DELAYS_MS.length;
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      const response = await fetchImage(request, token);
+      if (last || !retriable(response.status)) return response;
+    } catch (error) {
+      if (last || request.signal.aborted) throw error;
+    }
+    // eslint-disable-next-line no-await-in-loop
+    await sleep(IMAGE_RETRY_DELAYS_MS[attempt]);
+  }
+}
+
 /**
  * A session another tab already shared, usable for this media URL. Every tab of this
  * origin signs in to the same account, so a request this worker cannot tie to a tab
@@ -176,21 +232,21 @@ self.addEventListener('fetch', (event: FetchEvent) => {
   const ownSession = clientId ? sessions.get(clientId) : undefined;
   if (ownSession) {
     if (validMediaRequest(url, ownSession.baseUrl)) {
-      event.respondWith(fetch(url, fetchConfig(ownSession.accessToken)));
+      event.respondWith(fetchMedia(event.request, ownSession.accessToken));
     }
     return;
   }
 
   const sharedSession = sharedSessionFor(url);
   if (sharedSession) {
-    event.respondWith(fetch(url, fetchConfig(sharedSession.accessToken)));
+    event.respondWith(fetchMedia(event.request, sharedSession.accessToken));
     return;
   }
 
   event.respondWith(
     findSession(clientId, url).then((s) => {
       if (s && validMediaRequest(url, s.baseUrl)) {
-        return fetch(url, fetchConfig(s.accessToken));
+        return fetchMedia(event.request, s.accessToken);
       }
       return fetch(event.request);
     })

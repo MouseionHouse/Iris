@@ -207,6 +207,22 @@ public class MouseionPushPlugin extends Plugin {
         call.resolve();
     }
 
+    /** The rooms the app counts as unread, sent while it is on screen and in sync. */
+    @PluginMethod
+    public void setUnreadRooms(PluginCall call) {
+        JSArray roomIds = call.getArray("roomIds");
+        if (roomIds == null) {
+            call.reject("roomIds is required");
+            return;
+        }
+        try {
+            PushNotifier.setUnreadRooms(getContext(), roomIds.<String>toList());
+            call.resolve();
+        } catch (Exception e) {
+            call.reject("roomIds must be strings", e);
+        }
+    }
+
     @PluginMethod
     public void setSoundEnabled(PluginCall call) {
         boolean enabled = Boolean.TRUE.equals(call.getBoolean("enabled", true));

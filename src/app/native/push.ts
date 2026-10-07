@@ -1,7 +1,12 @@
 import { PluginListenerHandle } from '@capacitor/core';
+import { useAtomValue } from 'jotai';
+import { SyncState } from 'matrix-js-sdk';
 import { useCallback, useEffect, useState } from 'react';
 import { useMatrixClient } from '../hooks/useMatrixClient';
 import { useRoomNavigate } from '../hooks/useRoomNavigate';
+import { useSyncState } from '../hooks/useSyncState';
+import { allInvitesAtom } from '../state/room-list/inviteList';
+import { roomToUnreadAtom } from '../state/room/roomToUnread';
 import { useSetting } from '../state/hooks/settings';
 import { settingsAtom } from '../state/settings';
 import {
@@ -46,6 +51,21 @@ export function NativePushFeature() {
   const mx = useMatrixClient();
   const { navigateRoom } = useRoomNavigate();
   const [isNotificationSounds] = useSetting(settingsAtom, 'isNotificationSounds');
+  const roomToUnread = useAtomValue(roomToUnreadAtom);
+  const invites = useAtomValue(allInvitesAtom);
+  const [inSync, setInSync] = useState(false);
+
+  useSyncState(
+    mx,
+    useCallback((state: SyncState) => setInSync(state === SyncState.Syncing), [])
+  );
+
+  // Coming back to the app, the state on screen is as old as the pause until the next sync.
+  useEffect(() => {
+    const onVisibilityChange = () => setInSync(false);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
+  }, []);
 
   useEffect(() => {
     if (!isNativePushAvailable()) return undefined;
@@ -89,6 +109,15 @@ export function NativePushFeature() {
       MouseionPush.addListener('notificationTap', ({ roomId }) => navigateRoom(roomId)),
     ]);
   }, [navigateRoom]);
+
+  // A room read here, or on another device while the app was closed, leaves the shade. Only once
+  // a sync has completed on screen: before that the unread state predates the notifications.
+  useEffect(() => {
+    if (!isNativePushAvailable() || !inSync || document.visibilityState !== 'visible') return;
+    MouseionPush.setUnreadRooms({ roomIds: [...roomToUnread.keys(), ...invites] }).catch(
+      () => undefined
+    );
+  }, [inSync, roomToUnread, invites]);
 
   useEffect(() => {
     if (!isNativePushAvailable()) return;
