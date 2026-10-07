@@ -33,6 +33,8 @@ type MouseionPushApi = {
   disable(): Promise<{ pushkey?: string }>;
   setSession(options: { baseUrl: string; userId: string; accessToken: string }): Promise<void>;
   clearSession(): Promise<void>;
+  /** The rooms still unread: the notifications of every other room leave the shade. */
+  setUnreadRooms(options: { roomIds: string[] }): Promise<void>;
   setSoundEnabled(options: { enabled: boolean }): Promise<void>;
   openNotificationSettings(): Promise<void>;
   addListener(

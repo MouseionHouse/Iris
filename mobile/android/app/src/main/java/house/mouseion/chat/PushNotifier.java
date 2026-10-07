@@ -10,6 +10,7 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
+import android.service.notification.StatusBarNotification;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.Person;
 import java.io.ByteArrayOutputStream;
@@ -18,12 +19,12 @@ import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import org.json.JSONArray;
 import org.json.JSONObject;
 
 /**
@@ -41,7 +42,6 @@ final class PushNotifier {
     private static final String CHANNEL_MESSAGES = "messages";
     private static final String GROUP = "house.mouseion.chat.messages";
     private static final int SUMMARY_ID = 0;
-    private static final int MAX_MESSAGES = 8;
 
     private static final ExecutorService WORKER = Executors.newSingleThreadExecutor();
 
@@ -63,22 +63,26 @@ final class PushNotifier {
         int unread = counts != null ? counts.optInt("unread", -1) : -1;
         String priority = notification.optString("prio", "");
 
-        if (!roomId.isEmpty() && unread == 0) {
-            // The room was read (here or on another device): clear what we showed for it.
-            clearRoom(app, roomId);
-            return;
+        switch (PushHistory.actionOf(roomId, eventId, unread)) {
+            case CLEAR_ALL:
+                clearShown(app);
+                return;
+            case IGNORE:
+                return;
+            default:
+                break;
         }
-        if (roomId.isEmpty() || eventId.isEmpty()) return;
 
         long receivedAt = System.currentTimeMillis();
         WORKER.execute(() -> {
             PushSummary summary = summarise(app, roomId, eventId);
             if (summary == null) return;
             // The room was read while the fetch was being retried: its clearing push came first.
-            if (PushStore.prefs(app).getLong(clearedKey(roomId), 0L) >= receivedAt) return;
+            SharedPreferences prefs = PushStore.prefs(app);
+            if (Math.max(prefs.getLong(clearedKey(roomId), 0L), prefs.getLong(KEY_CLEARED_ALL, 0L)) >= receivedAt) return;
             // The app is on screen: its own unread badges show the message, no shade entry needed.
             if (MouseionPushPlugin.isAppVisible()) return;
-            post(app, summary, unread, PushSummary.playsSound(priority, PushStore.soundEnabled(app)));
+            post(app, summary, eventId, unread, PushSummary.playsSound(priority, PushStore.soundEnabled(app)));
         });
     }
 
@@ -86,14 +90,27 @@ final class PushNotifier {
         PushStore.prefs(context).edit().putLong(clearedKey(roomId), System.currentTimeMillis()).remove(historyKey(roomId)).apply();
         NotificationManager manager = manager(context);
         manager.cancel(roomId.hashCode());
-        if (roomsWithHistory(context) == 0) manager.cancel(SUMMARY_ID);
+        if (roomsWithHistory(context).isEmpty()) manager.cancel(SUMMARY_ID);
+    }
+
+    /** Everything was read: the shade empties, the session stays. */
+    private static void clearShown(Context context) {
+        SharedPreferences.Editor editor = PushStore.prefs(context).edit().putLong(KEY_CLEARED_ALL, System.currentTimeMillis());
+        for (String roomId : roomsWithHistory(context)) editor.remove(historyKey(roomId));
+        editor.apply();
+        manager(context).cancelAll();
+    }
+
+    /** The app is on screen and in sync: rooms it no longer counts as unread leave the shade. */
+    static void setUnreadRooms(Context context, Collection<String> unreadRooms) {
+        for (String roomId : PushHistory.read(roomsWithHistory(context), unreadRooms)) clearRoom(context, roomId);
     }
 
     /** Signed out: nothing from the old session stays on the shade or in prefs. */
     static void clearAll(Context context) {
         SharedPreferences.Editor editor = PushStore.prefs(context).edit();
         for (String key : PushStore.prefs(context).getAll().keySet()) {
-            if (key.startsWith("hist:") || key.startsWith("cleared:")) editor.remove(key);
+            if (key.startsWith("hist:") || key.startsWith("cleared:") || key.equals(KEY_CLEARED_ALL)) editor.remove(key);
         }
         editor.apply();
         manager(context).cancelAll();
@@ -186,7 +203,7 @@ final class PushNotifier {
         return Uri.encode(segment);
     }
 
-    private static void post(Context context, PushSummary summary, int unread, boolean sound) {
+    private static void post(Context context, PushSummary summary, String eventId, int unread, boolean sound) {
         if (
             Build.VERSION.SDK_INT >= 33 &&
             context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
@@ -200,20 +217,24 @@ final class PushNotifier {
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         PendingIntent tap = PendingIntent.getActivity(context, id, open, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
-        // One conversation per room, keeping the last MAX_MESSAGES lines. The lines come from prefs
-        // rather than the showing notification: the process is usually cold for every push, and the
-        // system does not hand back a collapsed group's messages.
-        List<JSONObject> history = readHistory(context, summary.roomId);
+        // One conversation per room. The lines come from prefs rather than the showing notification
+        // (the process is usually cold for every push, and the system does not hand back a collapsed
+        // group's messages), but only while that notification is still on the shade (PushHistory).
+        long now = System.currentTimeMillis();
+        Set<Integer> showing = showingIds(manager);
+        forgetDismissed(context, showing, summary.roomId, now);
+        List<PushHistory.Line> lines = PushHistory.next(
+            readHistory(context, summary.roomId),
+            showing == null || showing.contains(id),
+            new PushHistory.Line(eventId, summary.body, summary.senderName, now)
+        );
+        PushStore.prefs(context).edit().putString(historyKey(summary.roomId), PushHistory.serialise(lines)).apply();
         NotificationCompat.MessagingStyle style = new NotificationCompat.MessagingStyle(new Person.Builder().setName("You").build())
             .setConversationTitle(summary.isGroup ? summary.title : null)
             .setGroupConversation(summary.isGroup);
-        int skip = Math.max(0, history.size() - (MAX_MESSAGES - 1));
-        for (JSONObject line : history.subList(skip, history.size())) {
-            style.addMessage(line.optString("t"), line.optLong("m"), new Person.Builder().setName(line.optString("s", "")).build());
+        for (PushHistory.Line line : lines) {
+            style.addMessage(line.text, line.at, new Person.Builder().setName(line.sender).build());
         }
-        long now = System.currentTimeMillis();
-        style.addMessage(summary.body, now, new Person.Builder().setName(summary.senderName).build());
-        writeHistory(context, summary.roomId, history, summary.body, summary.senderName, now);
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_MESSAGES)
             .setSmallIcon(R.drawable.ic_notification)
@@ -230,7 +251,7 @@ final class PushNotifier {
         manager.notify(id, builder.build());
 
         // Several rooms collapse into one shade entry; only the room's own notification alerts.
-        int rooms = roomsWithHistory(context);
+        int rooms = roomsWithHistory(context).size();
         String roomsText = rooms == 1 ? "1 room" : rooms + " rooms";
         Intent launch = new Intent(context, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         manager.notify(
@@ -253,7 +274,7 @@ final class PushNotifier {
         return (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
     }
 
-    // Per-room history: "hist:<roomId>" → [{"t": text, "s": sender, "m": epochMs}].
+    // Per-room history: "hist:<roomId>" → PushHistory.serialise.
     private static String historyKey(String roomId) {
         return "hist:" + roomId;
     }
@@ -263,36 +284,40 @@ final class PushNotifier {
         return "cleared:" + roomId;
     }
 
-    private static List<JSONObject> readHistory(Context context, String roomId) {
-        List<JSONObject> lines = new ArrayList<>();
-        String raw = PushStore.prefs(context).getString(historyKey(roomId), null);
-        if (raw == null) return lines;
-        try {
-            JSONArray array = new JSONArray(raw);
-            for (int i = 0; i < array.length(); i++) lines.add(array.getJSONObject(i));
-        } catch (Exception ignored) {
-            // A corrupt entry only loses the older lines.
-        }
-        return lines;
+    // When everything was last cleared because nothing was unread any more → epoch ms.
+    private static final String KEY_CLEARED_ALL = "clearedAll";
+
+    private static List<PushHistory.Line> readHistory(Context context, String roomId) {
+        return PushHistory.parse(PushStore.prefs(context).getString(historyKey(roomId), null));
     }
 
-    private static void writeHistory(Context context, String roomId, List<JSONObject> previous, String text, String sender, long at) {
+    private static Set<String> roomsWithHistory(Context context) {
+        Set<String> rooms = new HashSet<>();
+        for (String key : PushStore.prefs(context).getAll().keySet()) {
+            if (key.startsWith("hist:")) rooms.add(key.substring("hist:".length()));
+        }
+        return rooms;
+    }
+
+    /** The ids of this app's notifications on the shade, or null when Android will not say. */
+    private static Set<Integer> showingIds(NotificationManager manager) {
         try {
-            JSONArray array = new JSONArray();
-            int skip = Math.max(0, previous.size() + 1 - MAX_MESSAGES);
-            for (JSONObject line : previous.subList(skip, previous.size())) array.put(line);
-            array.put(new JSONObject().put("t", text).put("s", sender).put("m", at));
-            PushStore.prefs(context).edit().putString(historyKey(roomId), array.toString()).apply();
-        } catch (Exception ignored) {
-            // History is context only; the notification itself was posted.
+            Set<Integer> ids = new HashSet<>();
+            for (StatusBarNotification shown : manager.getActiveNotifications()) ids.add(shown.getId());
+            return ids;
+        } catch (RuntimeException e) {
+            return null;
         }
     }
 
-    private static int roomsWithHistory(Context context) {
-        int count = 0;
-        for (Map.Entry<String, ?> entry : PushStore.prefs(context).getAll().entrySet()) {
-            if (entry.getKey().startsWith("hist:")) count++;
+    /** Drops the history of the other rooms whose notification the user dismissed or opened. */
+    private static void forgetDismissed(Context context, Set<Integer> showing, String currentRoomId, long now) {
+        if (showing == null) return;
+        SharedPreferences.Editor editor = PushStore.prefs(context).edit();
+        for (String roomId : roomsWithHistory(context)) {
+            if (roomId.equals(currentRoomId)) continue;
+            if (!PushHistory.live(readHistory(context, roomId), showing.contains(roomId.hashCode()), now)) editor.remove(historyKey(roomId));
         }
-        return count;
+        editor.apply();
     }
 }
