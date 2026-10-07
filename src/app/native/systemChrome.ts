@@ -1,4 +1,4 @@
-import { Capacitor, registerPlugin } from '@capacitor/core';
+import { Capacitor, SystemBars, SystemBarsStyle, SystemBarType } from '@capacitor/core';
 import { color } from 'folds';
 import { Theme, ThemeKind } from '../hooks/useTheme';
 
@@ -22,11 +22,9 @@ import { Theme, ThemeKind } from '../hooks/useTheme';
 
 // The Android core (Capacitor 8.5.x) registers the system-bars plugin under the id
 // "SystemBars" (the `@capacitor/status-bar` web package still registers "StatusBar", which
-// does not resolve on this core version), so we talk to "SystemBars" directly.
-type SystemBarsApi = {
-  setStyle(options: { style: 'DARK' | 'LIGHT' | 'DEFAULT'; bar?: string }): Promise<void>;
-};
-const SystemBars = registerPlugin<SystemBarsApi>('SystemBars');
+// does not resolve on this core version), so we talk to "SystemBars" directly. The core
+// already registers and exports it; registering the id a second time logs an error on
+// every page load.
 
 export function applyThemeChrome(theme: Theme): void {
   const background = color.Background.Container;
@@ -44,8 +42,8 @@ export function applyThemeChrome(theme: Theme): void {
     // (for dark surfaces), "LIGHT" = dark icons (for light surfaces). No-ops (and is caught)
     // on web or if the plugin is unavailable.
     SystemBars.setStyle({
-      bar: 'StatusBar',
-      style: theme.kind === ThemeKind.Dark ? 'DARK' : 'LIGHT',
+      bar: SystemBarType.StatusBar,
+      style: theme.kind === ThemeKind.Dark ? SystemBarsStyle.Dark : SystemBarsStyle.Light,
     }).catch(() => undefined);
   }
 }

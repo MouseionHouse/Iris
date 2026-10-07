@@ -31,10 +31,14 @@ export function ServerConfigsLoader({ children }: ServerConfigsLoaderProps) {
       const authMetadata = promiseFulfilledResult(result[2]);
       let validatedAuthMetadata: ValidatedAuthMetadata | undefined;
 
-      try {
-        validatedAuthMetadata = validateAuthMetadata(authMetadata);
-      } catch (e) {
-        console.error(e);
+      // A homeserver without OIDC answers the metadata request with a 404; that is a
+      // supported setup, not an error worth validating and logging.
+      if (authMetadata) {
+        try {
+          validatedAuthMetadata = validateAuthMetadata(authMetadata);
+        } catch (e) {
+          console.error(e);
+        }
       }
 
       return {
