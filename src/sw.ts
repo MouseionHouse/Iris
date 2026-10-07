@@ -102,6 +102,12 @@ self.addEventListener('message', (event: ExtendableMessageEvent) => {
     setSession(client.id, accessToken, baseUrl);
     cleanupDeadClients();
   }
+
+  // A page that loaded without a controller (first visit, or a forced reload) asks to be
+  // taken over, so its media requests pass through here and get the access token.
+  if (type === 'claim') {
+    event.waitUntil(self.clients.claim());
+  }
 });
 
 const MEDIA_PATHS = ['/_matrix/client/v1/media/download', '/_matrix/client/v1/media/thumbnail'];
@@ -187,24 +193,58 @@ async function fetchMedia(request: Request, token: string): Promise<Response> {
   }
 }
 
+/**
+ * A session another tab already shared, usable for this media URL. Every tab of this
+ * origin signs in to the same account, so a request this worker cannot tie to a tab
+ * (no client id, e.g. a notification icon) or whose tab has not answered yet can still
+ * be authenticated instead of going out bare and coming back 401.
+ */
+function sharedSessionFor(url: string): SessionInfo | undefined {
+  return Array.from(sessions.values()).find((s) => validMediaRequest(url, s.baseUrl));
+}
+
+/**
+ * Ask the requesting tab for its session, then any open tab, before giving up.
+ */
+async function findSession(clientId: string, url: string): Promise<SessionInfo | undefined> {
+  if (clientId) {
+    const own = await requestSessionWithTimeout(clientId);
+    if (own) return own;
+  }
+
+  const shared = sharedSessionFor(url);
+  if (shared) return shared;
+
+  const windows = await self.clients.matchAll({ type: 'window' });
+  const answers = await Promise.all(
+    windows.filter((c) => c.id !== clientId).map((c) => requestSessionWithTimeout(c.id))
+  );
+  return answers.find((s) => s && validMediaRequest(url, s.baseUrl));
+}
+
 self.addEventListener('fetch', (event: FetchEvent) => {
   const { url, method } = event.request;
 
   if (method !== 'GET' || !mediaPath(url)) return;
 
   const { clientId } = event;
-  if (!clientId) return;
 
-  const session = sessions.get(clientId);
-  if (session) {
-    if (validMediaRequest(url, session.baseUrl)) {
-      event.respondWith(fetchMedia(event.request, session.accessToken));
+  const ownSession = clientId ? sessions.get(clientId) : undefined;
+  if (ownSession) {
+    if (validMediaRequest(url, ownSession.baseUrl)) {
+      event.respondWith(fetchMedia(event.request, ownSession.accessToken));
     }
     return;
   }
 
+  const sharedSession = sharedSessionFor(url);
+  if (sharedSession) {
+    event.respondWith(fetchMedia(event.request, sharedSession.accessToken));
+    return;
+  }
+
   event.respondWith(
-    requestSessionWithTimeout(clientId).then((s) => {
+    findSession(clientId, url).then((s) => {
       if (s && validMediaRequest(url, s.baseUrl)) {
         return fetchMedia(event.request, s.accessToken);
       }

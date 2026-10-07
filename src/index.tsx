@@ -15,12 +15,13 @@ import App from './app/pages/App';
 
 // import i18n (needs to be bundled ;))
 import './app/i18n';
-import { pushSessionToSW } from './sw-session';
+import { pushSessionToSW, waitForSWControl } from './sw-session';
 import { getFallbackSession } from './app/state/sessions';
 
 document.body.classList.add(configClass, varsClass);
 
 // Register Service Worker
+let swRegistration: Promise<ServiceWorkerRegistration> | undefined;
 if ('serviceWorker' in navigator) {
   // `PROD`, not `MODE === 'production'`: a `vite build --mode mobile` (the wrapper's bundle,
   // capacitor.config.ts) is still a production build, but its MODE is 'mobile'.
@@ -33,8 +34,11 @@ if ('serviceWorker' in navigator) {
     pushSessionToSW(session?.baseUrl, session?.accessToken);
   };
 
-  navigator.serviceWorker.register(swUrl).then(sendSessionToSW);
+  swRegistration = navigator.serviceWorker.register(swUrl);
+  swRegistration.then(sendSessionToSW);
   navigator.serviceWorker.ready.then(sendSessionToSW);
+  // The session can only be pushed to a controller, so push again once there is one.
+  navigator.serviceWorker.addEventListener('controllerchange', sendSessionToSW);
 
   navigator.serviceWorker.addEventListener('message', (ev) => {
     const { type } = ev.data ?? {};
@@ -57,4 +61,5 @@ const mountApp = () => {
   root.render(<App />);
 };
 
-mountApp();
+// Mount once media requests can be authenticated; see waitForSWControl.
+waitForSWControl(swRegistration).finally(mountApp);
