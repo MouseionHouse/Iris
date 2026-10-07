@@ -11,7 +11,10 @@
 # `BREAKING CHANGE:` footer or a `!` after the type (`feat!:`, `fix!:`) bumps major, anything else
 # (including this project's own informal `mobile: ...`/`web: ...` commits) bumps patch — then
 # builds, signs and publishes that version to fdroid.example.net and marks it current. A push
-# to any other branch (or a PR) still builds an (unsigned, unminified) APK as a build-only check.
+# to any other branch is a check only: the mobile web bundle always, and the Android project
+# (unit tests and an unsigned, unminified APK) only when the branch changes something native
+# (the "Native changes" step). A web-only branch used to spend four minutes on an APK nobody
+# installed, and the merge then built the same tree again for the release.
 # The git tag itself is best-effort (see "tag this release" below): it is never what triggers a
 # release, only a record of one after the fact.
 #
@@ -117,11 +120,33 @@ jobs:
           fi
           echo "code=${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
 
+      # The Android project is built for every release, and on other branches only when they
+      # differ from the release branch in what Gradle compiles or packages besides the web bundle.
+      - name: Native changes — does this run need the Android build?
+        id: native
+        run: |
+          set -euo pipefail
+          if [[ "${{ steps.ver.outputs.publish }}" == "true" ]]; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git fetch --quiet origin "$RELEASE_BRANCH"
+          changed="$(git diff --name-only "origin/$RELEASE_BRANCH...HEAD" -- \
+            mobile/android capacitor.config.ts package.json package-lock.json .forgejo/workflows/mobile.yml)"
+          if [[ -n "$changed" ]]; then
+            echo "$changed"
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "no native change against $RELEASE_BRANCH: web bundle check only"
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          fi
+
       # @capacitor/android 8 requires source/target 21 (`invalid source release: 21` under the
       # image's baked-in JDK 17); the image only ships 17, so install 21 alongside it and point
       # Gradle at it for every later step. Verified on Ubuntu 22.04 (this image's base): the
       # universe repo carries openjdk-21-jdk-headless without extra repos.
       - name: JDK 21 (for @capacitor/android; keep JDK 17 as the default `java`)
+        if: steps.native.outputs.build == 'true'
         run: |
           set -euo pipefail
           export DEBIAN_FRONTEND=noninteractive
@@ -130,19 +155,23 @@ jobs:
           echo "JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64" >> "$GITHUB_ENV"
 
       - name: Android SDK platform 36
+        if: steps.native.outputs.build == 'true'
         run: |
           set -euo pipefail
           yes 2>/dev/null | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0" > /dev/null
           printf 'sdk.dir=%s\n' "$ANDROID_HOME" > mobile/android/local.properties
 
+      # The download cache lives on the volume that already holds Gradle's, so a run fetches
+      # only the packages that changed.
       - name: npm ci
-        run: npm ci
+        run: npm ci --cache /gradle-cache/npm --prefer-offline
 
       - name: Build the mobile web bundle
         run: npm run build:mobile
 
       - name: Capacitor sync (copy the web bundle into the Android project)
+        if: steps.native.outputs.build == 'true'
         run: npx cap sync android
 
       - name: Decode signing keystore
@@ -154,10 +183,12 @@ jobs:
           chmod 600 "$d/release.jks"
           echo "MOUSEION_KEYSTORE_PATH=$d/release.jks" >> "$GITHUB_ENV"
 
-      # Every push builds a release APK so breakage in the Gradle/Capacitor wiring shows up early;
-      # it is only signed (and only R8-minified) when it will actually be published, mirroring the
-      # old workflow's "opt-in minify until verified on a device" caution.
-      - name: Build release APK
+      # A release APK is built whenever the Android project is, so breakage in the Gradle/Capacitor
+      # wiring shows up early; it is only signed (and only R8-minified) when it will actually be
+      # published, mirroring the old workflow's "opt-in minify until verified on a device" caution.
+      # The unit tests (PushSummaryTest, PushHistoryTest) run first and gate the release.
+      - name: Unit tests and release APK
+        if: steps.native.outputs.build == 'true'
         working-directory: mobile/android
         env:
           MOUSEION_KEYSTORE_PASSWORD: ${{ secrets.HOUSE_MOUSEION_CHAT_KEYSTORE_PASSWORD }}
@@ -165,7 +196,7 @@ jobs:
           MOUSEION_KEY_PASSWORD: ${{ secrets.HOUSE_MOUSEION_CHAT_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          ./gradlew --no-daemon --console=plain :app:assembleRelease \
+          ./gradlew --no-daemon --console=plain :app:testReleaseUnitTest :app:assembleRelease \
             -PmouseionMinify=${{ steps.ver.outputs.publish }} \
             -PversionCode=${{ steps.ver.outputs.code }} -PmouseionVersionName=${{ steps.ver.outputs.name }}
           apk=$(find app/build/outputs/apk/release -name '*.apk' | head -1)
@@ -202,6 +233,7 @@ jobs:
           gzip -c mobile/android/app/build/outputs/mapping/release/mapping.txt > "mobile/house.mouseion.chat-mapping-${{ steps.ver.outputs.name }}.txt.gz"
 
       - uses: actions/upload-artifact@v3
+        if: steps.native.outputs.build == 'true'
         with:
           name: mouseion-apk
           path: mobile/house.mouseion.chat-${{ steps.ver.outputs.name }}.apk

@@ -4,7 +4,8 @@ FROM node:24.13.1-alpine AS builder
 WORKDIR /src
 
 COPY .npmrc package.json package-lock.json /src/
-RUN npm ci
+# The cache mount keeps npm's downloads on the build host between builds.
+RUN --mount=type=cache,target=/root/.npm npm ci
 COPY . /src/
 ENV NODE_OPTIONS=--max_old_space_size=4096
 RUN npm run build
