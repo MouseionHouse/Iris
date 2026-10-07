@@ -23,6 +23,7 @@ import { EncryptedAttachmentInfo } from 'browser-encrypt-attachment';
 import { IImageInfo, MATRIX_BLUR_HASH_PROPERTY_NAME } from '../../../../types/matrix/common';
 import { AsyncStatus, useAsyncCallback } from '../../../hooks/useAsyncCallback';
 import { useMatrixClient } from '../../../hooks/useMatrixClient';
+import { useRetryOnReturn } from '../../../hooks/useRetryOnReturn';
 import * as css from './style.css';
 import { bytesToSize } from '../../../utils/common';
 import { FALLBACK_MIMETYPE } from '../../../utils/mimeTypes';
@@ -107,10 +108,12 @@ export const ImageContent = as<'div', ImageContentProps>(
       setError(true);
     };
 
-    const handleRetry = () => {
+    const handleRetry = useCallback(() => {
       setError(false);
       loadSrc();
-    };
+    }, [loadSrc]);
+
+    useRetryOnReturn(error || srcState.status === AsyncStatus.Error, handleRetry);
 
     useEffect(() => {
       if (autoPlay) loadSrc();
