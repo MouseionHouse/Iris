@@ -105,8 +105,10 @@ def beard(c, length, bend=0, wide=4.6, reach=.66, veins=.2):
 
 def signal(c, kind, length, bend):
     """Ways to mark a side fall of the Sketch (round L): the fall stands on (0, 0), points up and droops toward bend."""
-    end = -length * .6
-    curve = ((0, -4), (bend * .15, end * .4), (bend * .7, end * .75), (bend, end))
+    # The midrib as the viewer sees it: the fall arches up and out before it droops, so the line bows
+    # toward the petal's upper edge through the middle and comes back to the petal's centre near its tip.
+    end, bow = -length * .8, -bend * .95
+    curve = ((0, -4), (bow * .7, end * .3), (bow, end * .72), (bend * .25, end))
     if kind == "line":  # round 1's straight stroke
         return line("M0 -7 V-19", c["beard"], 3.4)
     if kind == "blade":  # one tapered stroke along the droop, no veins
@@ -114,13 +116,15 @@ def signal(c, kind, length, bend):
     if kind == "patch":  # a soft blotch at the throat, as on a real fall
         return f'<g transform="rotate({bend * 1.6})"><path d="{petal(length * .5, 9.5, 1.05)}" fill="{c["beard"]}" transform="translate(0 -2)"/></g>'
     if kind == "veins":  # hairlines fanning from the throat
-        return "".join(blade((k * .8, -4), (k * 2 + bend * .15, end * .4), (k * 4.5 + bend * .7, end * .8), (k * 6 + bend, end * 1.08), 1.5, .2, c["beard"])
+        return "".join(blade((k * .8, -4), (k * 2 + bow * .7, end * .3), (k * 5 + bow, end * .7), (k * 8 + bend * .25, end * .95), 1.5, .2, c["beard"])
                        for k in (-1, -.5, 0, .5, 1))
     if kind == "dots":  # a row of dots that shrink along the droop
         out = ""
         for i in range(5):
             t = i / 4
-            x, y = bend * t * t, -5 + (end + 5) * t
+            u = 1 - t
+            x = 3 * u * u * t * curve[1][0] + 3 * u * t * t * curve[2][0] + t ** 3 * curve[3][0]
+            y = u ** 3 * -5 + 3 * u * u * t * curve[1][1] + 3 * u * t * t * curve[2][1] + t ** 3 * curve[3][1]
             out += f'<circle cx="{x:.2f}" cy="{y:.2f}" r="{2.3 - 1.5 * t:.2f}" fill="{c["beard"]}"/>'
         return out
     return ""  # "none"
