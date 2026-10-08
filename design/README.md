@@ -7,3 +7,7 @@ This work's own design rounds: its name, its mark, its colours. The house, mouse
 - **Serve it** so John can open it from another machine: `python3 -m http.server 4892 --bind 0.0.0.0 --directory design`. A board's address is then `http://192.0.2.1:4892/rounds/<round>/`. Give it to him as a Markdown link.
 - **Capture it** with `design/capture.sh design/rounds/<round>/<page>.html`, and look at the picture before showing it.
 - **The ticket** for the name and the mark is the round's record: options by id, pictures, the pick.
+
+## Decided
+
+- **The mark (2026-10-08):** the Sketch, an iris with bare petals and the lower half of each fall a little darker, in P11 Amethyst and sea. It stands alone; the deep rounded square is for an app icon only. Artwork in `assets/` (`iris-mark-on-dark.svg`, `iris-mark-on-light.svg`, `iris-app-icon.svg`), values in `tokens.json`. Two other flowers are kept in `assets/kept/`.

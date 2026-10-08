@@ -87,9 +87,9 @@ def main():
               .replace("__PARTS__", json.dumps(f.PARTS)))
     (HERE / "index.html").write_text(
         '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Iris · mark · round 4 · standing alone</title>'
-        '<meta name="board-status" content="open"><meta name="board-summary" content="The Sketch alone, in Amethyst with sea greens, and as an app icon">'
+        '<meta name="board-status" content="decided"><meta name="board-summary" content="The Sketch alone, in Amethyst with sea greens, and as an app icon">'
         f'<style>{CSS}</style></head><body>'
-        '<p class="label">Iris · mark · round 4 · standing alone</p><h1>The Sketch, standing alone</h1>'
+        '<p class="label">Iris · mark · round 4 · standing alone · decided 2026-10-08</p><h1>The Sketch, standing alone, in P11</h1>'
         '<p class="brief">The mark with nothing behind it: large, beside the name, and from 64 down to 16 px, on Night and on Chalk. '
         'Below it, the one place it sits in a shape, a phone&#39;s app icon. It opens in Amethyst&#39;s purples with the teal greens of Iris and sea.</p>'
         f'<div class="picker"><div class="ways">{ways}</div><p class="now" id="now"></p></div>'
