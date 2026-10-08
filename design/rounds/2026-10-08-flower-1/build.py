@@ -174,8 +174,13 @@ def s3(c):
             + at(50, 50, 180, petal(22, 20, 1.1), c["fall"], beard(c, 22, 0, 5.4, .62, .26)))
 
 
-def s4(c):
-    falls = "".join(at(50, 52, a, petal(44, 35, 1.1), c[k], beard(c, 44, 0, 5, .64, .24)) for a, k in ((0, "fall"), (120, "other"), (240, "back")))
+def s4(c, shaded=False):
+    def mark(i):
+        if not shaded:
+            return beard(c, 44, 0, 5, .64, .24)
+        return (f'<defs><clipPath id="a{i}"><path d="{petal(44, 35, 1.1)}"/></clipPath></defs>'
+                f'<path clip-path="url(#a{i})" fill="#000" opacity=".11" d="M0 0 V-44 H30 V0 Z"/>')
+    falls = "".join(at(50, 52, a, petal(44, 35, 1.1), c[k], mark(i)) for i, (a, k) in enumerate(((0, "fall"), (120, "other"), (240, "back"))))
     stds = "".join(at(50, 52, a, petal(29, 17, .85), c["std"]) for a in (60, 180, 300))
     return falls + stds + f'<circle cx="50" cy="52" r="5.5" fill="{c["beard"]}"/>'
 
@@ -342,4 +347,5 @@ def main():
     print("wrote index.html and", len(SHAPES) * len(COLOURWAYS) * 2, "SVG files")
 
 
-main()
+if __name__ == "__main__":
+    main()
