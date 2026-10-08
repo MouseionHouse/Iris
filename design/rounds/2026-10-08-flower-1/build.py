@@ -180,15 +180,32 @@ def s4(c):
     return falls + stds + f'<circle cx="50" cy="52" r="5.5" fill="{c["beard"]}"/>'
 
 
-def s5(c):
-    # Seen side-on, the near fall's beard runs long and thin along its arch; the far fall's is a short sliver.
-    near = (blade((58, 57.5), (66, 52), (80, 52), (86.5, 63), 4.4, .5, c["beard"])
-            + blade((60, 60), (67, 56.5), (77, 57), (82, 65), 1.5, .25, c["beard"], .55))
+# The near fall of the profile, six ways (round R): its outline, and the curve its midrib line follows.
+NEAR = {
+    "R1": ("M54 58 C66 44 90 48 92 65 C93 76 85 84 77 80 C83 72 79 62 69 62 C63 62 58 62 54 58 Z", ((58, 57.5), (66, 52), (80, 52), (86.5, 63))),
+    "R2": ("M54 58 C62 48 78 48 81 60 C83 69 77 76 70 73 C74 67 72 62 66 62 C61 62 58 61 54 58 Z", ((58, 57), (63, 53), (72, 53), (76.5, 60))),
+    "R3": ("M54 58 C68 46 88 50 95 66 C97 74 94 84 89 90 C89 78 82 66 70 63 C64 61.5 59 61 54 58 Z", ((58, 57.5), (68, 52.5), (84, 56), (90, 72))),
+    "R4": ("M54 58 C62 40 92 42 94 62 C95 78 82 88 70 84 C78 78 78 68 70 64 C64 61 59 61 54 58 Z", ((58, 56.5), (66, 48), (82, 50), (86, 66))),
+    "R5": ("M54 58 C66 49 84 51 86 64 C87 73 81 79 75 76 C80 71 78 63 70 60.5 C64 59 59 59.5 54 58 Z", ((58, 57.5), (66, 54), (77, 54.5), (82, 63))),
+    "R6": ("M54 58 C64 52 76 58 77 72 C78 82 73 91 67 92 C70 84 69 74 64 68 C61 64 57 61 54 58 Z", ((57, 59), (63, 58), (71, 63), (72, 76))),
+}
+NEARS = [
+    ("R1", "As it was", "The long curl from the first version"),
+    ("R2", "Compact", "Shorter and rounder, tucked closer to the bloom"),
+    ("R3", "Long sweep", "Reaches further and ends in a point that hangs down"),
+    ("R4", "Broad", "A big, full lobe, the heaviest of the six"),
+    ("R5", "Slim", "A narrow petal with a light curl"),
+    ("R6", "Hanging", "Droops steeply, close to the stem"),
+]
+
+
+def s5(c, near="R1"):
+    # Seen side-on, the near fall's line runs long and thin along its arch; the far fall's is a short sliver.
+    outline, rib = NEAR[near]
     far = at(54, 58, -118, petal(25, 19, 1.1), c["other"], blade((0, -5), (-1, -9), (-2.5, -12), (-3, -15), 2.6, .3, c["beard"], .8))
     return (f'<path d="M45 97 C31 78 28 56 34 34 C42 56 47 76 47 97 Z" fill="{c["stem"]}"/>' + line("M47 96 C47 82 49 70 53 60", c["stem"], 5)
-            + far + at(54, 58, 22, petal(40, 19, .8), c["back"])
-            + f'<path d="M54 58 C66 44 90 48 92 65 C93 76 85 84 77 80 C83 72 79 62 69 62 C63 62 58 62 54 58 Z" fill="{c["fall"]}"/>'
-            + near + at(54, 59, -8, petal(47, 25, .85), c["std"]))
+            + far + at(54, 58, 22, petal(40, 19, .8), c["back"]) + f'<path d="{outline}" fill="{c["fall"]}"/>'
+            + blade(*rib, 4.2, .5, c["beard"]) + at(54, 59, -8, petal(47, 25, .85), c["std"]))
 
 
 def s6(c):
@@ -293,6 +310,13 @@ def main():
                         f'<div class="small">{m.inline(body, 32)}{m.inline(body, 16)}</div></div>' for g in ("dark", "light"))
         lines += f'<div id="{lid}"><h2><span class="id">{lid}</span>{lname}</h2><p class="why">{lwhy}</p><div class="pair">{tiles}</div></div>'
 
+    nears = ""
+    for rid, rname, rwhy in NEARS:
+        body = s5(LIVE, rid)
+        tiles = "".join(f'<div class="tile mini" data-ground="{g}" style="background:{m.GROUND[g]}">{m.inline(body, 176)}'
+                        f'<div class="small">{m.inline(body, 32)}{m.inline(body, 16)}</div></div>' for g in ("dark", "light"))
+        nears += f'<div id="{rid}"><h2><span class="id">{rid}</span>{rname}</h2><p class="why">{rwhy}</p><div class="pair">{tiles}</div></div>'
+
     def group(title, ways):
         return f'<span class="label">{title}</span><div class="ways">' + "".join(
             f'<button type="button" data-id="{cid}"><i>{"".join(f"<b style=background:{parts[k][0]}></b>" for k in ("std", "fall", "beard", "stem"))}</i>'
@@ -311,7 +335,10 @@ def main():
         f'<div class="grid">{"".join(cells)}</div>'
         '<h1 style="margin-top:44px">The lines on the Sketch\'s petals, eight ways</h1>'
         '<p class="brief">The three-line version is gone. These follow the colourway chosen above.</p>'
-        f'<div class="grid six">{lines}</div><script>{script}</script></body></html>\n')
+        f'<div class="grid six">{lines}</div>'
+        '<h1 style="margin-top:44px">In profile: the large petal on the right, six ways</h1>'
+        '<p class="brief">Only the near petal changes. These follow the colourway chosen above.</p>'
+        f'<div class="grid six" style="grid-template-columns:repeat(3,1fr)">{nears}</div><script>{script}</script></body></html>\n')
     print("wrote index.html and", len(SHAPES) * len(COLOURWAYS) * 2, "SVG files")
 
 
