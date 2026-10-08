@@ -103,11 +103,44 @@ def beard(c, length, bend=0, wide=4.6, reach=.66, veins=.2):
     return out
 
 
-def s1(c):
+def signal(c, kind, length, bend):
+    """Ways to mark a side fall of the Sketch (round L): the fall stands on (0, 0), points up and droops toward bend."""
+    end = -length * .6
+    curve = ((0, -4), (bend * .15, end * .4), (bend * .7, end * .75), (bend, end))
+    if kind == "line":  # round 1's straight stroke
+        return line("M0 -7 V-19", c["beard"], 3.4)
+    if kind == "blade":  # one tapered stroke along the droop, no veins
+        return blade(*curve, 4.2, .5, c["beard"])
+    if kind == "patch":  # a soft blotch at the throat, as on a real fall
+        return f'<g transform="rotate({bend * 1.6})"><path d="{petal(length * .5, 9.5, 1.05)}" fill="{c["beard"]}" transform="translate(0 -2)"/></g>'
+    if kind == "veins":  # hairlines fanning from the throat
+        return "".join(blade((k * .8, -4), (k * 2 + bend * .15, end * .4), (k * 4.5 + bend * .7, end * .8), (k * 6 + bend, end * 1.08), 1.5, .2, c["beard"])
+                       for k in (-1, -.5, 0, .5, 1))
+    if kind == "dots":  # a row of dots that shrink along the droop
+        out = ""
+        for i in range(5):
+            t = i / 4
+            x, y = bend * t * t, -5 + (end + 5) * t
+            out += f'<circle cx="{x:.2f}" cy="{y:.2f}" r="{2.3 - 1.5 * t:.2f}" fill="{c["beard"]}"/>'
+        return out
+    return ""  # "none"
+
+
+def s1(c, kind="blade"):
     fall = petal(37, 25, 1.08)
-    return (line("M50 56 V94", c["stem"], 6) + at(50, 52, 122, fall, c["fall"], beard(c, 37, 5)) + at(50, 52, -122, fall, c["other"], beard(c, 37, -5))
+    return (line("M50 56 V94", c["stem"], 6) + at(50, 52, 122, fall, c["fall"], signal(c, kind, 37, 5)) + at(50, 52, -122, fall, c["other"], signal(c, kind, 37, -5))
             + at(50, 52, 25, petal(40, 18, .8), c["back"]) + at(50, 52, -25, petal(40, 18, .8), c["back"])
             + at(50, 52, 0, petal(45, 20, .8), c["std"]))
+
+
+SIGNALS = [
+    ("L1", "Straight line", "line", "Round 1's plain stroke"),
+    ("L2", "One blade", "blade", "A single tapered stroke along the droop, now in the grid above"),
+    ("L3", "Patch", "patch", "A soft blotch at the throat, as on a real fall"),
+    ("L4", "Veins", "veins", "Five hairlines fanning from the throat"),
+    ("L5", "Dots", "dots", "A row of dots that shrink along the droop"),
+    ("L6", "None", "none", "Bare petals"),
+]
 
 
 def s2(c):
@@ -198,6 +231,9 @@ h2{{font:600 17px/25px Commissioner,sans-serif}}
 .pair{{display:grid;grid-template-columns:1fr 1fr;gap:8px}}
 .tile{{position:relative;height:330px;border-radius:12px;border:1px solid #32353C;display:flex;flex-direction:column;align-items:center}}
 .tile .big{{margin-top:20px}}
+.grid.six{{grid-template-columns:repeat(6,1fr);gap:20px 16px}}
+.tile.mini{{height:190px;justify-content:center;padding-bottom:22px}}
+.grid.six .why{{min-height:36px}}
 .tile .lockup{{display:flex;align-items:center;gap:12px;font:400 36px/40px Marcellus,serif;margin-top:16px}}
 .tile .small{{position:absolute;right:12px;bottom:10px;display:flex;align-items:flex-end;gap:9px}}
 .tile .px{{position:absolute;left:12px;bottom:10px;font:400 11px/16px 'IBM Plex Mono',monospace;opacity:.55}}
@@ -238,6 +274,13 @@ def main():
                       f'<div class="lockup">{m.inline(body, 44)}Iris</div><div class="small">{m.inline(body, 32)}{m.inline(body, 24)}{m.inline(body, 16)}</div>'
                       '<span class="px">32 · 24 · 16</span></div>')
         cells.append(f'<div id="{sid}"><h2><span class="id">{sid}</span>{sname}</h2><p class="why">{swhy}</p><div class="pair">{tiles}</div></div>')
+    lines = ""
+    for lid, lname, kind, lwhy in SIGNALS:
+        body = s1(LIVE, kind)
+        tiles = "".join(f'<div class="tile mini" data-ground="{g}" style="background:{m.GROUND[g]}">{m.inline(body, 132)}'
+                        f'<div class="small">{m.inline(body, 32)}{m.inline(body, 16)}</div></div>' for g in ("dark", "light"))
+        lines += f'<div id="{lid}"><h2><span class="id">{lid}</span>{lname}</h2><p class="why">{lwhy}</p><div class="pair">{tiles}</div></div>'
+
     def group(title, ways):
         return f'<span class="label">{title}</span><div class="ways">' + "".join(
             f'<button type="button" data-id="{cid}"><i>{"".join(f"<b style=background:{parts[k][0]}></b>" for k in ("std", "fall", "beard", "stem"))}</i>'
@@ -253,7 +296,10 @@ def main():
         f'<p class="brief">Six ways to draw the iris, each on Night and on Chalk, beside the name, and at 32, 24 and 16 px. '
         f'Choose a colourway below and every flower takes it. Name a pick by shape and colourway, such as S4 in P2.</p>'
         f'<div class="picker">{ways}<p class="now" id="now"></p></div>'
-        f'<div class="grid">{"".join(cells)}</div><script>{script}</script></body></html>\n')
+        f'<div class="grid">{"".join(cells)}</div>'
+        '<h1 style="margin-top:44px">The lines on the Sketch\'s petals, six ways</h1>'
+        '<p class="brief">The three-line version is gone. These follow the colourway chosen above.</p>'
+        f'<div class="grid six">{lines}</div><script>{script}</script></body></html>\n')
     print("wrote index.html and", len(SHAPES) * len(COLOURWAYS) * 2, "SVG files")
 
 
