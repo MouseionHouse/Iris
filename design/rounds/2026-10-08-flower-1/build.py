@@ -55,6 +55,8 @@ PURPLES = [
     way("P8", "Orchid", "Pink-leaning purples with a cream signal", ("#E3B3DC", "#D496CB"), ("#D29CD0", "#C17FBE"), ("#A55FA8", "#8E4892"), ("#A55FA8", "#8E4892"), ("#FBE9D8", "#F2D5BA"), ("#B0A398", "#978779")),
     way("P9", "Violet dusk", "Deeper violets with a rose gold signal", ("#A08FD0", "#8573BD"), ("#8A78C0", "#7160AD"), ("#5F4C9E", "#4B3987"), ("#5F4C9E", "#4B3987"), ("#E6C3B4", "#D9A897"), ("#8F93A8", "#75798F")),
     way("P10", "Mulberry", "Dusty pink standards over wine falls", ("#D3A0BE", "#C283A6"), ("#C088AC", "#AD6E94"), ("#8A3F74", "#742D60"), ("#8A3F74", "#742D60"), ("#F0C9A0", "#E5B07C"), ("#A39A80", "#8A8066")),
+    way("P11", "Amethyst and sea", "Amethyst's purples with the teal greens of Iris and sea", ("#C7A3F0", "#B088E3"), ("#B08CE6", "#9871D6"), ("#8556CF", "#6E40BA"), ("#8556CF", "#6E40BA"), ("#8FD0C0", "#5FB5A2"), ("#7FAF9F", "#5F9A88")),
+    way("P12", "Amethyst and deep sea", "The same with a deeper teal stem", ("#C7A3F0", "#B088E3"), ("#B08CE6", "#9871D6"), ("#8556CF", "#6E40BA"), ("#8556CF", "#6E40BA"), ("#8FD0C0", "#5FB5A2"), ("#4C9FA8", "#2F8590")),
 ]
 EARLIER = COLOURWAYS
 COLOURWAYS = PURPLES + EARLIER
