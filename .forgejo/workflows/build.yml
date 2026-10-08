@@ -3,10 +3,12 @@
 #   plan ── bundle ──┬── deploy                  (dev: the web client on server, chat.example.org)
 #                    └── apk ── publish-fdroid   (dev: the Android app, fdroid.example.net)
 #
-# `bundle` builds the web app once, inside the Docker image that serves it, and exports that
-# build as an artifact. `apk` wraps the same files (with the mobile config.json,
-# scripts/mobile-bundle.js) in the Capacitor shell: see mobile/WRAPPER-PLAN.md. Before, the web
-# image and the APK each ran their own `npm ci` and `vite build` on every merge.
+# `bundle` runs the one `npm ci` and `vite build` of a push, inside the Docker image that serves
+# the web client, and exports what the Android project needs from them as an artifact: the same
+# build with the mobile config.json (scripts/mobile-bundle.js), synced by Capacitor, plus
+# Capacitor's Android libraries. `apk` unpacks that over a checkout and runs Gradle, with no Node
+# step of its own: see mobile/WRAPPER-PLAN.md. Before, the web image and the APK each ran their
+# own `npm ci` and `vite build` on every merge.
 #
 # What a push does is decided in `plan`, from the paths it changes:
 #
@@ -212,20 +214,21 @@ jobs:
           docker exec "$name" wget -q -O - http://127.0.0.1/ | grep -q '<div id="root"' \
             || { echo "image does not serve the app shell" >&2; exit 1; }
 
-      # The same build, out of the layer cache, as files for the Android job.
-      - name: Export the web build
+      # The same build and node_modules, out of the layer cache, as files for the Android job
+      # (the Dockerfile's `android` stage).
+      - name: Export the Android inputs
         if: needs.plan.outputs.android == 'true'
         run: |
           set -euo pipefail
-          docker buildx build --platform linux/amd64 --target bundle --output type=local,dest=web-bundle .
-          test -f web-bundle/index.html
-          tar -czf web-bundle.tgz -C web-bundle .
+          docker buildx build --platform linux/amd64 --target android --output type=local,dest=android-inputs .
+          test -f android-inputs/mobile/android/app/src/main/assets/public/index.html
+          tar -czf android-inputs.tgz -C android-inputs .
 
       - uses: actions/upload-artifact@v3
         if: needs.plan.outputs.android == 'true'
         with:
-          name: web-bundle
-          path: web-bundle.tgz
+          name: android-inputs
+          path: android-inputs.tgz
 
       - name: Push
         if: needs.plan.outputs.deploy == 'true'
@@ -314,21 +317,17 @@ jobs:
 
       - uses: actions/download-artifact@v3
         with:
-          name: web-bundle
-          path: ./web-bundle
+          name: android-inputs
+          path: ./android-inputs
 
-      # Capacitor's CLI and its Android libraries (Gradle includes them from node_modules). The
-      # download cache lives on the volume that already holds Gradle's.
-      - name: npm ci
-        run: npm ci --cache /gradle-cache/npm --prefer-offline
-
-      - name: Mobile bundle and Capacitor sync (into the Android project)
+      # The synced mobile bundle and Capacitor's Android libraries, from `bundle`, unpacked over
+      # the checkout.
+      - name: Android inputs (into the Android project)
         run: |
           set -euo pipefail
-          mkdir dist
-          tar -xzf web-bundle/web-bundle.tgz -C dist
-          node scripts/mobile-bundle.js dist dist-mobile
-          npx cap sync android
+          tar -xzf android-inputs/android-inputs.tgz
+          rm -r android-inputs
+          grep -q mouseion.house mobile/android/app/src/main/assets/public/config.json
           printf 'sdk.dir=%s\n' "$ANDROID_HOME" > mobile/android/local.properties
 
       - name: Decode signing keystore
