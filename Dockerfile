@@ -11,6 +11,13 @@ ENV NODE_OPTIONS=--max_old_space_size=4096
 RUN npm run build
 
 
+## Bundle: the built app alone. CI exports it (`--target bundle --output type=local`) and hands it
+## to the Android build, so the web image and the APK carry the same build.
+FROM scratch AS bundle
+
+COPY --from=builder /src/dist /
+
+
 ## App
 FROM nginx:1.31.5-alpine
 

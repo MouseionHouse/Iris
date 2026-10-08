@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 // The Android wrapper (mobile/WRAPPER-PLAN.md): a Capacitor shell around the mobile build of this
-// fork's web UI. webDir points at the mobile build's output (npm run build:mobile), not the
-// desktop dist/, so `npx cap sync` never picks up a stray desktop build by accident.
+// fork's web UI. webDir is the mobile bundle (npm run build:mobile: the web build with the mobile
+// config.json, scripts/mobile-bundle.js), not dist/, so `npx cap sync` never ships the web config.
 const config: CapacitorConfig = {
   appId: 'house.mouseion.chat',
   appName: 'Mouseion Chat',
