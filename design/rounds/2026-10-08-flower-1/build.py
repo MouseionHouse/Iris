@@ -127,10 +127,16 @@ def signal(c, kind, length, bend):
             y = u ** 3 * -5 + 3 * u * u * t * curve[1][1] + 3 * u * t * t * curve[2][1] + t ** 3 * curve[3][1]
             out += f'<circle cx="{x:.2f}" cy="{y:.2f}" r="{2.3 - 1.5 * t:.2f}" fill="{c["beard"]}"/>'
         return out
+    if kind.startswith("shade"):  # bare, with the half of the fall nearest the viewer a little darker
+        side, strength = (1 if bend > 0 else -1), (.2 if kind == "shade2" else .11)
+        name = "r" if bend > 0 else "l"
+        return (f'<defs><clipPath id="f{name}"><path d="{petal(length, 25, 1.08)}"/></clipPath></defs>'
+                f'<path clip-path="url(#f{name})" fill="#000" opacity="{strength}" d="M0 0 C{bow * .7:.2f} {-length * .3:.2f} {bow:.2f} {-length * .7:.2f} 0 {-length} '
+                f'H{side * 40} V0 Z"/>')
     return ""  # "none"
 
 
-def s1(c, kind="blade"):
+def s1(c, kind="shade"):
     fall = petal(37, 25, 1.08)
     return (line("M50 56 V94", c["stem"], 6) + at(50, 52, 122, fall, c["fall"], signal(c, kind, 37, 5)) + at(50, 52, -122, fall, c["other"], signal(c, kind, 37, -5))
             + at(50, 52, 25, petal(40, 18, .8), c["back"]) + at(50, 52, -25, petal(40, 18, .8), c["back"])
@@ -139,11 +145,13 @@ def s1(c, kind="blade"):
 
 SIGNALS = [
     ("L1", "Straight line", "line", "Round 1's plain stroke"),
-    ("L2", "One blade", "blade", "A single tapered stroke along the droop, now in the grid above"),
+    ("L2", "One blade", "blade", "A single tapered stroke along the fall's midrib"),
     ("L3", "Patch", "patch", "A soft blotch at the throat, as on a real fall"),
     ("L4", "Veins", "veins", "Five hairlines fanning from the throat"),
     ("L5", "Dots", "dots", "A row of dots that shrink along the droop"),
     ("L6", "None", "none", "Bare petals"),
+    ("L7", "Shaded", "shade", "Bare, with the near half of each fall a little darker, now in the grid above"),
+    ("L8", "Shaded more", "shade2", "The same with a stronger shadow"),
 ]
 
 
@@ -235,8 +243,8 @@ h2{{font:600 17px/25px Commissioner,sans-serif}}
 .pair{{display:grid;grid-template-columns:1fr 1fr;gap:8px}}
 .tile{{position:relative;height:330px;border-radius:12px;border:1px solid #32353C;display:flex;flex-direction:column;align-items:center}}
 .tile .big{{margin-top:20px}}
-.grid.six{{grid-template-columns:repeat(6,1fr);gap:20px 16px}}
-.tile.mini{{height:190px;justify-content:center;padding-bottom:22px}}
+.grid.six{{grid-template-columns:repeat(4,1fr);gap:24px 20px}}
+.tile.mini{{height:230px;justify-content:center;padding-bottom:22px}}
 .grid.six .why{{min-height:36px}}
 .tile .lockup{{display:flex;align-items:center;gap:12px;font:400 36px/40px Marcellus,serif;margin-top:16px}}
 .tile .small{{position:absolute;right:12px;bottom:10px;display:flex;align-items:flex-end;gap:9px}}
@@ -281,7 +289,7 @@ def main():
     lines = ""
     for lid, lname, kind, lwhy in SIGNALS:
         body = s1(LIVE, kind)
-        tiles = "".join(f'<div class="tile mini" data-ground="{g}" style="background:{m.GROUND[g]}">{m.inline(body, 132)}'
+        tiles = "".join(f'<div class="tile mini" data-ground="{g}" style="background:{m.GROUND[g]}">{m.inline(body, 176)}'
                         f'<div class="small">{m.inline(body, 32)}{m.inline(body, 16)}</div></div>' for g in ("dark", "light"))
         lines += f'<div id="{lid}"><h2><span class="id">{lid}</span>{lname}</h2><p class="why">{lwhy}</p><div class="pair">{tiles}</div></div>'
 
@@ -301,7 +309,7 @@ def main():
         f'Choose a colourway below and every flower takes it. Name a pick by shape and colourway, such as S4 in P2.</p>'
         f'<div class="picker">{ways}<p class="now" id="now"></p></div>'
         f'<div class="grid">{"".join(cells)}</div>'
-        '<h1 style="margin-top:44px">The lines on the Sketch\'s petals, six ways</h1>'
+        '<h1 style="margin-top:44px">The lines on the Sketch\'s petals, eight ways</h1>'
         '<p class="brief">The three-line version is gone. These follow the colourway chosen above.</p>'
         f'<div class="grid six">{lines}</div><script>{script}</script></body></html>\n')
     print("wrote index.html and", len(SHAPES) * len(COLOURWAYS) * 2, "SVG files")
