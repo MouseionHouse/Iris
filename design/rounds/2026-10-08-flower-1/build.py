@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 """Iris mark, round 2: the flower, varied in shape and in colour.
 
-Six ways to draw an iris, each in five colourways, on Night and on Chalk. A cell is named by its
-shape and its colourway, for example "S4 in C1".
+Six ways to draw an iris, on Night and on Chalk. The colourway is chosen with the selector at the top
+of the board: the marks are set into the page with their parts as CSS variables. The gold streak on
+a fall is drawn as a blade that follows the petal's curve and narrows as the petal turns away.
 Run: python3 build.py, then ../../capture.sh index.html
 """
 import importlib.util
+import json
+import math
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -14,25 +17,32 @@ m = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(m)
 petal = m.petal
 
-# A colourway names the flower's parts: std and back are the upright petals, fall and fall2 the
+# A colourway names the flower's parts: std and back are the upright petals, fall and other the
 # drooping ones, beard the gold streak on a fall. Each part has a Night value and a Chalk value.
+PARTS = ["std", "back", "fall", "other", "beard", "stem"]
+
+
+def way(cid, name, why, std, back, fall, other, beard, stem):
+    return cid, name, why, dict(std=std, back=back, fall=fall, other=other, beard=beard, stem=stem)
+
+
+GREEN, WELD = ("#93A862", "#82A947"), ("#D6B551", "#CAA419")
 COLOURWAYS = [
-    ("C1", "Purple", "The iris most people picture",
-     dict(std=("#B79AD0", "#A57BBD"), back=("#8E7BC4", "#7F69B8"), fall=("#9A6BB8", "#84509E"), fall2=("#9A6BB8", "#84509E"),
-          beard=("#D6B551", "#CAA419"), stem=("#93A862", "#82A947"))),
-    ("C2", "Blue flag", "Indigo and woad blues with a yellow signal",
-     dict(std=("#8FB3E0", "#6F9BD6"), back=("#7C93CF", "#5B80C8"), fall=("#5F7FCC", "#3F5FB5"), fall2=("#5F7FCC", "#3F5FB5"),
-          beard=("#E6C65A", "#D4A91C"), stem=("#7FAF8F", "#5F9A74"))),
-    ("C3", "Dyed rainbow", "A different natural dye on each petal",
-     dict(std=("#A886BF", "#935DA8"), back=("#7C93CF", "#496CBD"), fall=("#D4735E", "#CD624C"), fall2=("#D9819C", "#C56384"),
-          beard=("#D6B551", "#CAA419"), stem=("#93A862", "#82A947"))),
-    ("C4", "Vivid rainbow", "The same idea at full saturation",
-     dict(std=("#9B6BFF", "#8E5FE7"), back=("#4F84FF", "#4C77E6"), fall=("#FF4A5E", "#EB4052"), fall2=("#FF52D9", "#E03ABC"),
-          beard=("#FFD21F", "#DBA200"), stem=("#5BDB3A", "#38C01F"))),
-    ("C5", "Dawn", "Peach and rose, the colours of a pink iris",
-     dict(std=("#F2B7A0", "#E39A80"), back=("#E8A2B8", "#D4809C"), fall=("#D9819C", "#C56384"), fall2=("#D9819C", "#C56384"),
-          beard=("#E6C65A", "#D4A91C"), stem=("#93A862", "#82A947"))),
+    way("C1", "Purple", "The iris most people picture", ("#B79AD0", "#A57BBD"), ("#8E7BC4", "#7F69B8"), ("#9A6BB8", "#84509E"), ("#9A6BB8", "#84509E"), WELD, GREEN),
+    way("C2", "Blue flag", "Indigo and woad blues with a yellow signal", ("#8FB3E0", "#6F9BD6"), ("#7C93CF", "#5B80C8"), ("#5F7FCC", "#3F5FB5"), ("#5F7FCC", "#3F5FB5"), ("#E6C65A", "#D4A91C"), ("#7FAF8F", "#5F9A74")),
+    way("C3", "Dyed rainbow", "A different natural dye on each petal", ("#A886BF", "#935DA8"), ("#7C93CF", "#496CBD"), ("#D4735E", "#CD624C"), ("#D9819C", "#C56384"), WELD, GREEN),
+    way("C4", "Vivid rainbow", "The same idea at full saturation", ("#9B6BFF", "#8E5FE7"), ("#4F84FF", "#4C77E6"), ("#FF4A5E", "#EB4052"), ("#FF52D9", "#E03ABC"), ("#FFD21F", "#DBA200"), ("#5BDB3A", "#38C01F")),
+    way("C5", "Dawn", "Peach and rose, the colours of a pink iris", ("#F2B7A0", "#E39A80"), ("#E8A2B8", "#D4809C"), ("#D9819C", "#C56384"), ("#D9819C", "#C56384"), ("#E6C65A", "#D4A91C"), GREEN),
+    way("C6", "Moonlight", "A white iris, barely tinted", ("#EFEAF6", "#C4BAD3"), ("#D9D0EA", "#AEA2C4"), ("#C9BDE0", "#9A8CB8"), ("#C9BDE0", "#9A8CB8"), ("#E6C65A", "#D4A91C"), ("#9DB58A", "#84A56C")),
+    way("C7", "Yellow flag", "The wild yellow iris, with a brown signal", ("#EBCF6A", "#DDB733"), ("#D9B84F", "#C9A227"), ("#E0A93F", "#CF941F"), ("#E0A93F", "#CF941F"), ("#B5703A", "#8F4E1D"), GREEN),
+    way("C8", "Midnight", "The near-black iris", ("#7A68A3", "#4F4073"), ("#63528C", "#3E315E"), ("#544479", "#2D2247"), ("#544479", "#2D2247"), ("#E6C65A", "#D4A91C"), ("#7F9A6A", "#5F7F4A")),
+    way("C9", "Copper", "Rust standards over madder falls", ("#E0A06A", "#D4853F"), ("#D98F52", "#C87533"), ("#C45A48", "#A8432F"), ("#C45A48", "#A8432F"), WELD, GREEN),
+    way("C10", "Wine and white", "Pale standards over deep purple falls", ("#EDE3F2", "#CDBFDB"), ("#D6C6E3", "#B6A4CA"), ("#9455B5", "#70398F"), ("#9455B5", "#70398F"), ("#E6C65A", "#D4A91C"), GREEN),
+    way("C11", "Rose gold", "Odyssey's metal, as a flower", ("#F3C3B4", "#E3A897"), ("#E6ABA0", "#D4928A"), ("#D9938F", "#C47B77"), ("#D9938F", "#C47B77"), ("#FFF3EA", "#F7E3D5"), ("#B7A68F", "#9E8B72")),
+    way("C12", "Sea", "Teal and woad, with a pale signal", ("#8FD0C0", "#5FB5A2"), ("#7FAFC2", "#5B9EB8"), ("#4C9FA8", "#2F8590"), ("#4C9FA8", "#2F8590"), ("#F0E3A8", "#E8D27A"), ("#7FAF8F", "#5F9A74")),
+    way("C13", "One colour", "Every part in ink, to test the shape alone", ("#F4F4F1", "#15161A"), ("#C9CAC9", "#3A3C42"), ("#DEDEDC", "#26282D"), ("#DEDEDC", "#26282D"), ("#15161A", "#F4F4F1"), ("#A2A5AD", "#5B5E66")),
 ]
+LIVE = {k: f"var(--{k})" for k in PARTS}
 
 
 def at(x, y, angle, d, colour, extra=""):
@@ -47,17 +57,46 @@ def mirror(s):
     return s + f'<g transform="translate(100 0) scale(-1 1)">{s}</g>'
 
 
+def blade(p0, p1, p2, p3, w0, w1, colour, opacity=1):
+    """A line with body: it follows the cubic curve p0..p3 and narrows from w0 wide to w1, round at its wide end."""
+    def pt(t):
+        u = 1 - t
+        return tuple(u ** 3 * a + 3 * u * u * t * b + 3 * u * t * t * c + t ** 3 * d for a, b, c, d in zip(p0, p1, p2, p3))
+    left, right, n = [], [], 16
+    for i in range(n + 1):
+        t = i / n
+        (x, y), (xa, ya), (xb, yb) = pt(t), pt(max(0, t - .01)), pt(min(1, t + .01))
+        dx, dy = xb - xa, yb - ya
+        k = (w0 + (w1 - w0) * t) / 2 / (math.hypot(dx, dy) or 1)
+        left.append(f"{x - dy * k:.2f} {y + dx * k:.2f}")
+        right.append(f"{x + dy * k:.2f} {y - dx * k:.2f}")
+    op = f' opacity="{opacity}"' if opacity != 1 else ""
+    return (f'<g fill="{colour}"{op}><path d="M{" L".join(left + right[::-1])} Z"/>'
+            f'<circle cx="{p0[0]:.2f}" cy="{p0[1]:.2f}" r="{w0 / 2:.2f}"/></g>')
+
+
+def beard(c, length, bend=0, wide=4.6, reach=.66, veins=.2):
+    """The signal on a fall that stands on (0, 0) and points up. bend curves it the way the petal droops;
+    a petal turned toward the viewer takes a short, wide beard, one seen side-on a long, thin one."""
+    end = -length * reach
+    out = blade((0, -4), (bend * .15, end * .4), (bend * .7, end * .75), (bend, end), wide, .5, c["beard"])
+    for side in (-1, 1):
+        spread = side * length * veins
+        out += blade((side * 1.6, -5), (side * 2.5 + bend * .15, end * .4), (spread * .8 + bend * .7, end * .7),
+                     (spread + bend, end * .92), wide * .36, .25, c["beard"], .55)
+    return out
+
+
 def s1(c):
-    beard = line("M0 -7 V-19", c["beard"], 3.4)
     fall = petal(37, 25, 1.08)
-    return (line("M50 56 V94", c["stem"], 6) + at(50, 52, 122, fall, c["fall"], beard) + at(50, 52, -122, fall, c["fall2"], beard)
+    return (line("M50 56 V94", c["stem"], 6) + at(50, 52, 122, fall, c["fall"], beard(c, 37, 5)) + at(50, 52, -122, fall, c["other"], beard(c, 37, -5))
             + at(50, 52, 25, petal(40, 18, .8), c["back"]) + at(50, 52, -25, petal(40, 18, .8), c["back"])
             + at(50, 52, 0, petal(45, 20, .8), c["std"]))
 
 
 def s2(c):
     side = "M53 62 C58 42 80 32 89 46 C95 56 88 68 78 65 C83 58 79 50 71 52 C63 54 60 62 58 70 Z"
-    left = f'<g transform="translate(100 0) scale(-1 1)"><path d="{side}" fill="{c["fall2"]}"/></g>'
+    left = f'<g transform="translate(100 0) scale(-1 1)"><path d="{side}" fill="{c["other"]}"/></g>'
     tails = at(50, 72, 180, petal(22, 11, .8), c["back"]) + at(50, 72, 152, petal(17, 9, .8), c["back"]) + at(50, 72, -152, petal(17, 9, .8), c["back"])
     return (tails + f'<path d="{side}" fill="{c["fall"]}"/>' + left + at(50, 68, 0, petal(60, 23, .8), c["std"])
             + f'<rect x="37" y="63" width="26" height="7.5" rx="3.75" fill="{c["beard"]}"/>')
@@ -65,32 +104,36 @@ def s2(c):
 
 def s3(c):
     leaf = f'<path d="M50 97 C40 82 33 66 30 48 C41 60 47 78 50 97 Z" fill="{c["stem"]}"/>'
-    beard = line("M0 -6 V-17", c["beard"], 3.2)
     fall = petal(33, 29, 1.1)
     return (mirror(leaf) + line("M50 58 V95", c["stem"], 5)
-            + at(50, 48, 125, fall, c["fall"], beard) + at(50, 48, -125, fall, c["fall2"], beard)
+            + at(50, 48, 125, fall, c["fall"], beard(c, 33, 5, 4.2)) + at(50, 48, -125, fall, c["other"], beard(c, 33, -5, 4.2))
             + at(50, 50, 32, petal(36, 22, .95), c["back"]) + at(50, 50, -32, petal(36, 22, .95), c["back"])
-            + at(50, 52, 0, petal(42, 27, .95), c["std"]) + at(50, 50, 180, petal(22, 20, 1.1), c["fall"], line("M0 -5 V-12", c["beard"], 3)))
+            + at(50, 52, 0, petal(42, 27, .95), c["std"])
+            # The front fall comes straight at the viewer, so its beard is short and wide.
+            + at(50, 50, 180, petal(22, 20, 1.1), c["fall"], beard(c, 22, 0, 5.4, .62, .26)))
 
 
 def s4(c):
-    beard = line("M0 -9 V-25", c["beard"], 3.6)
-    falls = "".join(at(50, 52, a, petal(44, 35, 1.1), c[k], beard) for a, k in ((0, "fall"), (120, "fall2"), (240, "back")))
+    falls = "".join(at(50, 52, a, petal(44, 35, 1.1), c[k], beard(c, 44, 0, 5, .64, .24)) for a, k in ((0, "fall"), (120, "other"), (240, "back")))
     stds = "".join(at(50, 52, a, petal(29, 17, .85), c["std"]) for a in (60, 180, 300))
     return falls + stds + f'<circle cx="50" cy="52" r="5.5" fill="{c["beard"]}"/>'
 
 
 def s5(c):
+    # Seen side-on, the near fall's beard runs long and thin along its arch; the far fall's is a short sliver.
+    near = (blade((58, 57.5), (66, 52), (80, 52), (86.5, 63), 4.4, .5, c["beard"])
+            + blade((60, 60), (67, 56.5), (77, 57), (82, 65), 1.5, .25, c["beard"], .55))
+    far = at(54, 58, -118, petal(25, 19, 1.1), c["other"], blade((0, -5), (-1, -9), (-2.5, -12), (-3, -15), 2.6, .3, c["beard"], .8))
     return (f'<path d="M45 97 C31 78 28 56 34 34 C42 56 47 76 47 97 Z" fill="{c["stem"]}"/>' + line("M47 96 C47 82 49 70 53 60", c["stem"], 5)
-            + at(54, 58, -118, petal(25, 19, 1.1), c["fall2"]) + at(54, 58, 22, petal(40, 19, .8), c["back"])
+            + far + at(54, 58, 22, petal(40, 19, .8), c["back"])
             + f'<path d="M54 58 C66 44 90 48 92 65 C93 76 85 84 77 80 C83 72 79 62 69 62 C63 62 58 62 54 58 Z" fill="{c["fall"]}"/>'
-            + line("M61 56 Q71 52 79 57", c["beard"], 3.2) + at(54, 59, -8, petal(47, 25, .85), c["std"]))
+            + near + at(54, 59, -8, petal(47, 25, .85), c["std"]))
 
 
 def s6(c):
     lobe = "M11 54 A19.5 19.5 0 0 0 50 54 Z"
     return (line("M50 56 V94", c["stem"], 6) + f'<path d="{lobe}" fill="{c["fall"]}"/>'
-            + f'<g transform="translate(100 0) scale(-1 1)"><path d="{lobe}" fill="{c["fall2"]}"/></g>'
+            + f'<g transform="translate(100 0) scale(-1 1)"><path d="{lobe}" fill="{c["other"]}"/></g>'
             + at(50, 54, 38, petal(40, 25, .6), c["back"]) + at(50, 54, -38, petal(40, 25, .6), c["back"])
             + at(50, 54, 0, petal(47, 27, .6), c["std"]) + f'<circle cx="50" cy="54" r="5" fill="{c["beard"]}"/>')
 
@@ -104,62 +147,96 @@ SHAPES = [
     ("S6", "Geometric", s6, "Built from almonds and half circles"),
 ]
 
-CSS = """
-@font-face{font-family:Marcellus;src:url("../../house/Marcellus-Regular.ttf")}
-@font-face{font-family:Commissioner;font-weight:400;src:url("../../house/Commissioner-Regular.ttf")}
-@font-face{font-family:Commissioner;font-weight:600;src:url("../../house/Commissioner-SemiBold.ttf")}
-@font-face{font-family:"IBM Plex Mono";src:url("../../house/IBMPlexMono-Regular.ttf")}
-*{box-sizing:border-box;margin:0;padding:0}
-body{background:#15161A;color:#F4F4F1;font:400 15px/22px Commissioner,system-ui,sans-serif;padding:32px 36px 40px}
-.label{font:600 12px/16px Commissioner,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#A2A5AD}
-h1{font:400 40px/44px Marcellus,serif;margin:8px 0 8px}
-.brief{color:#A2A5AD;max-width:1000px;font-size:17px;line-height:25px;margin-bottom:24px}
-.matrix{display:grid;grid-template-columns:150px repeat(5,1fr);gap:14px 14px;align-items:center}
-.head h2,.side h2{font:600 17px/25px Commissioner,sans-serif}
-.head p,.side p{color:#A2A5AD;font-size:13px;line-height:18px}
-.head{align-self:end;padding-bottom:4px}
-.id{font:400 13px/20px 'IBM Plex Mono',monospace;border:1px solid #32353C;border-radius:6px;padding:1px 8px;margin-right:8px}
-.pair{display:grid;grid-template-columns:1fr 1fr;gap:6px}
-.tile{position:relative;height:150px;border-radius:12px;border:1px solid #32353C;display:flex;align-items:center;justify-content:center}
-.tile .small{position:absolute;right:7px;bottom:6px;display:flex;align-items:flex-end;gap:5px}
-.locks{display:grid;grid-template-columns:repeat(6,1fr);gap:14px;margin-top:30px}
-.lock{border-radius:12px;border:1px solid #32353C;padding:16px;display:flex;flex-direction:column;gap:12px;background:#15161A}
-.lock div{display:flex;align-items:center;gap:12px;font:400 34px/38px Marcellus,serif}
-.lock .chalk{background:#F4F4F1;color:#15161A;border-radius:8px;padding:10px;margin:0 -6px -6px}
-.lock .night{padding:4px}
+
+def variables(i):
+    return "".join(f"--{k}:{v[i]};" for k, v in COLOURWAYS[0][3].items())
+
+
+CSS = f"""
+@font-face{{font-family:Marcellus;src:url("../../house/Marcellus-Regular.ttf")}}
+@font-face{{font-family:Commissioner;font-weight:400;src:url("../../house/Commissioner-Regular.ttf")}}
+@font-face{{font-family:Commissioner;font-weight:600;src:url("../../house/Commissioner-SemiBold.ttf")}}
+@font-face{{font-family:"IBM Plex Mono";src:url("../../house/IBMPlexMono-Regular.ttf")}}
+[data-ground=dark]{{{variables(0)}}}
+[data-ground=light]{{{variables(1)}}}
+*{{box-sizing:border-box;margin:0;padding:0}}
+body{{background:#15161A;color:#F4F4F1;font:400 15px/22px Commissioner,system-ui,sans-serif;padding:32px 36px 40px}}
+.label{{font:600 12px/16px Commissioner,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#A2A5AD}}
+h1{{font:400 40px/44px Marcellus,serif;margin:8px 0 8px}}
+.brief{{color:#A2A5AD;max-width:1000px;font-size:17px;line-height:25px;margin-bottom:20px}}
+.id{{font:400 13px/20px 'IBM Plex Mono',monospace;border:1px solid #32353C;border-radius:6px;padding:1px 8px;margin-right:8px}}
+.picker{{position:sticky;top:12px;z-index:2;background:#1F2126;border:1px solid #32353C;border-radius:14px;padding:12px 14px;margin-bottom:26px;box-shadow:0 10px 28px rgba(0,0,0,.45)}}
+.picker .ways{{display:flex;flex-wrap:wrap;gap:8px}}
+.picker button{{display:flex;align-items:center;gap:8px;font:600 13px/18px Commissioner,sans-serif;color:#F4F4F1;background:#15161A;border:1px solid #32353C;border-radius:10px;padding:7px 11px;cursor:pointer}}
+.picker button code{{font:400 12px/18px 'IBM Plex Mono',monospace;color:#A2A5AD}}
+.picker button i{{display:flex}}
+.picker button i b{{width:12px;height:16px}}
+.picker button i b:first-child{{border-radius:4px 0 0 4px}}
+.picker button i b:last-child{{border-radius:0 4px 4px 0}}
+.picker button[aria-pressed=true]{{border-color:#F4F4F1;background:#32353C}}
+.picker .now{{margin-top:10px;color:#A2A5AD;font-size:13px;line-height:18px}}
+.picker .now b{{color:#F4F4F1;font-weight:600}}
+.grid{{display:grid;grid-template-columns:repeat(3,1fr);gap:28px 22px}}
+h2{{font:600 17px/25px Commissioner,sans-serif}}
+.why{{color:#A2A5AD;font-size:13px;line-height:18px;margin:2px 0 10px}}
+.pair{{display:grid;grid-template-columns:1fr 1fr;gap:8px}}
+.tile{{position:relative;height:330px;border-radius:12px;border:1px solid #32353C;display:flex;flex-direction:column;align-items:center}}
+.tile .big{{margin-top:20px}}
+.tile .lockup{{display:flex;align-items:center;gap:12px;font:400 36px/40px Marcellus,serif;margin-top:16px}}
+.tile .small{{position:absolute;right:12px;bottom:10px;display:flex;align-items:flex-end;gap:9px}}
+.tile .px{{position:absolute;left:12px;bottom:10px;font:400 11px/16px 'IBM Plex Mono',monospace;opacity:.55}}
+"""
+
+SCRIPT = r"""
+const WAYS = __WAYS__, PARTS = __PARTS__;
+const live = document.head.appendChild(document.createElement("style"));
+const buttons = [...document.querySelectorAll(".picker button")];
+function choose(id) {
+  const way = WAYS.find((w) => w.id === id) || WAYS[0];
+  live.textContent = ["dark", "light"].map((g, i) => `[data-ground=${g}]{${PARTS.map((k) => `--${k}:${way.parts[k][i]}`).join(";")}}`).join("");
+  buttons.forEach((b) => b.setAttribute("aria-pressed", b.dataset.id === way.id));
+  document.getElementById("now").innerHTML = `<b>${way.id} ${way.name}</b> · ${way.why}`;
+  // The choice travels in the address, so a reload keeps it and the link can be sent back.
+  history.replaceState(null, "", "#" + way.id);
+}
+buttons.forEach((b) => (b.onclick = () => choose(b.dataset.id)));
+choose(location.hash.slice(1));
+// capture.sh reads the page's height from here.
+document.fonts.ready.then(() => { document.documentElement.dataset.h = Math.ceil(document.body.getBoundingClientRect().bottom); });
 """
 
 
 def main():
     (HERE / "options").mkdir(exist_ok=True)
-    cells = ['<div></div>'] + [f'<div class="head"><h2><span class="id">{cid}</span>{name}</h2><p>{why}</p></div>' for cid, name, why, _ in COLOURWAYS]
+    for old in (HERE / "options").glob("*.svg"):
+        old.unlink()
+    cells = []
     for sid, sname, draw, swhy in SHAPES:
-        cells.append(f'<div class="side"><h2><span class="id">{sid}</span>{sname}</h2><p>{swhy}</p></div>')
         for cid, _, _, parts in COLOURWAYS:
-            tiles = ""
             for i, g in enumerate(("dark", "light")):
-                body = draw({k: v[i] for k, v in parts.items()})
                 (HERE / "options" / f"{sid}-{cid}-on-{g}.svg").write_text(
-                    f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">\n{body}\n</svg>\n')
-                tiles += (f'<div class="tile" style="background:{m.GROUND[g]}">{m.inline(body, 104)}'
-                          f'<div class="small">{m.inline(body, 24)}{m.inline(body, 16)}</div></div>')
-            cells.append(f'<div class="pair" id="{sid}-{cid}">{tiles}</div>')
-    locks = ""
-    for sid, sname, draw, _ in SHAPES:
-        parts = COLOURWAYS[0][3]
-        row = "".join(f'<div class="{cls}">{m.inline(draw({k: v[i] for k, v in parts.items()}), 44)}Iris</div>' for i, cls in enumerate(("night", "chalk")))
-        locks += f'<div class="lock"><span class="label">{sid} beside the name</span>{row}</div>'
+                    f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">\n{draw({k: v[i] for k, v in parts.items()})}\n</svg>\n')
+        body, tiles = draw(LIVE), ""
+        for g in ("dark", "light"):
+            tiles += (f'<div class="tile" data-ground="{g}" style="background:{m.GROUND[g]};color:{m.INK[g]}">{m.inline(body, 190, "big")}'
+                      f'<div class="lockup">{m.inline(body, 44)}Iris</div><div class="small">{m.inline(body, 32)}{m.inline(body, 24)}{m.inline(body, 16)}</div>'
+                      '<span class="px">32 · 24 · 16</span></div>')
+        cells.append(f'<div id="{sid}"><h2><span class="id">{sid}</span>{sname}</h2><p class="why">{swhy}</p><div class="pair">{tiles}</div></div>')
+    ways = "".join(
+        f'<button type="button" data-id="{cid}"><i>{"".join(f"<b style=background:{parts[k][0]}></b>" for k in ("std", "fall", "other", "beard"))}</i>'
+        f'<code>{cid}</code>{name}</button>' for cid, name, _, parts in COLOURWAYS)
+    script = (SCRIPT.replace("__WAYS__", json.dumps([dict(id=c, name=n, why=w, parts=p) for c, n, w, p in COLOURWAYS]))
+              .replace("__PARTS__", json.dumps(PARTS)))
     (HERE / "index.html").write_text(
         '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Iris · mark · round 2 · the flower</title>'
-        '<meta name="board-status" content="open"><meta name="board-summary" content="Six ways to draw the iris, each in five colourways">'
+        f'<meta name="board-status" content="open"><meta name="board-summary" content="Six ways to draw the iris, in {len(COLOURWAYS)} colourways">'
         f'<style>{CSS}</style></head><body>'
-        '<p class="label">Iris · mark · round 2 · the flower</p><h1>The flower, in six shapes and five colourways</h1>'
-        '<p class="brief">Each row is a way to draw the iris and each column is a colourway, shown on Night and on Chalk with 24 and 16 px in the corner. '
-        'Name a cell by its row and column, such as S4 in C1. The last strip sets each shape beside the name.</p>'
-        f'<div class="matrix">{"".join(cells)}</div><div class="locks">{locks}</div>'
-        '<script>document.fonts.ready.then(()=>{document.documentElement.dataset.h=Math.ceil(document.body.getBoundingClientRect().bottom)})</script>'
-        '</body></html>\n')
-    print("wrote index.html")
+        '<p class="label">Iris · mark · round 2 · the flower</p><h1>The flower, in six shapes</h1>'
+        f'<p class="brief">Six ways to draw the iris, each on Night and on Chalk, beside the name, and at 32, 24 and 16 px. '
+        f'Choose a colourway below and every flower takes it. Name a pick by shape and colourway, such as S4 in C1.</p>'
+        f'<div class="picker"><div class="ways">{ways}</div><p class="now" id="now"></p></div>'
+        f'<div class="grid">{"".join(cells)}</div><script>{script}</script></body></html>\n')
+    print("wrote index.html and", len(SHAPES) * len(COLOURWAYS) * 2, "SVG files")
 
 
 main()
