@@ -1,4 +1,4 @@
-package house.mouseion.chat;
+package house.mouseion.iris;
 
 import android.os.Bundle;
 import com.getcapacitor.BridgeActivity;

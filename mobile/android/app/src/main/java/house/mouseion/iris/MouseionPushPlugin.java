@@ -1,4 +1,4 @@
-package house.mouseion.chat;
+package house.mouseion.iris;
 
 import static org.unifiedpush.android.connector.ConstantsKt.INSTANCE_DEFAULT;
 
@@ -153,7 +153,7 @@ public class MouseionPushPlugin extends Plugin {
         Context context = getContext();
         PushStore.prefs(context).edit().putString(PushStore.KEY_ERROR, "").apply();
         UnifiedPush.saveDistributor(context, distributor);
-        UnifiedPush.register(context, INSTANCE_DEFAULT, "Mouseion Chat", null);
+        UnifiedPush.register(context, INSTANCE_DEFAULT, "Iris", null);
         call.resolve();
     }
 
@@ -165,7 +165,7 @@ public class MouseionPushPlugin extends Plugin {
     public void refresh(PluginCall call) {
         Context context = getContext();
         boolean registered = UnifiedPush.getAckDistributor(context) != null;
-        if (registered) UnifiedPush.register(context, INSTANCE_DEFAULT, "Mouseion Chat", null);
+        if (registered) UnifiedPush.register(context, INSTANCE_DEFAULT, "Iris", null);
         JSObject result = new JSObject();
         result.put("registered", registered);
         call.resolve(result);

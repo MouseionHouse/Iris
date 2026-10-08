@@ -71,7 +71,7 @@ for name, forms in icons.items():
             entries.append((name + "Filled", filled))
 
 lines = [
-    "package house.mouseion.chat.ui.theme",
+    "package house.mouseion.iris.ui.theme",
     "",
     "import androidx.compose.ui.graphics.Color",
     "import androidx.compose.ui.graphics.PathFillType",

@@ -4,7 +4,7 @@ import { Page, PageContent, PageHeader } from '../../../components/page';
 import { SequenceCard } from '../../../components/sequence-card';
 import { SequenceCardStyle } from '../styles.css';
 import { SettingTile } from '../../../components/setting-tile';
-import MouseionLogo from '../../../../../public/res/mouseion-logo.png';
+import MouseionLogo from '../../../../../public/res/iris-logo.png';
 import { clearCacheAndReload } from '../../../../client/initMatrix';
 import { useMatrixClient } from '../../../hooks/useMatrixClient';
 
@@ -39,13 +39,13 @@ export function About({ requestClose }: AboutProps) {
                   <img
                     style={{ width: toRem(60), height: toRem(60) }}
                     src={MouseionLogo}
-                    alt="Mouseion Chat logo"
+                    alt="Iris logo"
                   />
                 </Box>
                 <Box direction="Column" gap="300">
                   <Box direction="Column" gap="100">
                     <Box gap="100" alignItems="End">
-                      <Text size="H3">Mouseion Chat</Text>
+                      <Text size="H3">Iris</Text>
                       <Text size="T200">built on Cinny v4.12.6</Text>
                     </Box>
                     <Text>The household&apos;s Matrix chat.</Text>

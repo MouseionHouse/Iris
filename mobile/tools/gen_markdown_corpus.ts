@@ -83,8 +83,8 @@ const rows = corpus.map((input) => {
 });
 
 writeFileSync(
-  'shared/src/commonTest/kotlin/house/mouseion/chat/ui/CinnyMarkdownCorpusTest.kt',
-  `package house.mouseion.chat.ui
+  'shared/src/commonTest/kotlin/house/mouseion/iris/ui/CinnyMarkdownCorpusTest.kt',
+  `package house.mouseion.iris.ui
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
