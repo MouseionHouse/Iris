@@ -372,4 +372,5 @@ def main():
     print("wrote", len(OPTIONS) * 2, "SVG files and sheet.html")
 
 
-main()
+if __name__ == "__main__":
+    main()
