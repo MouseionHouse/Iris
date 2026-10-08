@@ -42,6 +42,22 @@ COLOURWAYS = [
     way("C12", "Sea", "Teal and woad, with a pale signal", ("#8FD0C0", "#5FB5A2"), ("#7FAFC2", "#5B9EB8"), ("#4C9FA8", "#2F8590"), ("#4C9FA8", "#2F8590"), ("#F0E3A8", "#E8D27A"), ("#7FAF8F", "#5F9A74")),
     way("C13", "One colour", "Every part in ink, to test the shape alone", ("#F4F4F1", "#15161A"), ("#C9CAC9", "#3A3C42"), ("#DEDEDC", "#26282D"), ("#DEDEDC", "#26282D"), ("#15161A", "#F4F4F1"), ("#A2A5AD", "#5B5E66")),
 ]
+# The purples John and Andromache asked for on 2026-10-08, balanced the way Copper, Rose gold and Sea are:
+# neighbouring hues, pale standards over deeper falls, a soft signal, and a stem toned to match.
+PURPLES = [
+    way("P1", "Wisteria", "Blue-leaning lilacs with a pale lilac signal and a slate stem", ("#C9B8E8", "#B39DDB"), ("#B3A0DC", "#9C86CF"), ("#8E7CC8", "#7663B8"), ("#8E7CC8", "#7663B8"), ("#F0E3F5", "#E3D2EE"), ("#9FA8B8", "#8591A6")),
+    way("P2", "Tyrian", "The red-leaning purple of the old shellfish dye", ("#C792B8", "#B5769F"), ("#B57DA8", "#A0638F"), ("#8F4C82", "#7A3A6E"), ("#8F4C82", "#7A3A6E"), ("#F2D9C4", "#E8C4A8"), ("#A89A8F", "#8F7F73")),
+    way("P3", "Lilac and copper", "Lilac petals with Copper's signal", ("#C4A6DE", "#AC8ACB"), ("#B193D2", "#9A78BF"), ("#8D67B8", "#7650A3"), ("#8D67B8", "#7650A3"), ("#E0A06A", "#D4853F"), ("#A8957F", "#8F7A62")),
+    way("P4", "Plum and rose gold", "Rose gold standards over plum falls", ("#F3C3B4", "#E3A897"), ("#DDA6B8", "#CC8CA2"), ("#8E5A96", "#774480"), ("#8E5A96", "#774480"), ("#FFF3EA", "#F7E3D5"), ("#B7A68F", "#9E8B72")),
+    way("P5", "Iris and sea", "Violet petals with Sea's teal as the signal", ("#B5A8E0", "#9F8FD1"), ("#A093D4", "#8878C2"), ("#7A5FB0", "#64499B"), ("#7A5FB0", "#64499B"), ("#8FD0C0", "#5FB5A2"), ("#7FAF9F", "#5F9A88")),
+    way("P6", "Heather", "Greyed mauves, the quietest of the set", ("#CDB3CC", "#B898B7"), ("#BBA0BE", "#A585A8"), ("#96739F", "#7F5C88"), ("#96739F", "#7F5C88"), ("#EAD9A8", "#DEC67E"), ("#A3AD94", "#8A967A")),
+    way("P7", "Amethyst", "The same balance with the colour turned up", ("#C7A3F0", "#B088E3"), ("#B08CE6", "#9871D6"), ("#8556CF", "#6E40BA"), ("#8556CF", "#6E40BA"), ("#F5DFA0", "#EBCB6E"), ("#9AA9C4", "#8093B3")),
+    way("P8", "Orchid", "Pink-leaning purples with a cream signal", ("#E3B3DC", "#D496CB"), ("#D29CD0", "#C17FBE"), ("#A55FA8", "#8E4892"), ("#A55FA8", "#8E4892"), ("#FBE9D8", "#F2D5BA"), ("#B0A398", "#978779")),
+    way("P9", "Violet dusk", "Deeper violets with a rose gold signal", ("#A08FD0", "#8573BD"), ("#8A78C0", "#7160AD"), ("#5F4C9E", "#4B3987"), ("#5F4C9E", "#4B3987"), ("#E6C3B4", "#D9A897"), ("#8F93A8", "#75798F")),
+    way("P10", "Mulberry", "Dusty pink standards over wine falls", ("#D3A0BE", "#C283A6"), ("#C088AC", "#AD6E94"), ("#8A3F74", "#742D60"), ("#8A3F74", "#742D60"), ("#F0C9A0", "#E5B07C"), ("#A39A80", "#8A8066")),
+]
+EARLIER = COLOURWAYS
+COLOURWAYS = PURPLES + EARLIER
 LIVE = {k: f"var(--{k})" for k in PARTS}
 
 
@@ -166,7 +182,7 @@ h1{{font:400 40px/44px Marcellus,serif;margin:8px 0 8px}}
 .brief{{color:#A2A5AD;max-width:1000px;font-size:17px;line-height:25px;margin-bottom:20px}}
 .id{{font:400 13px/20px 'IBM Plex Mono',monospace;border:1px solid #32353C;border-radius:6px;padding:1px 8px;margin-right:8px}}
 .picker{{position:sticky;top:12px;z-index:2;background:#1F2126;border:1px solid #32353C;border-radius:14px;padding:12px 14px;margin-bottom:26px;box-shadow:0 10px 28px rgba(0,0,0,.45)}}
-.picker .ways{{display:flex;flex-wrap:wrap;gap:8px}}
+.picker .ways{{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 12px}}
 .picker button{{display:flex;align-items:center;gap:8px;font:600 13px/18px Commissioner,sans-serif;color:#F4F4F1;background:#15161A;border:1px solid #32353C;border-radius:10px;padding:7px 11px;cursor:pointer}}
 .picker button code{{font:400 12px/18px 'IBM Plex Mono',monospace;color:#A2A5AD}}
 .picker button i{{display:flex}}
@@ -174,7 +190,7 @@ h1{{font:400 40px/44px Marcellus,serif;margin:8px 0 8px}}
 .picker button i b:first-child{{border-radius:4px 0 0 4px}}
 .picker button i b:last-child{{border-radius:0 4px 4px 0}}
 .picker button[aria-pressed=true]{{border-color:#F4F4F1;background:#32353C}}
-.picker .now{{margin-top:10px;color:#A2A5AD;font-size:13px;line-height:18px}}
+.picker .now{{color:#A2A5AD;font-size:13px;line-height:18px}}
 .picker .now b{{color:#F4F4F1;font-weight:600}}
 .grid{{display:grid;grid-template-columns:repeat(3,1fr);gap:28px 22px}}
 h2{{font:600 17px/25px Commissioner,sans-serif}}
@@ -222,9 +238,11 @@ def main():
                       f'<div class="lockup">{m.inline(body, 44)}Iris</div><div class="small">{m.inline(body, 32)}{m.inline(body, 24)}{m.inline(body, 16)}</div>'
                       '<span class="px">32 · 24 · 16</span></div>')
         cells.append(f'<div id="{sid}"><h2><span class="id">{sid}</span>{sname}</h2><p class="why">{swhy}</p><div class="pair">{tiles}</div></div>')
-    ways = "".join(
-        f'<button type="button" data-id="{cid}"><i>{"".join(f"<b style=background:{parts[k][0]}></b>" for k in ("std", "fall", "other", "beard"))}</i>'
-        f'<code>{cid}</code>{name}</button>' for cid, name, _, parts in COLOURWAYS)
+    def group(title, ways):
+        return f'<span class="label">{title}</span><div class="ways">' + "".join(
+            f'<button type="button" data-id="{cid}"><i>{"".join(f"<b style=background:{parts[k][0]}></b>" for k in ("std", "fall", "beard", "stem"))}</i>'
+            f'<code>{cid}</code>{name}</button>' for cid, name, _, parts in ways) + "</div>"
+    ways = group("New: the purple range", PURPLES) + group("Earlier", EARLIER)
     script = (SCRIPT.replace("__WAYS__", json.dumps([dict(id=c, name=n, why=w, parts=p) for c, n, w, p in COLOURWAYS]))
               .replace("__PARTS__", json.dumps(PARTS)))
     (HERE / "index.html").write_text(
@@ -233,8 +251,8 @@ def main():
         f'<style>{CSS}</style></head><body>'
         '<p class="label">Iris · mark · round 2 · the flower</p><h1>The flower, in six shapes</h1>'
         f'<p class="brief">Six ways to draw the iris, each on Night and on Chalk, beside the name, and at 32, 24 and 16 px. '
-        f'Choose a colourway below and every flower takes it. Name a pick by shape and colourway, such as S4 in C1.</p>'
-        f'<div class="picker"><div class="ways">{ways}</div><p class="now" id="now"></p></div>'
+        f'Choose a colourway below and every flower takes it. Name a pick by shape and colourway, such as S4 in P2.</p>'
+        f'<div class="picker">{ways}<p class="now" id="now"></p></div>'
         f'<div class="grid">{"".join(cells)}</div><script>{script}</script></body></html>\n')
     print("wrote index.html and", len(SHAPES) * len(COLOURWAYS) * 2, "SVG files")
 
