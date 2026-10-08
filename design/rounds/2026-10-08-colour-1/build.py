@@ -3,7 +3,7 @@
 
 The same five sketches from mark round 1, drawn in three palettes: the house's nine as they are,
 nine taken from natural dyes, and nine at full saturation. Each palette has a Night and a Chalk
-set, and every colour is checked against its ground (3:1 is the floor for a mark's colours).
+set, and every colour is checked against its ground (the Chalk sets are lighter than the house's 3:1 floor, at John's ask).
 Run: python3 build.py, then ../../capture.sh index.html
 """
 import importlib.util
@@ -16,29 +16,29 @@ spec.loader.exec_module(m)
 
 # Each entry: the Muse's slot, what the colour is called here, its value on Night, its value on Chalk.
 PALETTES = [
-    ("P1", "The house's nine", "The colours the sketches have used so far: soft on Night, deeper on Chalk", [
+    ("P1", "The house's nine", "The colours the sketches have used so far: soft on Night, and lightened on Chalk", [
         (n, n.capitalize(), m.MUSE["dark"][n], m.MUSE["light"][n]) for n in m.WHEEL]),
     ("P2", "Natural dyes", "Nine colours a dyer could get from plants, insects and shellfish: earthier, and closer to each other", [
-        ("calliope", "Madder", "#D4735E", "#A8432F"),
-        ("terpsichore", "Henna", "#D98F52", "#A65E24"),
-        ("clio", "Weld", "#D6B551", "#8F7412"),
-        ("thalia", "Weld on indigo", "#93A862", "#5E7A33"),
-        ("euterpe", "Indigo on weld", "#6FAF9B", "#377A68"),
-        ("polyhymnia", "Woad", "#7FAFC2", "#3F7A91"),
-        ("urania", "Indigo", "#7C93CF", "#34508F"),
-        ("melpomene", "Tyrian purple", "#A886BF", "#6E447F"),
-        ("erato", "Cochineal", "#D9819C", "#A83E62"),
+        ("calliope", "Madder", "#D4735E", "#CD624C"),
+        ("terpsichore", "Henna", "#D98F52", "#D47E38"),
+        ("clio", "Weld", "#D6B551", "#CAA419"),
+        ("thalia", "Weld on indigo", "#93A862", "#82A947"),
+        ("euterpe", "Indigo on weld", "#6FAF9B", "#4CA88F"),
+        ("polyhymnia", "Woad", "#7FAFC2", "#5B9EB8"),
+        ("urania", "Indigo", "#7C93CF", "#496CBD"),
+        ("melpomene", "Tyrian purple", "#A886BF", "#935DA8"),
+        ("erato", "Cochineal", "#D9819C", "#C56384"),
     ]),
     ("P3", "Full saturation", "Nine colours as vivid as a screen can make them", [
-        ("calliope", "Red", "#FF4A5E", "#E0182D"),
-        ("terpsichore", "Orange", "#FF8A1F", "#D45F00"),
-        ("clio", "Yellow", "#FFD21F", "#A87C00"),
-        ("thalia", "Green", "#5BDB3A", "#2B9418"),
-        ("euterpe", "Teal", "#00D4AE", "#008F76"),
-        ("polyhymnia", "Cyan", "#12C2FF", "#0082BF"),
-        ("urania", "Blue", "#4F84FF", "#1F55E0"),
-        ("melpomene", "Violet", "#9B6BFF", "#6F33E0"),
-        ("erato", "Magenta", "#FF52D9", "#C81FA3"),
+        ("calliope", "Red", "#FF4A5E", "#EB4052"),
+        ("terpsichore", "Orange", "#FF8A1F", "#FF7708"),
+        ("clio", "Yellow", "#FFD21F", "#DBA200"),
+        ("thalia", "Green", "#5BDB3A", "#38C01F"),
+        ("euterpe", "Teal", "#00D4AE", "#00C2A0"),
+        ("polyhymnia", "Cyan", "#12C2FF", "#00A5F2"),
+        ("urania", "Blue", "#4F84FF", "#4C77E6"),
+        ("melpomene", "Violet", "#9B6BFF", "#8E5FE7"),
+        ("erato", "Magenta", "#FF52D9", "#E03ABC"),
     ]),
 ]
 MARKS = [("R1", m.r1), ("B1", m.b1), ("W1", m.w1), ("F1", m.f1), ("E1", m.e1)]
