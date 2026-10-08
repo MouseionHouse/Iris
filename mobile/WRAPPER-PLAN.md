@@ -42,14 +42,16 @@ mobile/
       PushSummary.kt           event → notification text (moved from shared, pure Kotlin)
   capacitor.config.ts appId house.mouseion.chat, webDir ../dist-mobile, androidScheme https
   WORKTRACK.md, WRAPPER-PLAN.md
-build.config.ts / vite: a `mobile` mode → dist-mobile with its own config.json
+scripts/mobile-bundle.js: dist → dist-mobile with config.mobile.json as its config.json
 ```
 
-Web build for mobile (`npm run build:mobile` = `vite build --mode mobile`):
+Web build for mobile (`npm run build:mobile` = `vite build`, then `scripts/mobile-bundle.js`). Since
+2026-10-08 it is the web build itself, not a second `--mode mobile` build: CI builds the app once and
+ships the same files in the web image and the APK (`.forgejo/workflows/build.yml`).
 - `config.json` (mobile variant): `defaultHomeserver` = mouseion.house only, `allowCustomHomeservers:
   false`, `featuredCommunities` empty, `hashRouter.enabled: true` (Capacitor serves `https://localhost/`
   from assets; hash routing avoids server-side rewrites and survives reloads).
-- `base: './'` for the mobile build so assets resolve from the bundle.
+- `base: '/'` as on the web: Capacitor serves the bundle from the root of `https://localhost/`.
 - Service worker `src/sw.ts` (adds the access token to media `<img>` fetches) is kept: Android WebView
   runs service workers for https origins. Verified in Phase 1; if it fails, media falls back to
   authenticated fetch in `useMediaAuthentication` paths.

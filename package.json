@@ -10,7 +10,7 @@
   "scripts": {
     "start": "vite",
     "build": "vite build",
-    "build:mobile": "vite build --mode mobile",
+    "build:mobile": "vite build && node scripts/mobile-bundle.js",
     "preview": "vite preview",
     "preview:mobile": "vite preview --outDir dist-mobile",
     "cap:sync": "npx cap sync android",

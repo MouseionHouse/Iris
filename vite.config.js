@@ -11,11 +11,10 @@ import fs from 'fs';
 import path from 'path';
 import buildConfig from './build.config';
 
-// `vite build --mode mobile` (npm run build:mobile) produces the bundle the Capacitor Android
-// wrapper embeds: config.mobile.json instead of config.json (mouseion.house only, hash router
-// on — the wrapper serves the app from https://localhost/ with no server-side rewrites), and its
-// own dist-mobile/ so a desktop build in dist/ is never clobbered. See mobile/WRAPPER-PLAN.md.
-function copyFilesFor(mode) {
+// There is one build. The Capacitor Android wrapper embeds the same bundle with
+// config.mobile.json in place of config.json (scripts/mobile-bundle.js, npm run build:mobile),
+// so nothing here depends on the target. See mobile/WRAPPER-PLAN.md.
+function copyFiles() {
   return {
     targets: [
       {
@@ -32,9 +31,8 @@ function copyFilesFor(mode) {
         dest: '',
       },
       {
-        src: mode === 'mobile' ? 'config.mobile.json' : 'config.json',
+        src: 'config.json',
         dest: '',
-        rename: 'config.json',
       },
       {
         src: 'public/manifest.json',
@@ -81,12 +79,12 @@ function serverMatrixSdkCryptoWasm(wasmFilePath) {
   };
 }
 
-export default defineConfig(({ mode }) => ({
+export default defineConfig({
   appType: 'spa',
   publicDir: false,
-  // Capacitor serves the bundle from a fixed origin (https://localhost/), so its assets are
-  // always at the root regardless of where the APK's WebView thinks the "page" is.
-  base: mode === 'mobile' ? './' : buildConfig.base,
+  // The Android wrapper serves the bundle from the root of https://localhost/ as well, so the
+  // same base holds there.
+  base: buildConfig.base,
   server: {
     port: 8080,
     host: true,
@@ -103,7 +101,7 @@ export default defineConfig(({ mode }) => ({
       // The function to generate import names of top-level await promise in each chunk module
       promiseImportName: (i) => `__tla_${i}`,
     }),
-    viteStaticCopy(copyFilesFor(mode)),
+    viteStaticCopy(copyFiles()),
     vanillaExtractPlugin(),
     wasm(),
     react(),
@@ -137,11 +135,11 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
-    outDir: mode === 'mobile' ? 'dist-mobile' : 'dist',
+    outDir: 'dist',
     sourcemap: true,
     copyPublicDir: false,
     rollupOptions: {
       plugins: [inject({ Buffer: ['buffer', 'Buffer'] })],
     },
   },
-}));
+});
