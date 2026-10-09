@@ -11,3 +11,9 @@ This work's own design rounds: its name, its mark, its colours. The house, mouse
 ## Decided
 
 - **The mark (2026-10-08):** the Sketch, an iris with bare petals and the lower half of each fall a little darker, in P11 Amethyst and sea. It stands alone; the deep rounded square is for an app icon only. Artwork in `assets/` (`iris-mark-on-dark.svg`, `iris-mark-on-light.svg`, `iris-app-icon.svg`), values in `tokens.json`. Two other flowers are kept in `assets/kept/`.
+
+## Penpot
+
+Iris has its own Penpot project, **Iris**, with one file, **Iris library** (at penpot.example.org, made 2026-10-09). Its `Foundations` page shows the mark and the app icon at their true sizes on Night and Chalk, the five colours, and the two kept alternates. The file's library holds the colours and three components: the mark on dark, the mark on light, and the app icon.
+
+The repo is the source: when `assets/` or `tokens.json` changes, redraw the Penpot file from them. In the Penpot copy the stem is a filled shape, not a stroke, so the mark scales cleanly.
