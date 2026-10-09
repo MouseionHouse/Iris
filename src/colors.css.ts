@@ -291,8 +291,8 @@ export const mouseionTheme = createTheme(color, {
  * Iris's own two themes: the house grounds, Night and Chalk (mouseion/design `tokens.json`), with
  * the flower's colors as the accent (`design/tokens.json`). Primary is the petals' amethyst and
  * Success is `iris-leaf`: on Night that is the green Cinny's dark theme already has, so it is
- * inherited, and on Chalk it is a green picked for Iris. Warning and critical stay as Cinny has
- * them. On Chalk the accent is `iris-fall`, the darkest petal, so white text on it passes 4.5:1.
+ * inherited, and on Chalk it is the stem's teal, deepened so white text on it passes 4.5:1.
+ * Warning and critical stay as Cinny has them. On Chalk the accent is `iris-fall`, the darkest petal, so white text on it passes 4.5:1.
  */
 export const irisDarkTheme = createTheme(color, {
   ...darkThemeData,
@@ -400,15 +400,15 @@ export const irisLightTheme = createTheme(color, {
   },
 
   Success: {
-    Main: '#1F7A57',
-    MainHover: '#1C6F4F',
-    MainActive: '#1A684A',
-    MainLine: '#186145',
+    Main: '#2E7562',
+    MainHover: '#296A59',
+    MainActive: '#266353',
+    MainLine: '#235C4D',
     OnMain: '#FFFFFF',
-    Container: '#D0E8DD',
-    ContainerHover: '#C2E1D3',
-    ContainerActive: '#B4DAC9',
-    ContainerLine: '#A6D3BF',
-    OnContainer: '#14503A',
+    Container: '#D3E7E0',
+    ContainerHover: '#C6E0D7',
+    ContainerActive: '#B9D9CE',
+    ContainerLine: '#ACD2C5',
+    OnContainer: '#1D4D40',
   },
 });
