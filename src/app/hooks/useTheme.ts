@@ -2,7 +2,14 @@ import { lightTheme } from 'folds';
 import { atom, useAtomValue } from 'jotai';
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { onDarkFontWeight, onLightFontWeight } from '../../config.css';
-import { butterTheme, darkTheme, mouseionTheme, silverTheme } from '../../colors.css';
+import {
+  butterTheme,
+  darkTheme,
+  irisDarkTheme,
+  irisLightTheme,
+  mouseionTheme,
+  silverTheme,
+} from '../../colors.css';
 import { settingsAtom } from '../state/settings';
 import { useSetting } from '../state/hooks/settings';
 import { isFramed } from '../hub/hubBridge';
@@ -39,6 +46,17 @@ export const ButterTheme: Theme = {
   kind: ThemeKind.Dark,
   classNames: ['butter-theme', butterTheme, onDarkFontWeight, 'prism-dark'],
 };
+/** Iris's own look, and what a member sees until they pick another theme. */
+export const IrisLightTheme: Theme = {
+  id: 'iris-light-theme',
+  kind: ThemeKind.Light,
+  classNames: ['iris-light-theme', irisLightTheme, onLightFontWeight, 'prism-light'],
+};
+export const IrisDarkTheme: Theme = {
+  id: 'iris-dark-theme',
+  kind: ThemeKind.Dark,
+  classNames: ['iris-dark-theme', irisDarkTheme, onDarkFontWeight, 'prism-dark'],
+};
 export const MouseionTheme: Theme = {
   id: 'mouseion-theme',
   kind: ThemeKind.Dark,
@@ -62,7 +80,15 @@ export const hubThemeAtom = atom<Theme | null>(isFramed() ? MouseionTheme : null
 
 export const useThemes = (): Theme[] => {
   const themes: Theme[] = useMemo(
-    () => [LightTheme, SilverTheme, DarkTheme, ButterTheme, MouseionTheme],
+    () => [
+      IrisLightTheme,
+      IrisDarkTheme,
+      LightTheme,
+      SilverTheme,
+      DarkTheme,
+      ButterTheme,
+      MouseionTheme,
+    ],
     []
   );
 
@@ -72,6 +98,8 @@ export const useThemes = (): Theme[] => {
 export const useThemeNames = (): Record<string, string> =>
   useMemo(
     () => ({
+      [IrisLightTheme.id]: 'Iris light',
+      [IrisDarkTheme.id]: 'Iris dark',
       [LightTheme.id]: 'Light',
       [SilverTheme.id]: 'Silver',
       [DarkTheme.id]: 'Dark',
@@ -117,15 +145,15 @@ export const useActiveTheme = (): Theme => {
   }
 
   if (!systemTheme) {
-    const selectedTheme = themes.find((theme) => theme.id === themeId) ?? LightTheme;
+    const selectedTheme = themes.find((theme) => theme.id === themeId) ?? IrisLightTheme;
 
     return selectedTheme;
   }
 
   const selectedTheme =
     systemThemeKind === ThemeKind.Dark
-      ? themes.find((theme) => theme.id === darkThemeId) ?? DarkTheme
-      : themes.find((theme) => theme.id === lightThemeId) ?? LightTheme;
+      ? themes.find((theme) => theme.id === darkThemeId) ?? IrisDarkTheme
+      : themes.find((theme) => theme.id === lightThemeId) ?? IrisLightTheme;
 
   return selectedTheme;
 };

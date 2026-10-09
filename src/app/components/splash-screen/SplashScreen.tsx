@@ -20,7 +20,7 @@ export function SplashScreen({ children }: SplashScreenProps) {
         alignItems="Center"
         justifyContent="Center"
       >
-        <Text size="H2" align="Center">
+        <Text className="iris-name" size="H2" align="Center">
           Iris
         </Text>
       </Box>

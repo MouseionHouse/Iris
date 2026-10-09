@@ -1,7 +1,7 @@
 import { createTheme } from '@vanilla-extract/css';
 import { color } from 'folds';
 
-export const silverTheme = createTheme(color, {
+const silverThemeData = {
   Background: {
     Container: '#DEDEDE',
     ContainerHover: '#D3D3D3',
@@ -96,7 +96,9 @@ export const silverTheme = createTheme(color, {
     Shadow: 'rgba(0 0 0 / 20%)',
     Overlay: 'rgba(0 0 0 / 50%)',
   },
-});
+};
+
+export const silverTheme = createTheme(color, silverThemeData);
 
 const darkThemeData = {
   Background: {
@@ -240,8 +242,9 @@ export const butterTheme = createTheme(color, {
 /**
  * The Mouseion dark palette, used when the client is framed inside the
  * household hub (which is dark). The page background is `#0c1016` with
- * `#05080c` as the deeper, recessed tone, and the accent is a quiet
- * forest-to-sage green. Everything else stays neutral (inherited from
+ * `#05080c` as the deeper, recessed tone, and the accent is Iris's own
+ * amethyst, as in the Iris dark theme (it was a sage green until
+ * 2026-10-09). Everything else stays neutral (inherited from
  * `darkThemeData`) so chat content sits comfortably in it.
  */
 export const mouseionTheme = createTheme(color, {
@@ -271,15 +274,141 @@ export const mouseionTheme = createTheme(color, {
   },
 
   Primary: {
-    Main: 'oklch(0.73 0.078 152)',
-    MainHover: 'oklch(0.79 0.082 152)',
-    MainActive: 'oklch(0.68 0.074 152)',
-    MainLine: 'oklch(0.62 0.07 152)',
-    OnMain: '#05080c',
-    Container: 'oklch(0.27 0.04 152)',
-    ContainerHover: 'oklch(0.32 0.045 152)',
-    ContainerActive: 'oklch(0.38 0.05 152)',
-    ContainerLine: 'oklch(0.44 0.055 152)',
-    OnContainer: 'oklch(0.86 0.07 152)',
+    Main: '#C7A3F0',
+    MainHover: '#BC95EC',
+    MainActive: '#B08CE6',
+    MainLine: '#A57DE0',
+    OnMain: '#251A38',
+    Container: '#3B2A5C',
+    ContainerHover: '#443169',
+    ContainerActive: '#4D3876',
+    ContainerLine: '#573F84',
+    OnContainer: '#E7D8FA',
+  },
+});
+
+/**
+ * Iris's own two themes: the house grounds, Night and Chalk (mouseion/design `tokens.json`), with
+ * the flower's colors as the accent (`design/tokens.json`). Primary is the petals' amethyst and
+ * Success is `iris-leaf`: on Night that is the green Cinny's dark theme already has, so it is
+ * inherited, and on Chalk it is a green picked for Iris. Warning and critical stay as Cinny has
+ * them. On Chalk the accent is `iris-fall`, the darkest petal, so white text on it passes 4.5:1.
+ */
+export const irisDarkTheme = createTheme(color, {
+  ...darkThemeData,
+  Background: {
+    Container: '#15161A',
+    ContainerHover: '#1B1C21',
+    ContainerActive: '#212329',
+    ContainerLine: '#32353C',
+    OnContainer: '#F4F4F1',
+  },
+
+  Surface: {
+    Container: '#1F2126',
+    ContainerHover: '#26282E',
+    ContainerActive: '#2D3037',
+    ContainerLine: '#3A3D45',
+    OnContainer: '#F4F4F1',
+  },
+
+  SurfaceVariant: {
+    Container: '#282A31',
+    ContainerHover: '#2F3239',
+    ContainerActive: '#373A42',
+    ContainerLine: '#41444D',
+    OnContainer: '#F4F4F1',
+  },
+
+  Primary: {
+    Main: '#C7A3F0',
+    MainHover: '#BC95EC',
+    MainActive: '#B08CE6',
+    MainLine: '#A57DE0',
+    OnMain: '#251A38',
+    Container: '#3B2A5C',
+    ContainerHover: '#443169',
+    ContainerActive: '#4D3876',
+    ContainerLine: '#573F84',
+    OnContainer: '#E7D8FA',
+  },
+
+  Secondary: {
+    Main: '#F4F4F1',
+    MainHover: '#E0E0DC',
+    MainActive: '#D4D4D0',
+    MainLine: '#C8C8C4',
+    OnMain: '#15161A',
+    Container: '#32353C',
+    ContainerHover: '#3A3D45',
+    ContainerActive: '#42454E',
+    ContainerLine: '#4B4E58',
+    OnContainer: '#F4F4F1',
+  },
+});
+
+export const irisLightTheme = createTheme(color, {
+  ...silverThemeData,
+  Background: {
+    Container: '#F4F4F1',
+    ContainerHover: '#EAEAE6',
+    ContainerActive: '#E1E0DB',
+    ContainerLine: '#D3D2CB',
+    OnContainer: '#15161A',
+  },
+
+  Surface: {
+    Container: '#FFFFFF',
+    ContainerHover: '#F4F4F1',
+    ContainerActive: '#EAEAE6',
+    ContainerLine: '#DCDBD5',
+    OnContainer: '#15161A',
+  },
+
+  SurfaceVariant: {
+    Container: '#EDEDE9',
+    ContainerHover: '#E4E4DF',
+    ContainerActive: '#DBDAD5',
+    ContainerLine: '#D0CFC9',
+    OnContainer: '#15161A',
+  },
+
+  Primary: {
+    Main: '#6E40BA',
+    MainHover: '#6338A9',
+    MainActive: '#5C339E',
+    MainLine: '#552F93',
+    OnMain: '#FFFFFF',
+    Container: '#E6DAF7',
+    ContainerHover: '#DCCDF3',
+    ContainerActive: '#D2C0EF',
+    ContainerLine: '#C8B3EB',
+    OnContainer: '#432377',
+  },
+
+  Secondary: {
+    Main: '#15161A',
+    MainHover: '#24262B',
+    MainActive: '#2E3036',
+    MainLine: '#383B42',
+    OnMain: '#F4F4F1',
+    Container: '#DCDBD5',
+    ContainerHover: '#D0CFC9',
+    ContainerActive: '#C5C4BD',
+    ContainerLine: '#B9B8B1',
+    OnContainer: '#15161A',
+  },
+
+  Success: {
+    Main: '#1F7A57',
+    MainHover: '#1C6F4F',
+    MainActive: '#1A684A',
+    MainLine: '#186145',
+    OnMain: '#FFFFFF',
+    Container: '#D0E8DD',
+    ContainerHover: '#C2E1D3',
+    ContainerActive: '#B4DAC9',
+    ContainerLine: '#A6D3BF',
+    OnContainer: '#14503A',
   },
 });

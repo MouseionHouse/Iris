@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Cinny's folds Light theme Background.Container, so the WebView's first paint is not a flash of white. -->
-    <color name="mouseion_background">#F2F2F2</color>
+    <!-- The Iris light theme's ground (Chalk), so the WebView's first paint is not a flash of white. -->
+    <color name="mouseion_background">#F4F4F1</color>
     <color name="colorPrimary">#302246</color>
-    <color name="colorPrimaryDark">#414A28</color>
+    <color name="colorPrimaryDark">#15161A</color>
     <color name="colorAccent">#8556CF</color>
 </resources>

@@ -15,12 +15,11 @@ import {
   color,
   config,
   configClass,
-  lightTheme,
   varsClass,
 } from 'folds';
 import { MatrixClient, MatrixEvent, Room } from 'matrix-js-sdk';
 import { onDarkFontWeight, onLightFontWeight } from '../config.css';
-import { darkTheme } from '../colors.css';
+import { irisDarkTheme, irisLightTheme } from '../colors.css';
 import { MatrixClientProvider } from '../app/hooks/useMatrixClient';
 import { SpecVersionsProvider } from '../app/hooks/useSpecVersions';
 import { Event, Message } from '../app/features/room/message';
@@ -164,7 +163,9 @@ const dark = window.location.search.includes('dark');
 document.body.classList.add(
   configClass,
   varsClass,
-  ...(dark ? ['dark-theme', darkTheme, onDarkFontWeight] : [lightTheme, onLightFontWeight])
+  ...(dark
+    ? ['iris-dark-theme', irisDarkTheme, onDarkFontWeight]
+    : ['iris-light-theme', irisLightTheme, onLightFontWeight])
 );
 
 const style = document.createElement('style');

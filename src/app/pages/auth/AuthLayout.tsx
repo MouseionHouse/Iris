@@ -140,7 +140,9 @@ export function AuthLayout() {
                 alt="Iris logo"
                 style={{ borderRadius: config.radii.R300 }}
               />
-              <Text size="H3">Iris</Text>
+              <Text className="iris-name" size="H3">
+                Iris
+              </Text>
             </Box>
           </Header>
           <Box className={css.AuthCardContent} direction="Column">

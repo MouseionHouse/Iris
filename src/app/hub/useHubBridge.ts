@@ -7,7 +7,7 @@ import { RoomToUnread } from '../../types/matrix/room';
 import { roomToUnreadAtom } from '../state/room/roomToUnread';
 import { mDirectAtom } from '../state/mDirectList';
 import { clearLoginData, logoutClient, startClient } from '../../client/initMatrix';
-import { LightTheme, MouseionTheme, hubThemeAtom } from '../hooks/useTheme';
+import { IrisLightTheme, MouseionTheme, hubThemeAtom } from '../hooks/useTheme';
 import {
   HUB_PROTOCOL_VERSION,
   getHubOrigin,
@@ -105,7 +105,7 @@ export const useHubBridge = (mx: MatrixClient | undefined, loading: boolean): vo
     theme: (mode) => {
       // Match the hub's light/dark mode. Dark maps to the Mouseion palette so
       // the framed client blends into the dark hub shell.
-      setHubTheme(mode === 'dark' ? MouseionTheme : LightTheme);
+      setHubTheme(mode === 'dark' ? MouseionTheme : IrisLightTheme);
     },
     visible: (visible) => {
       if (!mx) return;

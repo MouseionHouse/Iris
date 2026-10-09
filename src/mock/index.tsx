@@ -9,7 +9,9 @@ import '../index.css';
 import {
   Avatar,
   AvatarFallback,
+  Badge,
   Box,
+  Button,
   Chip,
   Header,
   Icon,
@@ -28,7 +30,7 @@ import {
   varsClass,
 } from 'folds';
 import { onDarkFontWeight, onLightFontWeight } from '../config.css';
-import { darkTheme } from '../colors.css';
+import { darkTheme, irisDarkTheme, irisLightTheme, mouseionTheme } from '../colors.css';
 import {
   Sidebar,
   SidebarAvatar,
@@ -807,11 +809,22 @@ function Mobile({ variant }: { variant: Variant }) {
 
 function MockApp() {
   const [variant, setVariant] = useState<Variant>('c');
-  const [dark, setDark] = useState(false);
-  const themeClasses = useMemo(
-    () => (dark ? ['dark-theme', darkTheme, onDarkFontWeight] : [lightTheme, onLightFontWeight]),
-    [dark]
-  );
+  const [dark, setDark] = useState(window.location.search.includes('dark'));
+  // ?cinny shows Cinny's own Light and Dark, for a before-and-after
+  const iris = !window.location.search.includes('cinny');
+  // ?hub shows the dark look the Hub frames
+  const hub = window.location.search.includes('hub');
+  const themeClasses = useMemo(() => {
+    if (hub) return ['mouseion-theme', mouseionTheme, onDarkFontWeight];
+    if (dark) {
+      return iris
+        ? ['iris-dark-theme', irisDarkTheme, onDarkFontWeight]
+        : ['dark-theme', darkTheme, onDarkFontWeight];
+    }
+    return iris
+      ? ['iris-light-theme', irisLightTheme, onLightFontWeight]
+      : [lightTheme, onLightFontWeight];
+  }, [dark, iris, hub]);
   React.useEffect(() => {
     document.body.className = '';
     document.body.classList.add(configClass, varsClass, ...themeClasses);
@@ -855,6 +868,27 @@ function MockApp() {
         <Text size="T300" priority="400">
           {current.blurb}
         </Text>
+        {/* The theme's accent and success colors on the real controls that use them. */}
+        <Box gap="300" wrap="Wrap" alignItems="Center">
+          <Button size="300" variant="Primary" fill="Solid" radii="300">
+            <Text size="B300">Login</Text>
+          </Button>
+          <Button size="300" variant="Success" fill="Solid" radii="300">
+            <Text size="B300">Save</Text>
+          </Button>
+          <Button size="300" variant="Success" fill="Soft" radii="300">
+            <Text size="B300">Join</Text>
+          </Button>
+          <Badge as="span" size="500" variant="Success" fill="Solid" radii="300">
+            <Text size="L400">New Messages</Text>
+          </Badge>
+          <Chip variant="Success" radii="Pill" outlined>
+            <Text size="B300">This Room</Text>
+          </Chip>
+          <Chip variant="Surface" radii="Pill" outlined>
+            <Text size="B300">Global</Text>
+          </Chip>
+        </Box>
         <Box gap="600" wrap="Wrap" alignItems="Start">
           <Desktop variant={variant} />
           <Mobile variant={variant} />

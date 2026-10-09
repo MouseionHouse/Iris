@@ -5,6 +5,27 @@
   font-display: swap;
 }
 
+/* The house typefaces (mouseion/design BRAND.md, Type): Commissioner for text, Marcellus for the
+   name Iris. Inter stays as the fallback while Commissioner loads. */
+@font-face {
+  font-family: Commissioner;
+  src: url('../public/font/Commissioner.woff2') format('woff2');
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: Marcellus;
+  src: url('../public/font/Marcellus-Regular.ttf');
+  font-display: swap;
+}
+
+.iris-name {
+  font-family: Marcellus, var(--font-secondary);
+  font-weight: 400;
+  letter-spacing: 0.01em;
+}
+
 :root {
   --tc-link: hsl(213deg 100% 45%);
 
@@ -19,11 +40,12 @@
   --mx-uc-8: hsl(94, 100%, 35%);
 
   --font-emoji: 'Twemoji_DISABLED';
-  --font-secondary: 'InterVariable', var(--font-emoji), sans-serif;
+  --font-secondary: 'Commissioner', 'InterVariable', var(--font-emoji), sans-serif;
 }
 
 .dark-theme,
 .butter-theme,
+.iris-dark-theme,
 .mouseion-theme {
   --tc-link: hsl(213deg 100% 80%);
 
@@ -36,7 +58,16 @@
   --mx-uc-7: hsl(243, 100%, 80%);
   --mx-uc-8: hsl(94, 100%, 80%);
 
-  --font-secondary: 'InterVariable', var(--font-emoji), sans-serif;
+  --font-secondary: 'Commissioner', 'InterVariable', var(--font-emoji), sans-serif;
+}
+
+/* Links are the flower's color in Iris's own themes. */
+.iris-light-theme {
+  --tc-link: #6e40ba;
+}
+.iris-dark-theme,
+.mouseion-theme {
+  --tc-link: #c7a3f0;
 }
 
 html {
