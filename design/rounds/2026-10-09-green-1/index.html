@@ -1,0 +1,21 @@
+<style>
+@font-face{font-family:C;src:url(../../../public/font/Commissioner.woff2);font-weight:100 900}
+body{margin:0;font-family:C;display:grid;grid-template-columns:150px 1fr 1fr}
+.h{padding:14px 20px;font-weight:600;font-size:15px}
+.n{background:#15161A;color:#F4F4F1}.c{background:#F4F4F1;color:#15161A}
+.l{background:#2a2b30;color:#F4F4F1;padding:20px;font-weight:600;font-size:15px;display:flex;flex-direction:column;justify-content:center;gap:4px}
+.l small{font-weight:400;color:#A2A5AD;font-size:12px}
+.cell{padding:20px;display:flex;gap:16px;align-items:center;border-top:1px solid #8884}
+.sw{width:56px;height:56px;border-radius:12px}
+.btn{padding:9px 18px;border-radius:8px;font-weight:600;font-size:14px}
+.bd{padding:3px 10px;border-radius:6px;font-weight:600;font-size:12px}
+.dot{width:12px;height:12px;border-radius:50%}
+code{font-size:12px;opacity:.75;font-family:monospace}
+.p{padding:3px 8px;border-radius:99px;font-size:12px;font-weight:700}
+</style>
+<div class="l" style="background:#2a2b30"></div><div class="h n">Iris dark</div><div class="h c">Iris light</div>
+<!-- Decided 2026-10-09 (John): A on dark, C on light. They are iris-leaf in design/tokens.json. -->
+<script>
+const rows=[["A","Cinny's green","what the app used before","#85E0BA","#0F3D2A","#017343","#fff"],["B","Stem teal","the first pass","#7FAF9F","#10271F","#2E7562","#fff"],["C","In between","a new sixth Iris color","#86CFAE","#0F3526","#1F7A57","#fff"]];
+for(const [id,n,sub,dn,don,lc,lon] of rows){document.body.insertAdjacentHTML('beforeend',`<div class="l"><span>${id} &nbsp;${n}</span><small>${sub}</small></div>`+[["n",dn,don,"#C7A3F0","#251A38"],["c",lc,lon,"#6E40BA","#fff"]].map(([k,g,on,pu,pon])=>`<div class="cell ${k}"><div class="sw" style="background:${g}"></div><code>${g}</code><span class="btn" style="background:${g};color:${on}">Save</span><span class="bd" style="background:${g};color:${on}">New Messages</span><span class="dot" style="background:${g}"></span><span class="p" style="background:${pu};color:${pon}">2</span></div>`).join(''))}
+</script>
