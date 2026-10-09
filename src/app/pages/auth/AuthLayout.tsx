@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect } from 'react';
-import { Box, Header, Scroll, Spinner, Text, color, config } from 'folds';
+import { Box, Header, Scroll, Spinner, Text, color } from 'folds';
 import {
   Outlet,
   generatePath,
@@ -20,7 +20,7 @@ import {
 } from '../../hooks/useClientConfig';
 import { AsyncStatus, useAsyncCallback } from '../../hooks/useAsyncCallback';
 import { LOGIN_PATH, REGISTER_PATH, RESET_PASSWORD_PATH } from '../paths';
-import MouseionLogo from '../../../../public/res/iris-logo.png';
+import { IrisLockup } from '../../components/iris-lockup';
 import { ServerPicker } from './ServerPicker';
 import { AutoDiscoveryAction, autoDiscovery } from '../../cs-api';
 import { SpecVersionsLoader } from '../../components/SpecVersionsLoader';
@@ -134,15 +134,7 @@ export function AuthLayout() {
         <Box direction="Column" className={css.AuthCard}>
           <Header className={css.AuthHeader} size="600" variant="Surface">
             <Box grow="Yes" direction="Row" gap="300" alignItems="Center">
-              <img
-                className={css.AuthLogo}
-                src={MouseionLogo}
-                alt="Iris logo"
-                style={{ borderRadius: config.radii.R300 }}
-              />
-              <Text className="iris-name" size="H3">
-                Iris
-              </Text>
+              <IrisLockup size={20} />
             </Box>
           </Header>
           <Box className={css.AuthCardContent} direction="Column">

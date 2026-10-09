@@ -1,5 +1,5 @@
 import { style } from '@vanilla-extract/css';
-import { DefaultReset, color, config, toRem } from 'folds';
+import { color, config, toRem } from 'folds';
 
 export const AuthLayout = style({
   minHeight: '100%',
@@ -22,16 +22,6 @@ export const AuthCard = style({
   border: `${config.borderWidth.B300} solid ${color.Surface.ContainerLine}`,
   overflow: 'hidden',
 });
-
-export const AuthLogo = style([
-  DefaultReset,
-  {
-    width: toRem(26),
-    height: toRem(26),
-
-    borderRadius: '50%',
-  },
-]);
 
 export const AuthHeader = style({
   padding: `0 ${config.space.S400}`,

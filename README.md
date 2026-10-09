@@ -1,8 +1,4 @@
-<p align="center">
-  <img src="branding/iris-app-icon.svg" alt="The Iris mark: an iris flower" width="96" height="96">
-</p>
-
-# Iris
+<h1><img src="branding/iris-mark-on-light.svg" alt="" width="44" height="44" align="top"> Iris</h1>
 
 Iris is the chat of [Mouseion](https://forgejo.example.net/mouseion), our household's software. It is a [Matrix](https://matrix.org) client, forked from [Cinny](https://cinny.in) v4.12.6. The name is Homer's messenger in the Iliad, and the flower.
 
@@ -57,8 +53,10 @@ Iris owns its own design: the name, the mark and the colors were decided in roun
 - [`design/tokens.json`](design/tokens.json): the five Iris colors.
 - [`scripts/iris-icons.py`](scripts/iris-icons.py): cuts every icon the web app and the Android app use from `branding/`.
 - [`src/colors.css.ts`](src/colors.css.ts): the Iris light and Iris dark themes.
+- [`src/app/components/iris-lockup/`](src/app/components/iris-lockup): the mark beside the name, the one way the two are shown together.
+- `/mock-brand.html` on the dev server: all of the above on real controls, on both grounds.
 
-The mark stands alone. The deep rounded square behind it is for app icons only.
+The mark stands alone. With the name, it sits beside it, never above. The deep rounded square behind it is for app icons only.
 
 ## Following Cinny
 

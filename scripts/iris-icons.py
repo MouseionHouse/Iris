@@ -12,6 +12,7 @@ root after changing anything in branding/:  python3 scripts/iris-icons.py
 import io
 import os
 import re
+import shutil
 import subprocess
 import tempfile
 from pathlib import Path
@@ -80,6 +81,9 @@ def main():
 
     # The web client. The lone mark uses the light-ground colours, which hold on a dark tab strip too.
     pub = ROOT / "public"
+    # The lockup (the mark beside the name) shows the artwork itself, one per ground.
+    for name in ("iris-mark-on-dark.svg", "iris-mark-on-light.svg"):
+        shutil.copy(BRAND / name, pub / "res/svg" / name)
     logo = fit(light, 192)
     logo.save(pub / "res/iris-logo.png")
     badge(logo, (0, 166, 99, 255)).save(pub / "res/iris-logo-unread.png")

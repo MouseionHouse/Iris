@@ -1,8 +1,9 @@
-import { Box, Text } from 'folds';
+import { Box } from 'folds';
 import React, { ReactNode } from 'react';
 import classNames from 'classnames';
 import * as patternsCSS from '../../styles/Patterns.css';
 import * as css from './SplashScreen.css';
+import { IrisLockup } from '../iris-lockup';
 
 type SplashScreenProps = {
   children: ReactNode;
@@ -20,9 +21,7 @@ export function SplashScreen({ children }: SplashScreenProps) {
         alignItems="Center"
         justifyContent="Center"
       >
-        <Text className="iris-name" size="H2" align="Center">
-          Iris
-        </Text>
+        <IrisLockup size={24} />
       </Box>
     </Box>
   );

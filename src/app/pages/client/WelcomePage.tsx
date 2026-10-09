@@ -1,7 +1,7 @@
 import React from 'react';
 import { Box, Button, Icon, Icons, Text, config, toRem } from 'folds';
-import { Page, PageHero, PageHeroSection } from '../../components/page';
-import MouseionLogo from '../../../../public/res/iris-logo.png';
+import { Page, PageHeroSection } from '../../components/page';
+import { IrisLockup } from '../../components/iris-lockup';
 
 export const MOUSEION_SOURCE_URL = 'https://forgejo.example.net/mouseion/iris';
 export const CINNY_URL = 'https://cinny.in';
@@ -16,19 +16,14 @@ export function WelcomePage() {
         justifyContent="Center"
       >
         <PageHeroSection>
-          <PageHero
-            icon={
-              <img
-                width="70"
-                height="70"
-                src={MouseionLogo}
-                alt="Iris logo"
-                style={{ borderRadius: config.radii.R400 }}
-              />
-            }
-            title={<span className="iris-name">Iris</span>}
-            subTitle="Pick a conversation on the left to get going"
-          >
+          {/* PageHero's shape, with the mark beside the name where it stacks an icon over a title. */}
+          <Box direction="Column" gap="400">
+            <Box as="h2" direction="Column" gap="200" alignItems="Center">
+              <IrisLockup size={40} />
+              <Text align="Center" priority="400">
+                Pick a conversation on the left to get going
+              </Text>
+            </Box>
             <Box justifyContent="Center">
               <Box grow="Yes" style={{ maxWidth: toRem(300) }} direction="Column" gap="300">
                 <Button
@@ -56,7 +51,7 @@ export function WelcomePage() {
                 </Button>
               </Box>
             </Box>
-          </PageHero>
+          </Box>
         </PageHeroSection>
       </Box>
     </Page>
