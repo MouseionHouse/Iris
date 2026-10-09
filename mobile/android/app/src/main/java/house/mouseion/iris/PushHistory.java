@@ -1,4 +1,4 @@
-package house.mouseion.chat;
+package house.mouseion.iris;
 
 import java.util.ArrayList;
 import java.util.Collection;

@@ -20,7 +20,7 @@ import {
 } from '../../hooks/useClientConfig';
 import { AsyncStatus, useAsyncCallback } from '../../hooks/useAsyncCallback';
 import { LOGIN_PATH, REGISTER_PATH, RESET_PASSWORD_PATH } from '../paths';
-import MouseionLogo from '../../../../public/res/mouseion-logo.png';
+import MouseionLogo from '../../../../public/res/iris-logo.png';
 import { ServerPicker } from './ServerPicker';
 import { AutoDiscoveryAction, autoDiscovery } from '../../cs-api';
 import { SpecVersionsLoader } from '../../components/SpecVersionsLoader';
@@ -137,10 +137,10 @@ export function AuthLayout() {
               <img
                 className={css.AuthLogo}
                 src={MouseionLogo}
-                alt="Mouseion Chat logo"
+                alt="Iris logo"
                 style={{ borderRadius: config.radii.R300 }}
               />
-              <Text size="H3">Mouseion Chat</Text>
+              <Text size="H3">Iris</Text>
             </Box>
           </Header>
           <Box className={css.AuthCardContent} direction="Column">

@@ -1,4 +1,4 @@
-package house.mouseion.chat;
+package house.mouseion.iris;
 
 import java.nio.charset.StandardCharsets;
 import org.unifiedpush.android.connector.FailedReason;

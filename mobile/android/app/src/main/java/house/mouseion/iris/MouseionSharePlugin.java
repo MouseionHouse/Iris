@@ -1,4 +1,4 @@
-package house.mouseion.chat;
+package house.mouseion.iris;
 
 import android.content.Intent;
 import com.getcapacitor.JSObject;
@@ -9,7 +9,7 @@ import com.getcapacitor.annotation.CapacitorPlugin;
  * Receives text shared from other apps (ACTION_SEND) and forwards it to the web app.
  *
  * The activity's manifest declares an ACTION_SEND/text/* intent filter, so Android offers
- * Mouseion Chat as a share target. handleOnNewIntent covers both arrival paths:
+ * Iris as a share target. handleOnNewIntent covers both arrival paths:
  * - cold start: BridgeActivity.load() replays the launch intent through onNewIntent,
  * - warm start: the activity is singleTask, so a share while the app is running arrives
  *   as a new intent on the existing activity.

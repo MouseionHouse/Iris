@@ -125,7 +125,7 @@ function PushNotification() {
   } else if (on && !state?.notificationsAllowed) {
     description = (
       <Text as="span" style={{ color: color.Critical.Main }} size="T200">
-        Android is blocking notifications from Mouseion Chat.
+        Android is blocking notifications from Iris.
       </Text>
     );
   } else if (on) {

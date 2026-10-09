@@ -1,6 +1,6 @@
-# Mouseion Chat: one build of the web app per push, used for everything that ships.
+# Iris: one build of the web app per push, used for everything that ships.
 #
-#   plan ── bundle ──┬── deploy                  (dev: the web client on server, chat.example.org)
+#   plan ── bundle ──┬── deploy                  (dev: the web client on server, iris.example.org)
 #                    └── apk ── publish-fdroid   (dev: the Android app, fdroid.example.net)
 #
 # `bundle` runs the one `npm ci` and `vite build` of a push, inside the Docker image that serves
@@ -37,7 +37,7 @@
 # Runner facts this relies on (checked 2026-09-23, see issue #4): `builder` and `homeserver` are
 # :host labels on the one `forgejo-runner-server` container, which mounts the compose directory
 # read-write and sits on `homeserver_default`, so it can reach the service as http://cinny/. It
-# cannot reach https://chat.example.org over the tailnet, so the checks never use the public
+# cannot reach https://iris.example.org over the tailnet, so the checks never use the public
 # URL. The `android` job runs in the household android-build image (glibc, which aapt2 needs).
 #
 # Secrets: registry credentials are the ORG-level secret REGISTRY_TOKEN and variable
@@ -353,10 +353,10 @@ jobs:
           ./gradlew --no-daemon --console=plain :app:testReleaseUnitTest :app:assembleRelease \
             -PmouseionMinify="$PUBLISH" -PversionCode="$VERSION_CODE" -PmouseionVersionName="$VERSION_NAME"
           apk=$(find app/build/outputs/apk/release -name '*.apk' | head -1)
-          cp "$apk" "../house.mouseion.chat-$VERSION_NAME.apk"
+          cp "$apk" "../house.mouseion.iris-$VERSION_NAME.apk"
           if [[ "$PUBLISH" == "true" ]]; then
             APKSIGNER=$(ls -1 "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -n1)
-            "$APKSIGNER" verify --print-certs "../house.mouseion.chat-$VERSION_NAME.apk" | grep -E "certificate DN|SHA-256"
+            "$APKSIGNER" verify --print-certs "../house.mouseion.iris-$VERSION_NAME.apk" | grep -E "certificate DN|SHA-256"
           fi
 
       - name: Remove keystore
@@ -382,18 +382,18 @@ jobs:
         if: needs.plan.outputs.publish == 'true'
         run: |
           set -euo pipefail
-          gzip -c mobile/android/app/build/outputs/mapping/release/mapping.txt > "mobile/house.mouseion.chat-mapping-$VERSION_NAME.txt.gz"
+          gzip -c mobile/android/app/build/outputs/mapping/release/mapping.txt > "mobile/house.mouseion.iris-mapping-$VERSION_NAME.txt.gz"
 
       - uses: actions/upload-artifact@v3
         with:
           name: mouseion-apk
-          path: mobile/house.mouseion.chat-${{ needs.plan.outputs.name }}.apk
+          path: mobile/house.mouseion.iris-${{ needs.plan.outputs.name }}.apk
 
       - uses: actions/upload-artifact@v3
         if: needs.plan.outputs.publish == 'true'
         with:
           name: mouseion-mapping
-          path: mobile/house.mouseion.chat-mapping-${{ needs.plan.outputs.name }}.txt.gz
+          path: mobile/house.mouseion.iris-mapping-${{ needs.plan.outputs.name }}.txt.gz
 
   publish-fdroid:
     needs: [plan, apk]
@@ -411,6 +411,6 @@ jobs:
         run: |
           set -euo pipefail
           /home/user/homeserver/scripts/fdroid-publish.sh \
-            --apk "./apk/house.mouseion.chat-${{ needs.plan.outputs.name }}.apk" \
-            --app-id house.mouseion.chat \
+            --apk "./apk/house.mouseion.iris-${{ needs.plan.outputs.name }}.apk" \
+            --app-id house.mouseion.iris \
             --mark-current --version-code "${{ needs.plan.outputs.code }}" --version-name "${{ needs.plan.outputs.name }}"

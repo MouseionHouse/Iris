@@ -6,7 +6,7 @@ import { IPusherRequest, MatrixClient } from 'matrix-js-sdk';
  * (initMatrix) can clear the push session on logout. The feature itself is ./push.ts.
  */
 
-export const PUSH_APP_ID = 'house.mouseion.chat';
+export const PUSH_APP_ID = 'house.mouseion.iris';
 const PUSH_GATEWAY_PATH = '/_matrix/push/v1/notify';
 
 export type PushDistributor = { id: string; label: string };

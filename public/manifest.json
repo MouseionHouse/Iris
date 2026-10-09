@@ -1,7 +1,7 @@
 {
-  "name": "Mouseion Chat",
-  "short_name": "Mouseion",
-  "description": "The household's Matrix chat, built on Cinny",
+  "name": "Iris",
+  "short_name": "Iris",
+  "description": "Chat by Mouseion, built on Cinny",
   "dir": "auto",
   "lang": "en-US",
   "display": "standalone",

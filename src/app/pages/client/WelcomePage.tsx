@@ -1,7 +1,7 @@
 import React from 'react';
 import { Box, Button, Icon, Icons, Text, config, toRem } from 'folds';
 import { Page, PageHero, PageHeroSection } from '../../components/page';
-import MouseionLogo from '../../../../public/res/mouseion-logo.png';
+import MouseionLogo from '../../../../public/res/iris-logo.png';
 
 export const MOUSEION_SOURCE_URL = 'https://forgejo.example.net/mouseion/chat';
 export const CINNY_URL = 'https://cinny.in';
@@ -22,11 +22,11 @@ export function WelcomePage() {
                 width="70"
                 height="70"
                 src={MouseionLogo}
-                alt="Mouseion Chat logo"
+                alt="Iris logo"
                 style={{ borderRadius: config.radii.R400 }}
               />
             }
-            title="Mouseion Chat"
+            title="Iris"
             subTitle="Pick a conversation on the left to get going"
           >
             <Box justifyContent="Center">

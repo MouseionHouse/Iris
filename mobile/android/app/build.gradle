@@ -16,10 +16,10 @@ def mouseionVersionCode = project.hasProperty('versionCode') ? project.versionCo
 def mouseionMinify = project.hasProperty('mouseionMinify') && project.mouseionMinify == "true"
 
 android {
-    namespace = "house.mouseion.chat"
+    namespace = "house.mouseion.iris"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "house.mouseion.chat"
+        applicationId "house.mouseion.iris"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode mouseionVersionCode

@@ -1,4 +1,4 @@
-package house.mouseion.chat;
+package house.mouseion.iris;
 
 import android.Manifest;
 import android.app.NotificationChannel;
@@ -37,10 +37,10 @@ import org.json.JSONObject;
  */
 final class PushNotifier {
 
-    static final String EXTRA_ROOM_ID = "house.mouseion.chat.ROOM_ID";
+    static final String EXTRA_ROOM_ID = "house.mouseion.iris.ROOM_ID";
 
     private static final String CHANNEL_MESSAGES = "messages";
-    private static final String GROUP = "house.mouseion.chat.messages";
+    private static final String GROUP = "house.mouseion.iris.messages";
     private static final int SUMMARY_ID = 0;
 
     private static final ExecutorService WORKER = Executors.newSingleThreadExecutor();
@@ -258,7 +258,7 @@ final class PushNotifier {
             SUMMARY_ID,
             new NotificationCompat.Builder(context, CHANNEL_MESSAGES)
                 .setSmallIcon(R.drawable.ic_notification)
-                .setContentTitle("Mouseion Chat")
+                .setContentTitle("Iris")
                 .setContentText(roomsText)
                 .setStyle(new NotificationCompat.InboxStyle().setSummaryText(roomsText))
                 .setGroup(GROUP)
