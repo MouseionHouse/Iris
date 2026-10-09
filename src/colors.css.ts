@@ -242,8 +242,9 @@ export const butterTheme = createTheme(color, {
 /**
  * The Mouseion dark palette, used when the client is framed inside the
  * household hub (which is dark). The page background is `#0c1016` with
- * `#05080c` as the deeper, recessed tone, and the accent is a quiet
- * forest-to-sage green. Everything else stays neutral (inherited from
+ * `#05080c` as the deeper, recessed tone, and the accent is Iris's own
+ * amethyst, as in the Iris dark theme (it was a sage green until
+ * 2026-10-09). Everything else stays neutral (inherited from
  * `darkThemeData`) so chat content sits comfortably in it.
  */
 export const mouseionTheme = createTheme(color, {
@@ -273,16 +274,16 @@ export const mouseionTheme = createTheme(color, {
   },
 
   Primary: {
-    Main: 'oklch(0.73 0.078 152)',
-    MainHover: 'oklch(0.79 0.082 152)',
-    MainActive: 'oklch(0.68 0.074 152)',
-    MainLine: 'oklch(0.62 0.07 152)',
-    OnMain: '#05080c',
-    Container: 'oklch(0.27 0.04 152)',
-    ContainerHover: 'oklch(0.32 0.045 152)',
-    ContainerActive: 'oklch(0.38 0.05 152)',
-    ContainerLine: 'oklch(0.44 0.055 152)',
-    OnContainer: 'oklch(0.86 0.07 152)',
+    Main: '#C7A3F0',
+    MainHover: '#BC95EC',
+    MainActive: '#B08CE6',
+    MainLine: '#A57DE0',
+    OnMain: '#251A38',
+    Container: '#3B2A5C',
+    ContainerHover: '#443169',
+    ContainerActive: '#4D3876',
+    ContainerLine: '#573F84',
+    OnContainer: '#E7D8FA',
   },
 });
 

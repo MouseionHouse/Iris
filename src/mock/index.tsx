@@ -28,7 +28,7 @@ import {
   varsClass,
 } from 'folds';
 import { onDarkFontWeight, onLightFontWeight } from '../config.css';
-import { darkTheme, irisDarkTheme, irisLightTheme } from '../colors.css';
+import { darkTheme, irisDarkTheme, irisLightTheme, mouseionTheme } from '../colors.css';
 import {
   Sidebar,
   SidebarAvatar,
@@ -810,7 +810,10 @@ function MockApp() {
   const [dark, setDark] = useState(window.location.search.includes('dark'));
   // ?cinny shows Cinny's own Light and Dark, for a before-and-after
   const iris = !window.location.search.includes('cinny');
+  // ?hub shows the dark look the Hub frames
+  const hub = window.location.search.includes('hub');
   const themeClasses = useMemo(() => {
+    if (hub) return ['mouseion-theme', mouseionTheme, onDarkFontWeight];
     if (dark) {
       return iris
         ? ['iris-dark-theme', irisDarkTheme, onDarkFontWeight]
@@ -819,7 +822,7 @@ function MockApp() {
     return iris
       ? ['iris-light-theme', irisLightTheme, onLightFontWeight]
       : [lightTheme, onLightFontWeight];
-  }, [dark, iris]);
+  }, [dark, iris, hub]);
   React.useEffect(() => {
     document.body.className = '';
     document.body.classList.add(configClass, varsClass, ...themeClasses);

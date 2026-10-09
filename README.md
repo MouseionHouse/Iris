@@ -17,7 +17,7 @@ It was called Mouseion Chat until 2026-10-09, and this repo was `mouseion/chat`.
 - **Sidebar sections on Home.** Starred and your own named sections mix chats and rooms; each has its own sort and filter, and they sync between your devices.
 - **An Android app.** A Capacitor wrapper around the same web build, with push notifications while the app is closed (UnifiedPush and ntfy), a place in the share sheet, touch action sheets for messages, and safe areas for notched and folding screens. See [`mobile/WRAPPER-PLAN.md`](mobile/WRAPPER-PLAN.md).
 - **A place in the Hub.** When the Hub frames Iris, the two talk over `postMessage`: the Hub sets the theme and receives the unread counts. See [`src/app/hub/`](src/app/hub).
-- **Its own look.** The flower mark, and the Iris light and Iris dark themes built from its colors on the house grounds.
+- **Its own look.** The flower mark, and the Iris light and Iris dark themes built from its colors on the house grounds, set in the house typefaces.
 
 Everything else is Cinny, and we follow it.
 
