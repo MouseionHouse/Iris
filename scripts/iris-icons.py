@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Cuts every icon the app ships from the Iris artwork in branding/.
 
-The mark is an iris flower that stands alone; the deep rounded square (branding/iris-app-icon.svg)
+The mark is an iris flower that stands alone and fills its square from top to bottom, so the sizes
+below that sit it on a ground are fractions of the flower's own height; the deep rounded square (branding/iris-app-icon.svg)
 is only for places that need a shape behind it, such as a phone's home screen. The artwork was
 decided on 2026-10-08 (mouseion/iris#12) and is drawn on the design/iris branch.
 
@@ -73,7 +74,7 @@ def main():
     light = render((BRAND / "iris-mark-on-light.svg").read_text())
     icon = render((BRAND / "iris-app-icon.svg").read_text())
     # One flat shape, for Android's status bar and themed icons: every part white, the shading dropped.
-    flat = re.sub(r'<path clip-path[^>]*fill="#000"[^>]*/>', "", (BRAND / "iris-mark-on-dark.svg").read_text())
+    flat = re.sub(r'<path fill="#000" opacity[^>]*/>', "", (BRAND / "iris-mark-on-dark.svg").read_text())
     flat = re.sub(r'(fill|stroke)="#[0-9A-Fa-f]{6}"', r'\1="#FFFFFF"', flat)
     white = render(flat)
 
@@ -88,22 +89,22 @@ def main():
         fit(icon, int(re.search(r"(\d+)x", f.name).group(1))).save(f)
     for f in sorted((pub / "res/apple").glob("apple-touch-icon-*.png")):
         size = int(re.search(r"(\d+)x", f.name).group(1))
-        on(DEEP, dark, size, .76).convert("RGB").save(f)  # iOS rounds the corners itself and wants no clear pixels
+        on(DEEP, dark, size, .684).convert("RGB").save(f)  # iOS rounds the corners itself and wants no clear pixels
 
     # Android. An adaptive icon's layers are 108 dp with the picture inside the middle 66 dp.
     for name, dp in (("mdpi", 1), ("hdpi", 1.5), ("xhdpi", 2), ("xxhdpi", 3), ("xxxhdpi", 4)):
         mip = RES / f"mipmap-{name}"
         fit(icon, round(48 * dp)).save(mip / "ic_launcher.png")
-        on(DEEP, dark, round(48 * dp), .70, "circle").save(mip / "ic_launcher_round.png")
-        on((0, 0, 0, 0), dark, round(108 * dp), .54).save(mip / "ic_launcher_foreground.png")
-        on((0, 0, 0, 0), white, round(108 * dp), .54).save(mip / "ic_launcher_monochrome.png")
+        on(DEEP, dark, round(48 * dp), .63, "circle").save(mip / "ic_launcher_round.png")
+        on((0, 0, 0, 0), dark, round(108 * dp), .486).save(mip / "ic_launcher_foreground.png")
+        on((0, 0, 0, 0), white, round(108 * dp), .486).save(mip / "ic_launcher_monochrome.png")
         note = RES / f"drawable-{name}"
         note.mkdir(exist_ok=True)
         fit(white, round(24 * dp)).save(note / "ic_notification.png")
     for f in sorted(RES.glob("drawable*/splash.png")):
         w, h = Image.open(f).size
         splash = Image.new("RGBA", (w, h), NIGHT)
-        m = fit(dark, round(min(w, h) * .3))
+        m = fit(dark, round(min(w, h) * .27))
         splash.alpha_composite(m, ((w - m.width) // 2, (h - m.height) // 2))
         splash.convert("RGB").save(f)
     print("icons cut from", BRAND.relative_to(ROOT))
