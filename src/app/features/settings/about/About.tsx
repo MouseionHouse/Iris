@@ -45,7 +45,9 @@ export function About({ requestClose }: AboutProps) {
                 <Box direction="Column" gap="300">
                   <Box direction="Column" gap="100">
                     <Box gap="100" alignItems="End">
-                      <Text size="H3">Iris</Text>
+                      <Text className="iris-name" size="H3">
+                        Iris
+                      </Text>
                       <Text size="T200">built on Cinny v4.12.6</Text>
                     </Box>
                     <Text>The household&apos;s Matrix chat.</Text>

@@ -11,6 +11,7 @@ This work's own design rounds: its name, its mark, its colours. The house, mouse
 ## Decided
 
 - **The mark (2026-10-08):** the Sketch, an iris with bare petals and the lower half of each fall a little darker, in P11 Amethyst and sea. It stands alone; the deep rounded square is for an app icon only. Artwork in `assets/` (`iris-mark-on-dark.svg`, `iris-mark-on-light.svg`, `iris-app-icon.svg`), values in `tokens.json`. Two other flowers are kept in `assets/kept/`.
+- **The app's themes (2026-10-09):** Iris light and Iris dark in `src/colors.css.ts` put the flower's colors on the house grounds. The accent is the petals' amethyst (`iris-standard` on Night, `iris-fall` on Chalk, the one petal dark enough for white text), and the teal of the stem marks success and unread counts. The name Iris is set in Marcellus.
 
 ## Penpot
 

@@ -2,8 +2,8 @@ import React, { ReactNode, useEffect } from 'react';
 import { configClass, varsClass } from 'folds';
 import { useAtomValue } from 'jotai';
 import {
-  DarkTheme,
-  LightTheme,
+  IrisDarkTheme,
+  IrisLightTheme,
   Theme,
   ThemeContextProvider,
   ThemeKind,
@@ -32,11 +32,11 @@ export function UnAuthRouteThemeManager() {
       theme = hubTheme;
       document.body.classList.add(...hubTheme.classNames);
     } else if (systemThemeKind === ThemeKind.Dark) {
-      theme = DarkTheme;
-      document.body.classList.add(...DarkTheme.classNames);
+      theme = IrisDarkTheme;
+      document.body.classList.add(...IrisDarkTheme.classNames);
     } else {
-      theme = LightTheme;
-      document.body.classList.add(...LightTheme.classNames);
+      theme = IrisLightTheme;
+      document.body.classList.add(...IrisLightTheme.classNames);
     }
 
     // Paint the page background / theme-color / status bar to match (safe-area +

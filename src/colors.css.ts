@@ -1,7 +1,7 @@
 import { createTheme } from '@vanilla-extract/css';
 import { color } from 'folds';
 
-export const silverTheme = createTheme(color, {
+const silverThemeData = {
   Background: {
     Container: '#DEDEDE',
     ContainerHover: '#D3D3D3',
@@ -96,7 +96,9 @@ export const silverTheme = createTheme(color, {
     Shadow: 'rgba(0 0 0 / 20%)',
     Overlay: 'rgba(0 0 0 / 50%)',
   },
-});
+};
+
+export const silverTheme = createTheme(color, silverThemeData);
 
 const darkThemeData = {
   Background: {
@@ -281,5 +283,144 @@ export const mouseionTheme = createTheme(color, {
     ContainerActive: 'oklch(0.38 0.05 152)',
     ContainerLine: 'oklch(0.44 0.055 152)',
     OnContainer: 'oklch(0.86 0.07 152)',
+  },
+});
+
+/**
+ * Iris's own two themes: the house grounds, Night and Chalk (mouseion/design `tokens.json`), with
+ * the flower's colors as the accent (`design/tokens.json`). Primary is the petals' amethyst and
+ * Success is the stem's teal; warning and critical stay as Cinny has them. On Chalk the accent is
+ * `iris-fall`, the darkest petal, so white text on it passes 4.5:1, and Success is a deeper teal
+ * than the stem for the same reason.
+ */
+export const irisDarkTheme = createTheme(color, {
+  ...darkThemeData,
+  Background: {
+    Container: '#15161A',
+    ContainerHover: '#1B1C21',
+    ContainerActive: '#212329',
+    ContainerLine: '#32353C',
+    OnContainer: '#F4F4F1',
+  },
+
+  Surface: {
+    Container: '#1F2126',
+    ContainerHover: '#26282E',
+    ContainerActive: '#2D3037',
+    ContainerLine: '#3A3D45',
+    OnContainer: '#F4F4F1',
+  },
+
+  SurfaceVariant: {
+    Container: '#282A31',
+    ContainerHover: '#2F3239',
+    ContainerActive: '#373A42',
+    ContainerLine: '#41444D',
+    OnContainer: '#F4F4F1',
+  },
+
+  Primary: {
+    Main: '#C7A3F0',
+    MainHover: '#BC95EC',
+    MainActive: '#B08CE6',
+    MainLine: '#A57DE0',
+    OnMain: '#251A38',
+    Container: '#3B2A5C',
+    ContainerHover: '#443169',
+    ContainerActive: '#4D3876',
+    ContainerLine: '#573F84',
+    OnContainer: '#E7D8FA',
+  },
+
+  Secondary: {
+    Main: '#F4F4F1',
+    MainHover: '#E0E0DC',
+    MainActive: '#D4D4D0',
+    MainLine: '#C8C8C4',
+    OnMain: '#15161A',
+    Container: '#32353C',
+    ContainerHover: '#3A3D45',
+    ContainerActive: '#42454E',
+    ContainerLine: '#4B4E58',
+    OnContainer: '#F4F4F1',
+  },
+
+  Success: {
+    Main: '#7FAF9F',
+    MainHover: '#74A594',
+    MainActive: '#6C9D8C',
+    MainLine: '#649584',
+    OnMain: '#10271F',
+    Container: '#1F3D33',
+    ContainerHover: '#24463B',
+    ContainerActive: '#294F43',
+    ContainerLine: '#2E584B',
+    OnContainer: '#CFE6DD',
+  },
+});
+
+export const irisLightTheme = createTheme(color, {
+  ...silverThemeData,
+  Background: {
+    Container: '#F4F4F1',
+    ContainerHover: '#EAEAE6',
+    ContainerActive: '#E1E0DB',
+    ContainerLine: '#D3D2CB',
+    OnContainer: '#15161A',
+  },
+
+  Surface: {
+    Container: '#FFFFFF',
+    ContainerHover: '#F4F4F1',
+    ContainerActive: '#EAEAE6',
+    ContainerLine: '#DCDBD5',
+    OnContainer: '#15161A',
+  },
+
+  SurfaceVariant: {
+    Container: '#EDEDE9',
+    ContainerHover: '#E4E4DF',
+    ContainerActive: '#DBDAD5',
+    ContainerLine: '#D0CFC9',
+    OnContainer: '#15161A',
+  },
+
+  Primary: {
+    Main: '#6E40BA',
+    MainHover: '#6338A9',
+    MainActive: '#5C339E',
+    MainLine: '#552F93',
+    OnMain: '#FFFFFF',
+    Container: '#E6DAF7',
+    ContainerHover: '#DCCDF3',
+    ContainerActive: '#D2C0EF',
+    ContainerLine: '#C8B3EB',
+    OnContainer: '#432377',
+  },
+
+  Secondary: {
+    Main: '#15161A',
+    MainHover: '#24262B',
+    MainActive: '#2E3036',
+    MainLine: '#383B42',
+    OnMain: '#F4F4F1',
+    Container: '#DCDBD5',
+    ContainerHover: '#D0CFC9',
+    ContainerActive: '#C5C4BD',
+    ContainerLine: '#B9B8B1',
+    OnContainer: '#15161A',
+  },
+
+  Success: {
+    Main: '#2E7562',
+    MainHover: '#296A59',
+    MainActive: '#266353',
+    MainLine: '#235C4D',
+    OnMain: '#FFFFFF',
+    Container: '#D3E7E0',
+    ContainerHover: '#C6E0D7',
+    ContainerActive: '#B9D9CE',
+    ContainerLine: '#ACD2C5',
+    OnContainer: '#1D4D40',
   },
 });

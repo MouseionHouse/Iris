@@ -5,6 +5,19 @@
   font-display: swap;
 }
 
+/* Marcellus sets the name Iris, as the house sets every name (mouseion/design BRAND.md, Type). */
+@font-face {
+  font-family: Marcellus;
+  src: url('../public/font/Marcellus-Regular.ttf');
+  font-display: swap;
+}
+
+.iris-name {
+  font-family: Marcellus, var(--font-secondary);
+  font-weight: 400;
+  letter-spacing: 0.01em;
+}
+
 :root {
   --tc-link: hsl(213deg 100% 45%);
 
@@ -24,6 +37,7 @@
 
 .dark-theme,
 .butter-theme,
+.iris-dark-theme,
 .mouseion-theme {
   --tc-link: hsl(213deg 100% 80%);
 
@@ -37,6 +51,14 @@
   --mx-uc-8: hsl(94, 100%, 80%);
 
   --font-secondary: 'InterVariable', var(--font-emoji), sans-serif;
+}
+
+/* Links are the flower's color in Iris's own themes. */
+.iris-light-theme {
+  --tc-link: #6e40ba;
+}
+.iris-dark-theme {
+  --tc-link: #c7a3f0;
 }
 
 html {

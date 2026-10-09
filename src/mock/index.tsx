@@ -28,7 +28,7 @@ import {
   varsClass,
 } from 'folds';
 import { onDarkFontWeight, onLightFontWeight } from '../config.css';
-import { darkTheme } from '../colors.css';
+import { darkTheme, irisDarkTheme, irisLightTheme } from '../colors.css';
 import {
   Sidebar,
   SidebarAvatar,
@@ -807,11 +807,19 @@ function Mobile({ variant }: { variant: Variant }) {
 
 function MockApp() {
   const [variant, setVariant] = useState<Variant>('c');
-  const [dark, setDark] = useState(false);
-  const themeClasses = useMemo(
-    () => (dark ? ['dark-theme', darkTheme, onDarkFontWeight] : [lightTheme, onLightFontWeight]),
-    [dark]
-  );
+  const [dark, setDark] = useState(window.location.search.includes('dark'));
+  // ?cinny shows Cinny's own Light and Dark, for a before-and-after
+  const iris = !window.location.search.includes('cinny');
+  const themeClasses = useMemo(() => {
+    if (dark) {
+      return iris
+        ? ['iris-dark-theme', irisDarkTheme, onDarkFontWeight]
+        : ['dark-theme', darkTheme, onDarkFontWeight];
+    }
+    return iris
+      ? ['iris-light-theme', irisLightTheme, onLightFontWeight]
+      : [lightTheme, onLightFontWeight];
+  }, [dark, iris]);
   React.useEffect(() => {
     document.body.className = '';
     document.body.classList.add(configClass, varsClass, ...themeClasses);

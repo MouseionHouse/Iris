@@ -26,7 +26,7 @@ export function WelcomePage() {
                 style={{ borderRadius: config.radii.R400 }}
               />
             }
-            title="Iris"
+            title={<span className="iris-name">Iris</span>}
             subTitle="Pick a conversation on the left to get going"
           >
             <Box justifyContent="Center">
