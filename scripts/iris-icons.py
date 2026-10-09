@@ -3,7 +3,7 @@
 
 The mark is an iris flower that stands alone; the deep rounded square (branding/iris-app-icon.svg)
 is only for places that need a shape behind it, such as a phone's home screen. The artwork was
-decided on 2026-10-08 (mouseion/chat#12) and is drawn on the design/iris branch.
+decided on 2026-10-08 (mouseion/iris#12) and is drawn on the design/iris branch.
 
 Needs Pillow and a Chromium (set CHROME, or it uses Playwright's headless shell). Run from the repo
 root after changing anything in branding/:  python3 scripts/iris-icons.py

@@ -264,7 +264,7 @@ jobs:
           tmp="$(mktemp "$COMPOSE_FILE.deploy-web.XXXXXX")"
           trap 'rm -f "$tmp"' EXIT
           sed -E \
-            -e "s#^([[:space:]]+image: )(mouseion-chat-web|forgejo\.example\.net/mouseion/chat-web):.*#\1$IMAGE:${sha}  \# pinned by mouseion/chat .forgejo/workflows/build.yml#" \
+            -e "s#^([[:space:]]+image: )(mouseion-chat-web|forgejo\.example\.net/mouseion/chat-web):.*#\1$IMAGE:${sha}  \# pinned by mouseion/iris .forgejo/workflows/build.yml#" \
             "$COMPOSE_FILE" > "$tmp"
           test "$(grep -c "image: $IMAGE:${sha}  # pinned by" "$tmp")" = 1 \
             || { echo "expected exactly one cinny image line to update; aborting before touching anything" >&2; exit 1; }

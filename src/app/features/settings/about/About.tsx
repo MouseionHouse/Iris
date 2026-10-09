@@ -54,7 +54,7 @@ export function About({ requestClose }: AboutProps) {
                   <Box gap="200" wrap="Wrap">
                     <Button
                       as="a"
-                      href="https://forgejo.example.net/mouseion/chat"
+                      href="https://forgejo.example.net/mouseion/iris"
                       rel="noreferrer noopener"
                       target="_blank"
                       variant="Secondary"
