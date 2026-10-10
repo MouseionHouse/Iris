@@ -13,6 +13,10 @@ type Session = {
   deviceId: string;
 };
 
+const isMismatchedAccount = (err: unknown): boolean =>
+  err instanceof Error &&
+  err.message.includes("the account in the store doesn't match the account in the constructor");
+
 export const initClient = async (session: Session): Promise<MatrixClient> => {
   const indexedDBStore = new IndexedDBStore({
     indexedDB: global.indexedDB,
@@ -35,7 +39,19 @@ export const initClient = async (session: Session): Promise<MatrixClient> => {
   });
 
   await indexedDBStore.startup();
-  await mx.initRustCrypto();
+  try {
+    await mx.initRustCrypto();
+  } catch (err) {
+    if (!isMismatchedAccount(err)) throw err;
+    // The crypto store is left over from a different login of this account
+    // (a session that ended without clearStores, or a login that never wiped
+    // it): its keys belong to a device that is not this one, and the store
+    // is named for the origin, not the device. Nothing in it can serve this
+    // session, so drop it and start the crypto over for this device.
+    await mx.clearStores({});
+    await indexedDBStore.startup();
+    await mx.initRustCrypto();
+  }
 
   mx.setMaxListeners(50);
 
