@@ -207,6 +207,8 @@ export const TouchRow = style([
 ]);
 
 export const TouchRowAvatar = style({
+  // what folds' Avatar gives its image and fallback: a box to fill
+  position: 'relative',
   flexShrink: 0,
   width: toRem(44),
   height: toRem(44),
@@ -344,6 +346,7 @@ export const SheetAction = style([
 ]);
 
 export const SheetActionBefore = style({
+  position: 'relative',
   flexShrink: 0,
   width: toRem(24),
   height: toRem(24),
