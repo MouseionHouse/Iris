@@ -1,4 +1,4 @@
-import React, { MouseEventHandler, useState } from 'react';
+import React, { MouseEventHandler, useMemo, useState } from 'react';
 import FocusTrap from 'focus-trap-react';
 import {
   Box,
@@ -26,6 +26,12 @@ import {
   sectionName,
 } from '../../state/sidebar';
 import { Sidebar } from '../../hooks/useSidebar';
+import { ScreenSize, useScreenSizeContext } from '../../hooks/useScreenSize';
+import { useRoomsUnread } from '../../state/hooks/unread';
+import { roomToUnreadAtom } from '../../state/room/roomToUnread';
+import { BottomSheet, BottomSheetMenu } from '../../components/bottom-sheet';
+import { SectionHeaderTouch } from './TouchList';
+import * as touchCss from './touch.css';
 
 const SORTS: [SectionSort, string][] = [
   ['alphabetical', 'Alphabetically'],
@@ -47,7 +53,8 @@ type SectionOptionsMenuProps = {
   onRename: (section: SidebarSection) => void;
   onDelete: (section: SidebarSection) => void;
 };
-function SectionOptionsMenu({
+/** The items of a section's menu, for the popout menu and for the sheet a phone opens. */
+function SectionOptionsItems({
   section,
   sidebar,
   requestClose,
@@ -79,7 +86,7 @@ function SectionOptionsMenu({
     </MenuItem>
   );
   return (
-    <Menu style={{ width: toRem(200) }}>
+    <>
       <Box direction="Column" gap="100" style={{ padding: config.space.S100 }}>
         <Text size="L400" style={{ padding: `${config.space.S100} ${config.space.S200}` }}>
           Sort
@@ -112,6 +119,14 @@ function SectionOptionsMenu({
         {isCustomSection(section) &&
           item('Delete section', () => onDelete(section), { danger: true })}
       </Box>
+    </>
+  );
+}
+
+function SectionOptionsMenu(props: SectionOptionsMenuProps) {
+  return (
+    <Menu style={{ width: toRem(200) }}>
+      <SectionOptionsItems {...props} />
     </Menu>
   );
 }
@@ -136,19 +151,63 @@ export function SidebarSectionHeader({
   onDelete,
 }: SidebarSectionHeaderProps) {
   const { section } = view;
+  const screenSize = useScreenSizeContext();
   const [menuAnchor, setMenuAnchor] = useState<RectCords>();
   const handleOpenMenu: MouseEventHandler<HTMLButtonElement> = (evt) => {
     setMenuAnchor(evt.currentTarget.getBoundingClientRect());
   };
+  const label = section.emoji ? `${section.emoji}  ${sectionName(section)}` : sectionName(section);
+  const toggle = () => sidebar.update(section, { ...section, collapsed: !section.collapsed });
+
+  // A folded section on a phone says how much is waiting in it.
+  const roomIds = useMemo(() => view.rooms.map((r) => r.roomId), [view.rooms]);
+  const unread = useRoomsUnread(roomIds, roomToUnreadAtom);
+
+  if (screenSize === ScreenSize.Mobile) {
+    return (
+      <>
+        <SectionHeaderTouch
+          label={label}
+          closed={section.collapsed}
+          unread={unread && { total: unread.total, highlight: unread.highlight > 0 }}
+          onToggle={toggle}
+          optionsLabel={`${sectionName(section)} options`}
+          optionsOpen={!!menuAnchor}
+          onOptions={handleOpenMenu}
+        />
+        {menuAnchor && (
+          <BottomSheet
+            open
+            requestClose={() => setMenuAnchor(undefined)}
+            aria-label={`${sectionName(section)} options`}
+            header={
+              <Text className={touchCss.SheetTitle} size="L400" truncate>
+                {label}
+              </Text>
+            }
+          >
+            <BottomSheetMenu>
+              <SectionOptionsItems
+                section={section}
+                sidebar={sidebar}
+                requestClose={() => setMenuAnchor(undefined)}
+                onNewSection={onNewSection}
+                onRename={onRename}
+                onDelete={onDelete}
+              />
+            </BottomSheetMenu>
+          </BottomSheet>
+        )}
+      </>
+    );
+  }
+
   return (
     <NavCategoryHeader>
       <Box grow="Yes" alignItems="Center" gap="100">
         <Box grow="Yes">
-          <RoomNavCategoryButton
-            closed={section.collapsed}
-            onClick={() => sidebar.update(section, { ...section, collapsed: !section.collapsed })}
-          >
-            {section.emoji ? `${section.emoji}  ${sectionName(section)}` : sectionName(section)}
+          <RoomNavCategoryButton closed={section.collapsed} onClick={toggle}>
+            {label}
           </RoomNavCategoryButton>
         </Box>
         <Box shrink="No">
