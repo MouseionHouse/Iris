@@ -27,3 +27,14 @@ John asked to redesign the Home page to make it more mobile friendly. This round
 - Where spaces go. A hints at it with the arrow beside "Home"; B and C do not show it.
 - Motion beyond the folds, the sheet and the pressed states. The build of the picked shape gets it.
 - The unfolded Fold and tablets.
+
+## The pick (John, 2026-10-12)
+
+**A, with B's chips.** The bar is Home, DMs, Activity, Search, You. Sections stay and fold; a chip row (All, Unread, Mentions) sits above them. Unfolded, the Fold shows two panes.
+
+Settled alongside it:
+
+- **Spaces:** the "Home" title opens a sheet with Home, each space and Add space.
+- **Explore:** a row in the + sheet, beside Join with Address.
+- **The breakpoint:** 680, down from 750. John's Fold is 411 px wide folded and about 750 px unfolded (1968 px at 420 dpi), which the old "750 or less" rule treated as a phone. At 680 the room pane is never narrower than 358 px beside the 66 px rail and the 256 px list.
+- **Names:** the phone says DMs and Activity; desktop keeps Direct Messages and Inbox.
