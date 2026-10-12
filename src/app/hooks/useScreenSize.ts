@@ -2,7 +2,9 @@ import { createContext, useCallback, useContext, useState } from 'react';
 import { useElementSizeObserver } from './useElementSizeObserver';
 
 export const TABLET_BREAKPOINT = 1124;
-export const MOBILE_BREAKPOINT = 750;
+// The narrowest screen that fits two panes: the 66 px rail, the 256 px list and a 358 px room. An
+// unfolded Galaxy Fold is about 750 px wide.
+export const MOBILE_BREAKPOINT = 680;
 
 export enum ScreenSize {
   Desktop = 'Desktop',
