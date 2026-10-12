@@ -49,8 +49,11 @@ export const useRoomLatestRenderedEvent = (room: Room) => {
     setLatestEvent(getLatestEvent());
 
     room.on(RoomEvent.Timeline, handleTimelineEvent);
+    // a message that failed to send and was discarded leaves the timeline without a Timeline event
+    room.on(RoomEvent.LocalEchoUpdated, handleTimelineEvent);
     return () => {
       room.removeListener(RoomEvent.Timeline, handleTimelineEvent);
+      room.removeListener(RoomEvent.LocalEchoUpdated, handleTimelineEvent);
     };
   }, [room, hideMembershipEvents, hideNickAvatarEvents, showHiddenEvents]);
 
