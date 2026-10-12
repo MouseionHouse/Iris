@@ -6,11 +6,15 @@ import { useDirects, useRooms } from '../../state/hooks/roomList';
 import { mDirectAtom } from '../../state/mDirectList';
 import { allRoomsAtom } from '../../state/room-list/roomList';
 import { factoryRoomIdByActivity } from '../../utils/sort';
+import { getDirectRoomAvatarUrl, getRoomAvatarUrl } from '../../utils/room';
+import { useMediaAuthentication } from '../../hooks/useMediaAuthentication';
+import { getCachedShareAvatar, loadShareAvatar } from '../../native/shareAvatar';
 import {
   isNativeShareAvailable,
   pendingOpenRoomAtom,
   pendingSharedTextAtom,
   setShareTargets,
+  ShareTarget,
 } from '../../native/share';
 import { roomIdToMsgDraftAtomFamily } from '../../state/room/roomInputDrafts';
 import { BlockType } from '../../components/editor';
@@ -32,6 +36,7 @@ function useShareTargetsSync() {
   const mDirects = useAtomValue(mDirectAtom);
   const rooms = useRooms(mx, allRoomsAtom, mDirects);
   const directs = useDirects(mx, allRoomsAtom, mDirects);
+  const useAuthentication = useMediaAuthentication();
   const [backgroundedAt, setBackgroundedAt] = useState(0);
   const lastPushed = useRef<string>();
 
@@ -44,21 +49,54 @@ function useShareTargetsSync() {
   }, []);
 
   useEffect(() => {
-    if (!isNativeShareAvailable()) return;
+    if (!isNativeShareAvailable()) return undefined;
 
-    const targets = [...rooms, ...directs]
+    const chats = [...rooms, ...directs]
       .sort(factoryRoomIdByActivity(mx))
       .slice(0, SHARE_TARGET_COUNT)
-      .map((roomId) => ({ roomId, label: mx.getRoom(roomId)?.name ?? '' }))
-      .filter((target) => target.label !== '');
+      .flatMap((roomId) => {
+        const room = mx.getRoom(roomId);
+        if (!room?.name) return [];
+        const url = mDirects.has(roomId)
+          ? getDirectRoomAvatarUrl(mx, room, 96, useAuthentication)
+          : getRoomAvatarUrl(mx, room, 96, useAuthentication);
+        return [{ roomId, label: room.name, url }];
+      });
 
-    const key = JSON.stringify(targets);
-    if (key === lastPushed.current) return;
-    lastPushed.current = key;
-    setShareTargets(targets).catch(() => {
-      lastPushed.current = undefined;
-    });
-  }, [mx, rooms, directs, backgroundedAt]);
+    const push = (targets: ShareTarget[]) => {
+      const key = JSON.stringify(targets);
+      if (key === lastPushed.current) return;
+      lastPushed.current = key;
+      setShareTargets(targets).catch(() => {
+        lastPushed.current = undefined;
+      });
+    };
+    const withCachedAvatars = () =>
+      chats.map(({ roomId, label, url }) => {
+        const avatar = url ? getCachedShareAvatar(url) : undefined;
+        return avatar ? { roomId, label, avatar } : { roomId, label };
+      });
+
+    // Names go out at once; avatars follow as they load, so a slow image never holds up
+    // the targets.
+    push(withCachedAvatars());
+
+    let cancelled = false;
+    const headers = useAuthentication
+      ? { Authorization: `Bearer ${mx.getAccessToken()}` }
+      : undefined;
+    const pending = chats.flatMap(({ url }) =>
+      url && getCachedShareAvatar(url) === undefined ? [loadShareAvatar(url, headers)] : []
+    );
+    if (pending.length > 0) {
+      Promise.all(pending).then(() => {
+        if (!cancelled) push(withCachedAvatars());
+      });
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [mx, mDirects, rooms, directs, useAuthentication, backgroundedAt]);
 
   useEffect(
     () => () => {

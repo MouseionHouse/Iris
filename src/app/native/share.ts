@@ -28,6 +28,8 @@ export type OpenRoomRequest = {
 export type ShareTarget = {
   roomId: string;
   label: string;
+  /** The chat's avatar as a base64 PNG. Without it the native side draws a letter. */
+  avatar?: string;
 };
 
 type MouseionShareApi = {
