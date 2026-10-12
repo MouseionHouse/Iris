@@ -3,12 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAtomValue } from 'jotai';
 import { Icon, Icons, Line, Text } from 'folds';
 import { BottomSheet } from '../../../components/bottom-sheet';
-import {
-  ListFab,
-  SheetAction,
-  SheetActions,
-  TouchIconButton,
-} from '../../../features/room-nav/TouchList';
+import { ListFab, SheetAction, SheetActions } from '../../../features/room-nav/TouchList';
 import * as css from '../../../features/room-nav/touch.css';
 import {
   encodeSearchParamValueArray,
@@ -17,7 +12,6 @@ import {
   getExplorePath,
   getHomeCreatePath,
   getHomeRoomPath,
-  getHomeSearchPath,
   getSpacePath,
   withSearchParam,
 } from '../../pathUtils';
@@ -99,12 +93,6 @@ export function HomeTouchHeader() {
         </Text>
         <Icon size="100" src={Icons.ChevronBottom} />
       </button>
-      <span style={{ flexGrow: 1 }} />
-      <TouchIconButton
-        src={Icons.Search}
-        aria-label="Message Search"
-        onClick={() => navigate(getHomeSearchPath())}
-      />
       {sheet === 'places' && (
         <BottomSheet open requestClose={close} aria-label="Home and spaces">
           <SheetActions>

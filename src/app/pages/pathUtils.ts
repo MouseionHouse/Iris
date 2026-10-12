@@ -23,6 +23,10 @@ import {
   SPACE_ROOM_PATH,
   SPACE_SEARCH_PATH,
   CREATE_PATH,
+  SEARCH_PATH,
+  SEARCH_MESSAGES_PATH,
+  YOU_PATH,
+  YOU_PAGE_PATH,
 } from './paths';
 import { trimLeadingSlash, trimTrailingSlash } from '../utils/common';
 import { HashRouterConfig } from '../hooks/useClientConfig';
@@ -158,3 +162,9 @@ export const getCreatePath = (): string => CREATE_PATH;
 export const getInboxPath = (): string => INBOX_PATH;
 export const getInboxNotificationsPath = (): string => INBOX_NOTIFICATIONS_PATH;
 export const getInboxInvitesPath = (): string => INBOX_INVITES_PATH;
+
+export const getSearchPath = (): string => SEARCH_PATH;
+export const getSearchMessagesPath = (): string => SEARCH_MESSAGES_PATH;
+
+export const getYouPath = (): string => YOU_PATH;
+export const getYouPagePath = (page: string): string => generatePath(YOU_PAGE_PATH, { page });

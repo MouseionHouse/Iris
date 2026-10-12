@@ -29,6 +29,10 @@ import {
   _SEARCH_PATH,
   _SERVER_PATH,
   CREATE_PATH,
+  SEARCH_PATH,
+  YOU_PATH,
+  _MESSAGES_PATH,
+  _YOU_PAGE_PATH,
 } from './paths';
 import {
   getAppPathFromHref,
@@ -45,6 +49,9 @@ import { Direct, DirectCreate, DirectRouteRoomProvider } from './client/direct';
 import { RouteSpaceProvider, Space, SpaceRouteRoomProvider, SpaceSearch } from './client/space';
 import { Explore, FeaturedRooms, PublicRooms } from './client/explore';
 import { Notifications, Inbox, Invites } from './client/inbox';
+import { SearchTouch } from './client/search';
+import { You, YouSettings } from './client/you';
+import { BottomNav } from './client/BottomNav';
 import { setAfterLoginRedirectPath } from './afterLoginRedirectPath';
 import { Room } from '../features/room';
 import { Lobby } from '../features/lobby';
@@ -52,7 +59,11 @@ import { WelcomePage } from './client/WelcomePage';
 import { SidebarNav } from './client/SidebarNav';
 import { PageRoot } from '../components/page';
 import { ScreenSize } from '../hooks/useScreenSize';
-import { MobileFriendlyPageNav, MobileFriendlyClientNav } from './MobileFriendly';
+import {
+  MobileFriendlyPageNav,
+  MobileFriendlyClientNav,
+  MobileFriendlyBottomNav,
+} from './MobileFriendly';
 import { ClientInitStorageAtom } from './client/ClientInitStorageAtom';
 import { ClientNonUIFeatures } from './client/ClientNonUIFeatures';
 import { AuthRouteThemeManager, UnAuthRouteThemeManager } from './ThemeManager';
@@ -133,10 +144,15 @@ export const createRouter = (clientConfig: ClientConfig, screenSize: ScreenSize)
                               <SidebarNav />
                             </MobileFriendlyClientNav>
                           }
+                          bottomNav={
+                            <MobileFriendlyBottomNav>
+                              <BottomNav />
+                            </MobileFriendlyBottomNav>
+                          }
+                          callStatus={<CallStatusRenderer />}
                         >
                           <Outlet />
                         </ClientLayout>
-                        <CallStatusRenderer />
                       </CallEmbedProvider>
                       <SearchModalRenderer />
                       <UserRoomProfileRenderer />
@@ -285,16 +301,56 @@ export const createRouter = (clientConfig: ClientConfig, screenSize: ScreenSize)
             </PageRoot>
           }
         >
-          {mobile ? null : (
-            <Route
-              index
-              loader={() => redirect(getInboxNotificationsPath())}
-              element={<WelcomePage />}
-            />
-          )}
+          {/* On a phone the inbox is the Activity tab, which opens on the feed as well. */}
+          <Route
+            index
+            loader={() => redirect(getInboxNotificationsPath())}
+            element={<WelcomePage />}
+          />
           <Route path={_NOTIFICATIONS_PATH} element={<Notifications />} />
           <Route path={_INVITES_PATH} element={<Invites />} />
         </Route>
+        {/* The Search and You tabs are pages of a phone; a wide screen has both in the rail. */}
+        {mobile ? (
+          <Route
+            path={SEARCH_PATH}
+            element={
+              <PageRoot
+                nav={
+                  <MobileFriendlyPageNav path={SEARCH_PATH}>
+                    <SearchTouch />
+                  </MobileFriendlyPageNav>
+                }
+              >
+                <Outlet />
+              </PageRoot>
+            }
+          >
+            <Route path={_MESSAGES_PATH} element={<HomeSearch />} />
+          </Route>
+        ) : (
+          <Route path={`${SEARCH_PATH}*`} loader={() => redirect(getHomePath())} />
+        )}
+        {mobile ? (
+          <Route
+            path={YOU_PATH}
+            element={
+              <PageRoot
+                nav={
+                  <MobileFriendlyPageNav path={YOU_PATH}>
+                    <You />
+                  </MobileFriendlyPageNav>
+                }
+              >
+                <Outlet />
+              </PageRoot>
+            }
+          >
+            <Route path={_YOU_PAGE_PATH} element={<YouSettings />} />
+          </Route>
+        ) : (
+          <Route path={`${YOU_PATH}*`} loader={() => redirect(getHomePath())} />
+        )}
       </Route>
       <Route path="/*" element={<p>Page not found</p>} />
     </Route>

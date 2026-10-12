@@ -75,7 +75,14 @@ type TouchListAreaProps = {
 export function TouchListArea({ scrollRef, fab, children }: TouchListAreaProps) {
   return (
     <Box grow="Yes" direction="Column" className={css.TouchListArea}>
-      <Scroll ref={scrollRef} variant="Background" direction="Vertical" size="0">
+      {/* the bottom bar scrolls this back to the top when its open tab is tapped again */}
+      <Scroll
+        ref={scrollRef}
+        variant="Background"
+        direction="Vertical"
+        size="0"
+        data-scroll-top-target
+      >
         <div className={css.TouchListContent}>{children}</div>
       </Scroll>
       {fab}

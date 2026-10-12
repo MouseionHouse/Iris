@@ -1,23 +1,34 @@
 import { ReactNode } from 'react';
-import { useMatch } from 'react-router-dom';
+import { useLocation, useMatch } from 'react-router-dom';
 import { ScreenSize, useScreenSizeContext } from '../hooks/useScreenSize';
-import { DIRECT_PATH, EXPLORE_PATH, HOME_PATH, INBOX_PATH, SPACE_PATH } from './paths';
+import { getBottomNavTab } from './mobileNav';
 
 type MobileFriendlyClientNavProps = {
   children: ReactNode;
 };
+/** The rail. A phone has the bottom bar in its place, so there it is never rendered. */
 export function MobileFriendlyClientNav({ children }: MobileFriendlyClientNavProps) {
   const screenSize = useScreenSizeContext();
-  const homeMatch = useMatch({ path: HOME_PATH, caseSensitive: true, end: true });
-  const directMatch = useMatch({ path: DIRECT_PATH, caseSensitive: true, end: true });
-  const spaceMatch = useMatch({ path: SPACE_PATH, caseSensitive: true, end: true });
-  const exploreMatch = useMatch({ path: EXPLORE_PATH, caseSensitive: true, end: true });
-  const inboxMatch = useMatch({ path: INBOX_PATH, caseSensitive: true, end: true });
 
-  if (
-    screenSize === ScreenSize.Mobile &&
-    !(homeMatch || directMatch || spaceMatch || exploreMatch || inboxMatch)
-  ) {
+  if (screenSize === ScreenSize.Mobile) {
+    return null;
+  }
+
+  return children;
+}
+
+type MobileFriendlyBottomNavProps = {
+  children: ReactNode;
+};
+/**
+ * The bottom bar: on a phone only, and only on the pages that belong to one of its tabs. A room,
+ * a create page or anything else that takes the whole screen is shown without it.
+ */
+export function MobileFriendlyBottomNav({ children }: MobileFriendlyBottomNavProps) {
+  const screenSize = useScreenSizeContext();
+  const { pathname } = useLocation();
+
+  if (screenSize !== ScreenSize.Mobile || !getBottomNavTab(pathname)) {
     return null;
   }
 

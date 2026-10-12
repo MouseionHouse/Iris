@@ -6,7 +6,6 @@ import {
   Button,
   Chip,
   Icon,
-  IconButton,
   Icons,
   Overlay,
   OverlayBackdrop,
@@ -58,7 +57,7 @@ import { RoomTopicViewer } from '../../../components/room-topic-viewer';
 import { AsyncStatus, useAsyncCallback } from '../../../hooks/useAsyncCallback';
 import { useRoomNavigate } from '../../../hooks/useRoomNavigate';
 import { ScreenSize, useScreenSizeContext } from '../../../hooks/useScreenSize';
-import { BackRouteHandler } from '../../../components/BackRouteHandler';
+import { ActivityTouchHeader } from './ActivityTouch';
 import { useMediaAuthentication } from '../../../hooks/useMediaAuthentication';
 import { StateEvent } from '../../../../types/matrix/room';
 import { testBadWords } from '../../../plugins/bad-words';
@@ -747,30 +746,24 @@ export function Invites() {
 
   return (
     <Page>
-      <PageHeader balance>
-        <Box grow="Yes" gap="200">
-          <Box grow="Yes" basis="No">
-            {screenSize === ScreenSize.Mobile && (
-              <BackRouteHandler>
-                {(onBack) => (
-                  <IconButton onClick={onBack}>
-                    <Icon src={Icons.ArrowLeft} />
-                  </IconButton>
-                )}
-              </BackRouteHandler>
-            )}
+      {screenSize === ScreenSize.Mobile ? (
+        <ActivityTouchHeader list="invites" />
+      ) : (
+        <PageHeader balance>
+          <Box grow="Yes" gap="200">
+            <Box grow="Yes" basis="No" />
+            <Box alignItems="Center" gap="200">
+              <Icon size="400" src={Icons.Mail} />
+              <Text size="H3" truncate>
+                Invites
+              </Text>
+            </Box>
+            <Box grow="Yes" basis="No" />
           </Box>
-          <Box alignItems="Center" gap="200">
-            {screenSize !== ScreenSize.Mobile && <Icon size="400" src={Icons.Mail} />}
-            <Text size="H3" truncate>
-              Invites
-            </Text>
-          </Box>
-          <Box grow="Yes" basis="No" />
-        </Box>
-      </PageHeader>
+        </PageHeader>
+      )}
       <Box grow="Yes">
-        <Scroll hideTrack visibility="Hover">
+        <Scroll hideTrack visibility="Hover" data-scroll-top-target>
           <PageContent>
             <PageContentCenter>
               <Box ref={containerRef} direction="Column" gap="600">
