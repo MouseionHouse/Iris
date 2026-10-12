@@ -7,6 +7,7 @@ import {
   INBOX_PATH,
   SEARCH_PATH,
   SPACE_PATH,
+  SearchTabSearchParams,
   YOU_PATH,
 } from './paths';
 import {
@@ -17,10 +18,11 @@ import {
   getSearchPath,
   getSpacePath,
   getYouPath,
+  withSearchParam,
 } from './pathUtils';
 
 /*
- * Where a phone is in the app, read from the path alone, so it can be checked without a
+ * Where a phone is in the app, read from the address alone, so it can be checked without a
  * homeserver: which tab of the bottom bar a page belongs to, and where its back arrow leads.
  */
 
@@ -56,12 +58,18 @@ export const getBottomNavTab = (pathname: string): BottomNavTab | undefined => {
 
 /**
  * Where the back arrow of a page leads: up to the list the page was opened from. Undefined for
- * a path that is not the app's.
+ * a path that is not the app's. `search` is the query of the page's address.
  */
-export const getBackPath = (pathname: string): string | undefined => {
+export const getBackPath = (pathname: string, search = ''): string | undefined => {
   if (matches(HOME_PATH, pathname, false)) return getHomePath();
   if (matches(DIRECT_PATH, pathname, false)) return getDirectPath();
-  if (matches(SEARCH_PATH, pathname, false)) return getSearchPath();
+  if (matches(SEARCH_PATH, pathname, false)) {
+    // Message search was opened on the words typed into the Search tab, which has them back.
+    const term = new URLSearchParams(search).get('term');
+    return term
+      ? withSearchParam<SearchTabSearchParams>(getSearchPath(), { term })
+      : getSearchPath();
+  }
   if (matches(YOU_PATH, pathname, false)) return getYouPath();
   if (matches(INBOX_PATH, pathname, false)) return getInboxNotificationsPath();
   // Explore and Create Space are opened from Home's sheets and have no tab to return by.

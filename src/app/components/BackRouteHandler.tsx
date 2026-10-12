@@ -10,7 +10,7 @@ export function BackRouteHandler({ children }: BackRouteHandlerProps) {
   const location = useLocation();
 
   const goBack = useCallback(() => {
-    const backPath = getBackPath(location.pathname);
+    const backPath = getBackPath(location.pathname, location.search);
     if (backPath) navigate(backPath);
   }, [navigate, location]);
 
