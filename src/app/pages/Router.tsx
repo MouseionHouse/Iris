@@ -30,6 +30,7 @@ import {
   _SERVER_PATH,
   CREATE_PATH,
   SEARCH_PATH,
+  SEARCH_MESSAGES_PATH,
   YOU_PATH,
   _MESSAGES_PATH,
   _YOU_PAGE_PATH,
@@ -38,6 +39,7 @@ import {
   getAppPathFromHref,
   getExploreFeaturedPath,
   getHomePath,
+  getHomeSearchPath,
   getInboxNotificationsPath,
   getLoginPath,
   getOriginBaseUrl,
@@ -329,7 +331,18 @@ export const createRouter = (clientConfig: ClientConfig, screenSize: ScreenSize)
             <Route path={_MESSAGES_PATH} element={<HomeSearch />} />
           </Route>
         ) : (
-          <Route path={`${SEARCH_PATH}*`} loader={() => redirect(getHomePath())} />
+          <Route
+            path={`${SEARCH_PATH}*`}
+            loader={({ request }) => {
+              // A fold opened on message search keeps the search: Home has the same page.
+              const { pathname, search } = new URL(request.url);
+              return redirect(
+                pathname.endsWith(SEARCH_MESSAGES_PATH)
+                  ? `${getHomeSearchPath()}${search}`
+                  : getHomePath()
+              );
+            }}
+          />
         )}
         {mobile ? (
           <Route
