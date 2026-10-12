@@ -3,10 +3,14 @@ package house.mouseion.iris;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.PorterDuff;
+import android.graphics.PorterDuffXfermode;
 import android.graphics.Rect;
+import android.util.Base64;
 import androidx.core.content.pm.ShortcutInfoCompat;
 import androidx.core.content.pm.ShortcutManagerCompat;
 import androidx.core.graphics.drawable.IconCompat;
@@ -89,7 +93,7 @@ public class MouseionSharePlugin extends Plugin {
     }
 
     /**
-     * Replaces the per-chat share targets. Expects {targets: [{roomId, label}]}, most relevant
+     * Replaces the per-chat share targets. Expects {targets: [{roomId, label, avatar?}]} (avatar: base64 PNG), most relevant
      * first; anything past the launcher's per-activity limit is dropped. An empty list (sign
      * out) removes them all, so chat names do not linger in the share sheet.
      */
@@ -113,7 +117,8 @@ public class MouseionSharePlugin extends Plugin {
                 if (roomId.isEmpty() || label.isEmpty()) {
                     continue;
                 }
-                shortcuts.add(buildShortcut(context, roomId, label, shortcuts.size()));
+                Bitmap avatar = decodeAvatar(target.optString("avatar", ""));
+                shortcuts.add(buildShortcut(context, roomId, label, avatar, shortcuts.size()));
             }
 
             ShortcutManagerCompat.setDynamicShortcuts(context, shortcuts);
@@ -123,7 +128,13 @@ public class MouseionSharePlugin extends Plugin {
         }
     }
 
-    private static ShortcutInfoCompat buildShortcut(Context context, String roomId, String label, int rank) {
+    private static ShortcutInfoCompat buildShortcut(
+        Context context,
+        String roomId,
+        String label,
+        Bitmap avatar,
+        int rank
+    ) {
         Intent launch = new Intent(context, MainActivity.class)
             .setAction(Intent.ACTION_VIEW)
             .putExtra(EXTRA_ROOM_ID, roomId);
@@ -131,7 +142,7 @@ public class MouseionSharePlugin extends Plugin {
         return new ShortcutInfoCompat.Builder(context, SHORTCUT_ID_PREFIX + roomId)
             .setShortLabel(shorten(label))
             .setLongLabel(label)
-            .setIcon(IconCompat.createWithBitmap(letterAvatar(roomId, label)))
+            .setIcon(IconCompat.createWithBitmap(avatar != null ? avatar : letterAvatar(roomId, label)))
             .setIntent(launch)
             .setLongLived(true)
             .setRank(rank)
@@ -144,6 +155,31 @@ public class MouseionSharePlugin extends Plugin {
             return label;
         }
         return label.substring(0, MAX_LABEL_LENGTH - 1) + "…";
+    }
+
+    /** The chat's avatar (base64 PNG from the web app) cropped to a circle; null if absent or unreadable. */
+    private static Bitmap decodeAvatar(String base64) {
+        if (base64.isEmpty()) {
+            return null;
+        }
+        try {
+            byte[] bytes = Base64.decode(base64, Base64.DEFAULT);
+            Bitmap source = BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
+            if (source == null) {
+                return null;
+            }
+            Bitmap scaled = Bitmap.createScaledBitmap(source, ICON_SIZE_PX, ICON_SIZE_PX, true);
+            Bitmap circle = Bitmap.createBitmap(ICON_SIZE_PX, ICON_SIZE_PX, Bitmap.Config.ARGB_8888);
+            Canvas canvas = new Canvas(circle);
+            Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+            float half = ICON_SIZE_PX / 2f;
+            canvas.drawCircle(half, half, half, paint);
+            paint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.SRC_IN));
+            canvas.drawBitmap(scaled, 0, 0, paint);
+            return circle;
+        } catch (IllegalArgumentException | OutOfMemoryError e) {
+            return null;
+        }
     }
 
     /** A coloured circle with the chat's initial, so the targets are told apart at a glance. */
