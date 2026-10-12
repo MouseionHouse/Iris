@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import {
   Avatar,
   Box,
@@ -7,7 +7,6 @@ import {
   Icon,
   IconButton,
   Icons,
-  IconSrc,
   MenuItem,
   Overlay,
   OverlayBackdrop,
@@ -33,64 +32,50 @@ import { About } from './about';
 import { UseStateProvider } from '../../components/UseStateProvider';
 import { stopPropagation } from '../../utils/keyboard';
 import { LogoutDialog } from '../../components/LogoutDialog';
+import { SETTINGS_MENU_ITEMS, SettingsPages } from './menu';
 
-export enum SettingsPages {
-  GeneralPage,
-  AccountPage,
-  NotificationPage,
-  DevicesPage,
-  EmojisStickersPage,
-  DeveloperToolsPage,
-  AboutPage,
+export { SettingsPages };
+
+type SettingsPageProps = {
+  page: SettingsPages;
+  requestClose: () => void;
+};
+/**
+ * One page of the settings, by itself. The modal shows it beside its menu; on a phone the You
+ * tab is the menu and a route shows the page.
+ */
+export function SettingsPage({ page, requestClose }: SettingsPageProps) {
+  return (
+    <>
+      {page === SettingsPages.GeneralPage && <General requestClose={requestClose} />}
+      {page === SettingsPages.AccountPage && <Account requestClose={requestClose} />}
+      {page === SettingsPages.NotificationPage && <Notifications requestClose={requestClose} />}
+      {page === SettingsPages.DevicesPage && <Devices requestClose={requestClose} />}
+      {page === SettingsPages.EmojisStickersPage && <EmojisStickers requestClose={requestClose} />}
+      {page === SettingsPages.DeveloperToolsPage && <DeveloperTools requestClose={requestClose} />}
+      {page === SettingsPages.AboutPage && <About requestClose={requestClose} />}
+    </>
+  );
 }
 
-type SettingsMenuItem = {
-  page: SettingsPages;
-  name: string;
-  icon: IconSrc;
-};
-
-const useSettingsMenuItems = (): SettingsMenuItem[] =>
-  useMemo(
-    () => [
-      {
-        page: SettingsPages.GeneralPage,
-        name: 'General',
-        icon: Icons.Setting,
-      },
-      {
-        page: SettingsPages.AccountPage,
-        name: 'Account',
-        icon: Icons.User,
-      },
-      {
-        page: SettingsPages.NotificationPage,
-        name: 'Notifications',
-        icon: Icons.Bell,
-      },
-      {
-        page: SettingsPages.DevicesPage,
-        name: 'Devices',
-        icon: Icons.Monitor,
-      },
-      {
-        page: SettingsPages.EmojisStickersPage,
-        name: 'Emojis & Stickers',
-        icon: Icons.Smile,
-      },
-      {
-        page: SettingsPages.DeveloperToolsPage,
-        name: 'Developer Tools',
-        icon: Icons.Terminal,
-      },
-      {
-        page: SettingsPages.AboutPage,
-        name: 'About',
-        icon: Icons.Info,
-      },
-    ],
-    []
+/** The dialog that asks before logging out. */
+export function LogoutPrompt({ onClose }: { onClose: () => void }) {
+  return (
+    <Overlay open backdrop={<OverlayBackdrop />}>
+      <OverlayCenter>
+        <FocusTrap
+          focusTrapOptions={{
+            onDeactivate: onClose,
+            clickOutsideDeactivates: true,
+            escapeDeactivates: stopPropagation,
+          }}
+        >
+          <LogoutDialog handleClose={onClose} />
+        </FocusTrap>
+      </OverlayCenter>
+    </Overlay>
   );
+}
 
 type SettingsProps = {
   initialPage?: SettingsPages;
@@ -111,7 +96,6 @@ export function Settings({ initialPage, requestClose }: SettingsProps) {
     if (initialPage) return initialPage;
     return screenSize === ScreenSize.Mobile ? undefined : SettingsPages.GeneralPage;
   });
-  const menuItems = useSettingsMenuItems();
 
   const handlePageRequestClose = () => {
     if (screenSize === ScreenSize.Mobile) {
@@ -150,7 +134,7 @@ export function Settings({ initialPage, requestClose }: SettingsProps) {
             <Box grow="Yes" direction="Column">
               <PageNavContent>
                 <div style={{ flexGrow: 1 }}>
-                  {menuItems.map((item) => (
+                  {SETTINGS_MENU_ITEMS.map((item) => (
                     <MenuItem
                       key={item.name}
                       variant="Background"
@@ -186,21 +170,7 @@ export function Settings({ initialPage, requestClose }: SettingsProps) {
                       >
                         <Text size="B400">Logout</Text>
                       </Button>
-                      {logout && (
-                        <Overlay open backdrop={<OverlayBackdrop />}>
-                          <OverlayCenter>
-                            <FocusTrap
-                              focusTrapOptions={{
-                                onDeactivate: () => setLogout(false),
-                                clickOutsideDeactivates: true,
-                                escapeDeactivates: stopPropagation,
-                              }}
-                            >
-                              <LogoutDialog handleClose={() => setLogout(false)} />
-                            </FocusTrap>
-                          </OverlayCenter>
-                        </Overlay>
-                      )}
+                      {logout && <LogoutPrompt onClose={() => setLogout(false)} />}
                     </>
                   )}
                 </UseStateProvider>
@@ -210,25 +180,9 @@ export function Settings({ initialPage, requestClose }: SettingsProps) {
         )
       }
     >
-      {activePage === SettingsPages.GeneralPage && (
-        <General requestClose={handlePageRequestClose} />
+      {activePage !== undefined && (
+        <SettingsPage page={activePage} requestClose={handlePageRequestClose} />
       )}
-      {activePage === SettingsPages.AccountPage && (
-        <Account requestClose={handlePageRequestClose} />
-      )}
-      {activePage === SettingsPages.NotificationPage && (
-        <Notifications requestClose={handlePageRequestClose} />
-      )}
-      {activePage === SettingsPages.DevicesPage && (
-        <Devices requestClose={handlePageRequestClose} />
-      )}
-      {activePage === SettingsPages.EmojisStickersPage && (
-        <EmojisStickers requestClose={handlePageRequestClose} />
-      )}
-      {activePage === SettingsPages.DeveloperToolsPage && (
-        <DeveloperTools requestClose={handlePageRequestClose} />
-      )}
-      {activePage === SettingsPages.AboutPage && <About requestClose={handlePageRequestClose} />}
     </PageRoot>
   );
 }
