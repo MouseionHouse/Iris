@@ -15,12 +15,12 @@ John asked to redesign the Home page to make it more mobile friendly. This round
 
 ## The options
 
-| Id | Name | Shape |
-|---|---|---|
-| Now | Home as it ships | Rail on the left, four action rows, one line per conversation |
-| A | Bottom bar | The rail becomes a bar along the bottom (Home, Direct, Explore, Inbox, You). Sections stay and fold. Rows show the last message and the time. One + button opens the create actions as a sheet. Search is in the header |
-| B | One list | No rail and no bar. Search is the top of the screen, with Inbox and the account in it. Sections become filters. Everything is one list, newest first |
-| C | Rail kept | The smallest change. The rail stays, slimmer. The action rows fold into Search and + in the header. Rows are one line, 48 px |
+| Id  | Name             | Shape                                                                                                                                                                                                                   |
+| --- | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Now | Home as it ships | Rail on the left, four action rows, one line per conversation                                                                                                                                                           |
+| A   | Bottom bar       | The rail becomes a bar along the bottom (Home, Direct, Explore, Inbox, You). Sections stay and fold. Rows show the last message and the time. One + button opens the create actions as a sheet. Search is in the header |
+| B   | One list         | No rail and no bar. Search is the top of the screen, with Inbox and the account in it. Sections become filters. Everything is one list, newest first                                                                    |
+| C   | Rail kept        | The smallest change. The rail stays, slimmer. The action rows fold into Search and + in the header. Rows are one line, 48 px                                                                                            |
 
 ## Not in this round
 
