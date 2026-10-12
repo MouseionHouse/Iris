@@ -34,11 +34,15 @@
 # what is live and every backup is a rollback point. The stack's Watchtower watches every
 # container, so a `:latest` line would also let it redeploy on its own.
 #
-# Runner facts this relies on (checked 2026-09-23, see issue #4): `builder` and `homeserver` are
-# :host labels on the one `forgejo-runner-server` container, which mounts the compose directory
-# read-write and sits on `homeserver_default`, so it can reach the service as http://cinny/. It
-# cannot reach https://iris.example.org over the tailnet, so the checks never use the public
-# URL. The `android` job runs in the household android-build image (glibc, which aapt2 needs).
+# Runner facts this relies on (checked 2026-09-23, see issue #4; build lane 2026-10-12): `plan`
+# runs on builder's light lane (`builder`) and `bundle` on builder's build lane (`builder-docker`:
+# one build at a time, 7 CPUs and 14 GB at most, with a Docker daemon of its own), so nothing is
+# built on server: the image reaches it through the registry and the Android inputs as an
+# artifact. `homeserver` and `android` are :host labels on the one `forgejo-runner-server`
+# container, which mounts the compose directory read-write and sits on `homeserver_default`, so
+# it can reach the service as http://cinny/. It cannot reach https://iris.example.org over
+# the tailnet, so the checks never use the public URL. The `android` job runs in the household
+# android-build image (glibc, which aapt2 needs).
 #
 # Secrets: registry credentials are the ORG-level secret REGISTRY_TOKEN and variable
 # REGISTRY_USER on org `mouseion`. Signing material is the repo secrets
@@ -182,7 +186,7 @@ jobs:
 
   bundle:
     needs: [plan]
-    runs-on: builder
+    runs-on: builder-docker
     steps:
       - uses: actions/checkout@v4
 
