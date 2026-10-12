@@ -93,14 +93,17 @@ Other Capacitor plugins: `@capacitor/app` (back button → `history.back()`, res
 for external links. File and camera pickers come from the WebView's `<input type=file>` (Capacitor
 implements the file chooser, including `capture`).
 
-Text share target (done 2026-09-23, see WORKTRACK): `MouseionShare` plugin (Java,
-`mobile/android/app/src/main/java/house/mouseion/chat/`) + an `ACTION_SEND`/`text/*`
-intent filter on MainActivity. The plugin's `handleOnNewIntent` (cold start and warm)
-notifies `sharedContent` with `retainUntilConsumed`, so cold-start shares survive until
-the web registers a listener. Web: `src/app/native/share.ts` holds the text in
-`pendingSharedTextAtom`; `SharedContentConsumer` (ClientNonUIFeatures) puts it in the
-composer of the room on screen or the last opened room (`src/app/state/lastOpenedRoom.ts`)
-as a draft — never auto-sent.
+Text sharing (done 2026-09-23, see WORKTRACK): `MouseionShare` plugin (Java,
+`mobile/android/app/src/main/java/house/mouseion/chat/`). Two entry points: the app itself
+(`ACTION_SEND`/`text/*` filter on MainActivity) and per-chat Direct Share targets (Sharing
+Shortcuts API: `res/xml/shortcuts.xml` declares a `<share-target>`; `setShareTargets`
+publishes long-lived dynamic shortcuts for the 8 most recently active chats, with a letter
+avatar; picking one sends `ACTION_SEND` with `Intent.EXTRA_SHORTCUT_ID`). Events
+(`sharedContent {text, roomId?}`, `openRoom` for launcher taps) use `retainUntilConsumed`.
+Web: `src/app/native/share.ts` (bridge + atoms); `SharedContentConsumer` (ClientNonUIFeatures)
+sends straight to the picked chat, else opens `features/share-picker` ("Send to…"). The text
+lands as a composer draft, never auto-sent. Shortcuts are re-synced on room-list changes and
+whenever the app is backgrounded, and removed on sign out.
 
 ## Phases
 

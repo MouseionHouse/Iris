@@ -33,13 +33,18 @@
             </intent-filter>
 
             <!-- Text share target: the app appears in the Android share sheet for text shares.
-                 The MouseionShare plugin forwards the shared text to the web app, which puts it
-                 in the composer of the current (or last opened) room. -->
+                 The MouseionShare plugin forwards the shared text to the web app, which asks
+                 which chat to send it to (or goes straight to the chat picked in the sheet). -->
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="text/*" />
             </intent-filter>
+
+            <!-- Per-chat share targets (Direct Share): see res/xml/shortcuts.xml. -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
 
         </activity>
 
