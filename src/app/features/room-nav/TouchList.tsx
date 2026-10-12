@@ -1,5 +1,5 @@
-import React, { MouseEventHandler, ReactNode } from 'react';
-import { Icon, IconSrc, Icons, Text, as } from 'folds';
+import React, { MouseEventHandler, MutableRefObject, ReactNode } from 'react';
+import { Box, Icon, IconSrc, Icons, Scroll, Text, as } from 'folds';
 import classNames from 'classnames';
 import { ListFilter } from '../../state/listFilter';
 import { UnreadBadge } from '../../components/unread-badge';
@@ -64,6 +64,24 @@ export const ListFab = as<'button'>(({ className, ...props }, ref) => (
     <Icon src={Icons.Plus} size="300" />
   </button>
 ));
+
+type TouchListAreaProps = {
+  scrollRef?: MutableRefObject<HTMLDivElement | null>;
+  /** Stays over the bottom corner while the list scrolls under it. */
+  fab?: ReactNode;
+  children: ReactNode;
+};
+/** The scrolling part of a conversation list on a phone: rows from edge to edge. */
+export function TouchListArea({ scrollRef, fab, children }: TouchListAreaProps) {
+  return (
+    <Box grow="Yes" direction="Column" className={css.TouchListArea}>
+      <Scroll ref={scrollRef} variant="Background" direction="Vertical" size="0">
+        <div className={css.TouchListContent}>{children}</div>
+      </Scroll>
+      {fab}
+    </Box>
+  );
+}
 
 export function TouchListEmpty({ children }: { children: ReactNode }) {
   return (

@@ -21,7 +21,7 @@ import {
   toRem,
 } from 'folds';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { useAtomValue } from 'jotai';
+import { useAtom, useAtomValue } from 'jotai';
 import FocusTrap from 'focus-trap-react';
 import {
   NavButton,
@@ -35,7 +35,6 @@ import {
 import {
   encodeSearchParamValueArray,
   getDirectCreatePath,
-  getDirectRoomPath,
   getExplorePath,
   getHomeCreatePath,
   getHomeRoomPath,
@@ -55,7 +54,15 @@ import { SidebarSection, sectionName } from '../../../state/sidebar';
 import { mDirectAtom } from '../../../state/mDirectList';
 import { useMatrixClient } from '../../../hooks/useMatrixClient';
 import { VirtualTile } from '../../../components/virtualizer';
-import { RoomNavItem } from '../../../features/room-nav';
+import { RoomNavItem, RoomNavItemTouch } from '../../../features/room-nav';
+import {
+  ListFilterChips,
+  TouchListArea,
+  TouchListEmpty,
+} from '../../../features/room-nav/TouchList';
+import { ScreenSize, useScreenSizeContext } from '../../../hooks/useScreenSize';
+import { homeListFilterAtom } from '../../../state/listFilter';
+import { HomeCreateFab, HomeTouchHeader } from './HomeTouch';
 import { roomToUnreadAtom } from '../../../state/room/roomToUnread';
 import { useNavToActivePathMapper } from '../../../hooks/useNavToActivePathMapper';
 import { PageNav, PageNavHeader, PageNavContent } from '../../../components/page';
@@ -252,7 +259,11 @@ export function Home() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const rooms = useHomeConversations();
   const mDirects = useAtomValue(mDirectAtom);
-  const sidebar = useSidebar();
+  const mobile = useScreenSizeContext() === ScreenSize.Mobile;
+  // The chip row of a phone filters every section at once; a wider screen has no chip row.
+  const [listFilter, setListFilter] = useAtom(homeListFilterAtom);
+  const sidebar = useSidebar(mobile && listFilter !== 'all' ? listFilter : undefined);
+  const roomToUnread = useAtomValue(roomToUnreadAtom);
   const notificationPreferences = useRoomsNotificationPreferencesContext();
   const navigate = useNavigate();
 
@@ -280,13 +291,79 @@ export function Home() {
   const virtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => 38,
+    estimateSize: (index) => {
+      if (!mobile) return 38;
+      return rows[index].kind === 'header' ? 48 : 64;
+    },
     overscan: 10,
   });
 
-  return (
-    <PageNav>
-      <HomeHeader />
+  const list = (
+    <div
+      style={{
+        position: 'relative',
+        height: virtualizer.getTotalSize(),
+      }}
+    >
+      {virtualizer.getVirtualItems().map((vItem) => {
+        const row = rows[vItem.index];
+        if (row.kind === 'header') {
+          return (
+            <VirtualTile
+              virtualItem={vItem}
+              key={`header:${row.view.section.tag}`}
+              ref={virtualizer.measureElement}
+            >
+              <SidebarSectionHeader
+                view={row.view}
+                sidebar={sidebar}
+                onNewSection={() => setNewSection(true)}
+                onRename={setRenameSection}
+                onDelete={setDeleteSection}
+              />
+            </VirtualTile>
+          );
+        }
+        const { roomId } = row;
+        const room = mx.getRoom(roomId);
+        if (!room) return null;
+        const selected = selectedRoomId === roomId;
+        const direct = mDirects.has(roomId);
+        // A direct chat opened from Home stays under Home, so going back returns here.
+        const linkPath = getHomeRoomPath(getCanonicalAliasOrRoomId(mx, roomId));
+        const notificationMode = getRoomNotificationMode(notificationPreferences, room.roomId);
+        return (
+          <VirtualTile
+            virtualItem={vItem}
+            key={`${row.sectionTag}:${roomId}`}
+            ref={virtualizer.measureElement}
+          >
+            {mobile ? (
+              <RoomNavItemTouch
+                room={room}
+                selected={selected}
+                direct={direct}
+                linkPath={linkPath}
+                notificationMode={notificationMode}
+              />
+            ) : (
+              <RoomNavItem
+                room={room}
+                selected={selected}
+                showAvatar={direct}
+                direct={direct}
+                linkPath={linkPath}
+                notificationMode={notificationMode}
+              />
+            )}
+          </VirtualTile>
+        );
+      })}
+    </div>
+  );
+
+  const dialogs = (
+    <>
       {newSection && (
         <SectionDialog
           onSubmit={(name, emoji) => {
@@ -318,6 +395,34 @@ export function Home() {
           onCancel={() => setDeleteSection(undefined)}
         />
       )}
+    </>
+  );
+
+  if (mobile) {
+    return (
+      <PageNav>
+        <HomeTouchHeader />
+        {dialogs}
+        {!noRoomToDisplay && (
+          <ListFilterChips
+            value={listFilter}
+            onChange={setListFilter}
+            unreadCount={rooms.filter((rId) => roomToUnread.has(rId)).length}
+          />
+        )}
+        <TouchListArea scrollRef={scrollRef} fab={<HomeCreateFab />}>
+          {noRoomToDisplay && <HomeEmpty />}
+          {!noRoomToDisplay && rows.length === 0 && <TouchListEmpty>Nothing here</TouchListEmpty>}
+          {!noRoomToDisplay && rows.length > 0 && list}
+        </TouchListArea>
+      </PageNav>
+    );
+  }
+
+  return (
+    <PageNav>
+      <HomeHeader />
+      {dialogs}
       {noRoomToDisplay ? (
         <HomeEmpty />
       ) : (
@@ -411,63 +516,7 @@ export function Home() {
                 </NavLink>
               </NavItem>
             </NavCategory>
-            <NavCategory>
-              <div
-                style={{
-                  position: 'relative',
-                  height: virtualizer.getTotalSize(),
-                }}
-              >
-                {virtualizer.getVirtualItems().map((vItem) => {
-                  const row = rows[vItem.index];
-                  if (row.kind === 'header') {
-                    return (
-                      <VirtualTile
-                        virtualItem={vItem}
-                        key={`header:${row.view.section.tag}`}
-                        ref={virtualizer.measureElement}
-                      >
-                        <SidebarSectionHeader
-                          view={row.view}
-                          sidebar={sidebar}
-                          onNewSection={() => setNewSection(true)}
-                          onRename={setRenameSection}
-                          onDelete={setDeleteSection}
-                        />
-                      </VirtualTile>
-                    );
-                  }
-                  const { roomId } = row;
-                  const room = mx.getRoom(roomId);
-                  if (!room) return null;
-                  const selected = selectedRoomId === roomId;
-                  const direct = mDirects.has(roomId);
-                  return (
-                    <VirtualTile
-                      virtualItem={vItem}
-                      key={`${row.sectionTag}:${roomId}`}
-                      ref={virtualizer.measureElement}
-                    >
-                      <RoomNavItem
-                        room={room}
-                        selected={selected}
-                        showAvatar={direct}
-                        direct={direct}
-                        linkPath={
-                          direct
-                            ? getDirectRoomPath(getCanonicalAliasOrRoomId(mx, roomId))
-                            : getHomeRoomPath(getCanonicalAliasOrRoomId(mx, roomId))
-                        }
-                        notificationMode={getRoomNotificationMode(
-                          notificationPreferences,
-                          room.roomId
-                        )}
-                      />
-                    </VirtualTile>
-                  );
-                })}
-              </div>
-            </NavCategory>
+            <NavCategory>{list}</NavCategory>
           </Box>
         </PageNavContent>
       )}
