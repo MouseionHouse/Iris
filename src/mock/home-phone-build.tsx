@@ -2,11 +2,16 @@
 // the app's own row, section header, chip row, + button and sheets, on fake rooms. The pieces
 // that read a Matrix room are left out; what they render is what is here.
 //
+// Under the list is the bottom bar, and its tabs work: DMs, Activity, Search and You show the
+// presentational parts of those pages on the same fake household.
+//
 // Open /mock-home-phone-build.html on the vite dev server, on a phone or in a phone-sized
 // window. ?dark and ?light override the system setting. ?sheet=create|row|section|places opens
 // a sheet from the start and ?filter=unreads|mentions sets the chip row, for a capture.
+// ?tab=direct|activity|search|you opens a tab, ?term= fills the search field, and ?inset=24
+// pretends the display has a gesture area that tall under the app.
 // Not part of the app build.
-import React, { useState } from 'react';
+import React, { ReactNode, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { MemoryRouter } from 'react-router-dom';
 import '@fontsource/inter/variable.css';
@@ -31,6 +36,7 @@ import { onDarkFontWeight, onLightFontWeight } from '../config.css';
 import { irisDarkTheme, irisLightTheme } from '../colors.css';
 import { BottomSheet, BottomSheetMenu } from '../app/components/bottom-sheet';
 import { RoomAvatar } from '../app/components/room-avatar';
+import { UserAvatar } from '../app/components/user-avatar';
 import { RoomRow, RoomRowIconTile } from '../app/features/room-nav/RoomRow';
 import {
   ListFab,
@@ -43,6 +49,17 @@ import {
   TouchListEmpty,
 } from '../app/features/room-nav/TouchList';
 import * as css from '../app/features/room-nav/touch.css';
+import { SETTINGS_MENU_ITEMS } from '../app/features/settings/menu';
+import { BottomNavAvatar, BottomNavBar, BottomNavItem } from '../app/pages/client/BottomNavBar';
+import { ActivitySwitch } from '../app/pages/client/inbox/ActivityTouch';
+import {
+  MessageSearchRow,
+  SearchField,
+  SearchListLabel,
+  SearchListNote,
+} from '../app/pages/client/search/SearchTouchView';
+import { YouProfile, YouRow, YouRows, YouWarningRow } from '../app/pages/client/you/YouView';
+import { BottomNavTab } from '../app/pages/mobileNav';
 import { ScreenSize, ScreenSizeProvider } from '../app/hooks/useScreenSize';
 import { ListFilter } from '../app/state/listFilter';
 import { RoomPreview } from '../app/utils/roomPreview';
@@ -304,6 +321,213 @@ const initialFilter = (): ListFilter => {
   return asked === 'unreads' || asked === 'mentions' ? asked : 'all';
 };
 
+const ME = { userId: '@hector:example.org', name: 'John Gibson' };
+// one invite waiting, and one other device not verified yet
+const INVITES = 1;
+const UNVERIFIED = { current: false, others: 1 };
+
+const initialTab = (): BottomNavTab => {
+  const asked = params.get('tab');
+  return asked === 'direct' || asked === 'activity' || asked === 'search' || asked === 'you'
+    ? asked
+    : 'home';
+};
+
+function ConvRow({ conv }: { conv: Conv }) {
+  return (
+    <RoomRow
+      linkPath="/"
+      name={conv.name}
+      avatar={<ConvAvatar conv={conv} />}
+      time={timeShortStamp(NOW - conv.ago, false, NOW)}
+      preview={conv.preview}
+      unread={
+        conv.unread !== undefined ? { total: conv.unread, highlight: !!conv.highlight } : undefined
+      }
+      notificationIcon={conv.muted ? Icons.BellMute : undefined}
+      onClick={(evt) => evt.preventDefault()}
+      onOptions={() => undefined}
+    />
+  );
+}
+
+// DMs on a phone, as `Direct` lays it out: one list, newest first.
+function DirectTab() {
+  const [filter, setFilter] = useState<ListFilter>('all');
+  const directs = CONVS.filter((conv) => conv.direct).sort((a, b) => a.ago - b.ago);
+  const shown = directs.filter((conv) => {
+    if (filter === 'unreads') return conv.unread !== undefined;
+    if (filter === 'mentions') return !!conv.highlight;
+    return true;
+  });
+  return (
+    <>
+      <header className={css.TouchHeader}>
+        <Box grow="Yes">
+          <Text size="H3" truncate>
+            DMs
+          </Text>
+        </Box>
+        <TouchIconButton src={Icons.VerticalDots} aria-label="More Options" />
+      </header>
+      <ListFilterChips
+        value={filter}
+        onChange={setFilter}
+        unreadCount={directs.filter((conv) => conv.unread !== undefined).length}
+      />
+      <TouchListArea fab={<ListFab aria-label="Create Chat" />}>
+        {shown.length === 0 && <TouchListEmpty>Nothing here</TouchListEmpty>}
+        {shown.map((conv) => (
+          <ConvRow key={conv.id} conv={conv} />
+        ))}
+      </TouchListArea>
+    </>
+  );
+}
+
+// The top of Activity. The feed and the invite cards under it read Matrix and are left out.
+function ActivityTab() {
+  const [list, setList] = useState<'notifications' | 'invites'>('notifications');
+  return (
+    <>
+      <header className={css.TouchHeader}>
+        <Text size="H3" truncate>
+          Activity
+        </Text>
+      </header>
+      <ActivitySwitch value={list} onChange={setList} inviteCount={INVITES} />
+      <TouchListArea>
+        <TouchListEmpty>
+          {list === 'invites' ? 'The invite cards go here' : 'The notification feed goes here'}
+        </TouchListEmpty>
+      </TouchListArea>
+    </>
+  );
+}
+
+// Search, as `SearchTouch` lays it out: the recent chats, then the matches and the way to the messages.
+function SearchTab() {
+  const [value, setValue] = useState(params.get('term') ?? '');
+  const term = value.trim();
+  const recent = [...CONVS].sort((a, b) => a.ago - b.ago);
+  const shown = term
+    ? recent.filter((conv) => conv.name.toLowerCase().includes(term.toLowerCase()))
+    : recent;
+  return (
+    <>
+      <SearchField value={value} onChange={setValue} onSubmit={() => undefined} />
+      <TouchListArea>
+        <SearchListLabel>{term ? 'Chats' : 'Recent'}</SearchListLabel>
+        {shown.length === 0 && <SearchListNote>No chat matches.</SearchListNote>}
+        {shown.map((conv) => (
+          <ConvRow key={conv.id} conv={conv} />
+        ))}
+        {term && (
+          <>
+            <SearchListLabel>Messages</SearchListLabel>
+            <MessageSearchRow term={term} onClick={() => undefined} />
+          </>
+        )}
+      </TouchListArea>
+    </>
+  );
+}
+
+// You, as `You` lays it out, with another device waiting to be verified.
+function YouTab() {
+  return (
+    <TouchListArea>
+      <YouProfile
+        avatar={
+          <UserAvatar
+            userId={ME.userId}
+            renderFallback={() => <Text size="H3">{ME.name[0]}</Text>}
+          />
+        }
+        displayName={ME.name}
+        userId={ME.userId}
+      />
+      <YouRows>
+        <YouWarningRow unverifiedDevices={UNVERIFIED} onClick={() => undefined} />
+      </YouRows>
+      <Line variant="Background" size="300" />
+      <YouRows>
+        {SETTINGS_MENU_ITEMS.map((item) => (
+          <YouRow key={item.slug} icon={item.icon} onClick={() => undefined}>
+            {item.name}
+          </YouRow>
+        ))}
+      </YouRows>
+      <Line variant="Background" size="300" />
+      <YouRows>
+        <YouRow icon={Icons.Power} critical onClick={() => undefined}>
+          Logout
+        </YouRow>
+      </YouRows>
+    </TouchListArea>
+  );
+}
+
+const unreadOf = (convs: Conv[]) => {
+  const unread = convs.filter((conv) => conv.unread !== undefined);
+  if (unread.length === 0) return undefined;
+  return {
+    count: unread.reduce((n, conv) => n + (conv.unread ?? 0), 0),
+    highlight: unread.some((conv) => conv.highlight),
+  };
+};
+
+// The app shell: a page above and the bottom bar below, as `ClientLayout` lays a phone out.
+function Shell({ children }: { children: ReactNode }) {
+  const [tab, setTab] = useState<BottomNavTab>(initialTab);
+  const item = (id: BottomNavTab) => ({ active: tab === id, onClick: () => setTab(id) });
+
+  return (
+    <div
+      style={{
+        flexGrow: 1,
+        minHeight: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        backgroundColor: color.Background.Container,
+        color: color.Background.OnContainer,
+      }}
+    >
+      <div style={{ flexGrow: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+        {tab === 'home' && children}
+        {tab === 'direct' && <DirectTab />}
+        {tab === 'activity' && <ActivityTab />}
+        {tab === 'search' && <SearchTab />}
+        {tab === 'you' && <YouTab />}
+      </div>
+      <BottomNavBar>
+        <BottomNavItem label="Home" icon={Icons.Home} badge={unreadOf(CONVS)} {...item('home')} />
+        <BottomNavItem
+          label="DMs"
+          icon={Icons.User}
+          badge={unreadOf(CONVS.filter((conv) => conv.direct))}
+          {...item('direct')}
+        />
+        <BottomNavItem
+          label="Activity"
+          icon={Icons.Inbox}
+          badge={{ count: INVITES, highlight: true }}
+          {...item('activity')}
+        />
+        <BottomNavItem label="Search" icon={Icons.Search} {...item('search')} />
+        <BottomNavItem label="You" dot="warning" {...item('you')}>
+          <BottomNavAvatar>
+            <UserAvatar
+              userId={ME.userId}
+              renderFallback={() => <Text size="L400">{ME.name[0]}</Text>}
+            />
+          </BottomNavAvatar>
+        </BottomNavItem>
+      </BottomNavBar>
+    </div>
+  );
+}
+
 function App() {
   const [filter, setFilter] = useState<ListFilter>(initialFilter);
   const [sheet, setSheet] = useState<Sheet | undefined>(initialSheet);
@@ -325,15 +549,7 @@ function App() {
   }).filter((section) => filter === 'all' || section.shown.length > 0);
 
   return (
-    <div
-      style={{
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        backgroundColor: color.Background.Container,
-        color: color.Background.OnContainer,
-      }}
-    >
+    <Shell>
       <header className={css.TouchHeader}>
         <button
           type="button"
@@ -346,8 +562,6 @@ function App() {
           </Text>
           <Icon size="100" src={Icons.ChevronBottom} />
         </button>
-        <span style={{ flexGrow: 1 }} />
-        <TouchIconButton src={Icons.Search} aria-label="Message Search" />
       </header>
       <ListFilterChips
         value={filter}
@@ -494,7 +708,7 @@ function App() {
           </BottomSheetMenu>
         </BottomSheet>
       )}
-    </div>
+    </Shell>
   );
 }
 
@@ -508,8 +722,17 @@ document.body.classList.add(
     ? ['iris-dark-theme', irisDarkTheme, onDarkFontWeight]
     : ['iris-light-theme', irisLightTheme, onLightFontWeight])
 );
+const inset = params.get('inset');
+if (inset) document.documentElement.style.setProperty('--safe-area-inset-bottom', `${inset}px`);
 const style = document.createElement('style');
-style.textContent = `#mock-root { width: 100%; height: 100%; }`;
+// the app's #root: it is what keeps the app out of the display's unsafe areas
+style.textContent = `#mock-root {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 0 0 var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+}`;
 document.head.appendChild(style);
 
 const portalContainer = document.getElementById('portalContainer') ?? undefined;
