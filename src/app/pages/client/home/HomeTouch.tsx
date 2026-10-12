@@ -18,11 +18,16 @@ import {
 import { _RoomSearchParams } from '../../paths';
 import { JoinAddressPrompt } from '../../../components/join-address-prompt';
 import { RoomAvatar } from '../../../components/room-avatar';
+import { UnreadBadge } from '../../../components/unread-badge';
 import { useMatrixClient } from '../../../hooks/useMatrixClient';
 import { useMediaAuthentication } from '../../../hooks/useMediaAuthentication';
 import { useHomeConversations } from '../../../hooks/useSidebar';
 import { useSidebarItems } from '../../../hooks/useSidebarItems';
-import { useOrphanSpaces } from '../../../state/hooks/roomList';
+import {
+  useOrphanSpaces,
+  useRecursiveChildScopeFactory,
+  useSpaceChildren,
+} from '../../../state/hooks/roomList';
 import { useRoomsUnread } from '../../../state/hooks/unread';
 import { useSetting } from '../../../state/hooks/settings';
 import { settingsAtom } from '../../../state/settings';
@@ -54,6 +59,46 @@ const useRailSpaces = (): string[] => {
   );
 };
 
+type SpaceSheetActionProps = {
+  spaceId: string;
+  onOpen: (spaceId: string) => void;
+};
+/** A space in the sheet, with what the rail counts on its tab: the unread of the rooms in it. */
+function SpaceSheetAction({ spaceId, onOpen }: SpaceSheetActionProps) {
+  const mx = useMatrixClient();
+  const useAuthentication = useMediaAuthentication();
+  const roomToParents = useAtomValue(roomToParentsAtom);
+  const allChild = useSpaceChildren(
+    allRoomsAtom,
+    spaceId,
+    useRecursiveChildScopeFactory(mx, roomToParents)
+  );
+  const unread = useRoomsUnread(allChild, roomToUnreadAtom);
+  const space = mx.getRoom(spaceId);
+  if (!space) return null;
+
+  return (
+    <SheetAction
+      before={
+        <RoomAvatar
+          roomId={spaceId}
+          src={getRoomAvatarUrl(mx, space, 96, useAuthentication)}
+          alt={space.name}
+          renderFallback={() => (
+            <Text as="span" size="L400">
+              {nameInitials(space.name)}
+            </Text>
+          )}
+        />
+      }
+      after={unread && <UnreadBadge highlight={unread.highlight > 0} count={unread.total} />}
+      onClick={() => onOpen(spaceId)}
+    >
+      {space.name}
+    </SheetAction>
+  );
+}
+
 type PlacesSheet = 'places' | 'add-space';
 
 /**
@@ -62,7 +107,6 @@ type PlacesSheet = 'places' | 'add-space';
  */
 export function HomeTouchHeader() {
   const mx = useMatrixClient();
-  const useAuthentication = useMediaAuthentication();
   const navigate = useNavigate();
   const spaces = useRailSpaces();
   const rooms = useHomeConversations();
@@ -93,83 +137,70 @@ export function HomeTouchHeader() {
         </Text>
         <Icon size="100" src={Icons.ChevronBottom} />
       </button>
-      {sheet === 'places' && (
-        <BottomSheet open requestClose={close} aria-label="Home and spaces">
-          <SheetActions>
-            <SheetAction
-              before={<Icon size="200" src={Icons.Home} filled />}
-              after={<Icon size="100" src={Icons.Check} />}
-              current
-              onClick={close}
-            >
-              Home
-            </SheetAction>
-            {spaces.map((spaceId) => {
-              const space = mx.getRoom(spaceId);
-              if (!space) return null;
-              return (
-                <SheetAction
+      {/* One sheet for both lists: a second one would be closed by the first as it goes. */}
+      {sheet && (
+        <BottomSheet
+          open
+          requestClose={close}
+          aria-label={sheet === 'places' ? 'Home and spaces' : 'Add space'}
+        >
+          {sheet === 'places' ? (
+            <SheetActions>
+              <SheetAction
+                before={<Icon size="200" src={Icons.Home} filled />}
+                after={<Icon size="100" src={Icons.Check} />}
+                current
+                onClick={close}
+              >
+                Home
+              </SheetAction>
+              {spaces.map((spaceId) => (
+                <SpaceSheetAction
                   key={spaceId}
-                  before={
-                    <RoomAvatar
-                      roomId={spaceId}
-                      src={getRoomAvatarUrl(mx, space, 96, useAuthentication)}
-                      alt={space.name}
-                      renderFallback={() => (
-                        <Text as="span" size="L400">
-                          {nameInitials(space.name)}
-                        </Text>
-                      )}
-                    />
-                  }
-                  onClick={() => {
+                  spaceId={spaceId}
+                  onOpen={() => {
                     close();
                     navigate(getSpacePath(getCanonicalAliasOrRoomId(mx, spaceId)));
                   }}
-                >
-                  {space.name}
-                </SheetAction>
-              );
-            })}
-            <SheetAction
-              before={<Icon size="200" src={Icons.Plus} />}
-              onClick={() => setSheet('add-space')}
-            >
-              Add space
-            </SheetAction>
-            <Line variant="Surface" size="300" />
-            <SheetAction
-              before={<Icon size="200" src={Icons.CheckTwice} />}
-              aria-disabled={!unread}
-              onClick={handleMarkAsRead}
-            >
-              Mark as Read
-            </SheetAction>
-          </SheetActions>
-        </BottomSheet>
-      )}
-      {sheet === 'add-space' && (
-        <BottomSheet open requestClose={close} aria-label="Add space">
-          <SheetActions>
-            <SheetAction
-              before={<Icon size="200" src={Icons.Space} />}
-              onClick={() => {
-                close();
-                navigate(getCreatePath());
-              }}
-            >
-              Create Space
-            </SheetAction>
-            <SheetAction
-              before={<Icon size="200" src={Icons.Link} />}
-              onClick={() => {
-                close();
-                setJoinAddress(true);
-              }}
-            >
-              Join with Address
-            </SheetAction>
-          </SheetActions>
+                />
+              ))}
+              <SheetAction
+                before={<Icon size="200" src={Icons.Plus} />}
+                onClick={() => setSheet('add-space')}
+              >
+                Add space
+              </SheetAction>
+              <Line variant="Surface" size="300" />
+              <SheetAction
+                before={<Icon size="200" src={Icons.CheckTwice} />}
+                aria-disabled={!unread}
+                onClick={handleMarkAsRead}
+              >
+                Mark as Read
+              </SheetAction>
+            </SheetActions>
+          ) : (
+            <SheetActions>
+              <SheetAction
+                before={<Icon size="200" src={Icons.Space} />}
+                onClick={() => {
+                  close();
+                  navigate(getCreatePath());
+                }}
+              >
+                Create Space
+              </SheetAction>
+              <SheetAction
+                before={<Icon size="200" src={Icons.Link} />}
+                onClick={() => {
+                  close();
+                  setJoinAddress(true);
+                }}
+              >
+                Join with Address
+              </SheetAction>
+            </SheetActions>
+          )}
         </BottomSheet>
       )}
       {joinAddress && (
