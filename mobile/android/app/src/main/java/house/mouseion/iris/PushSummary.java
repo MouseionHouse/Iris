@@ -27,7 +27,7 @@ final class PushSummary {
 
     /** "New message" in a room whose event could not be fetched: better than silence. */
     static PushSummary fallback(String roomId, String roomName) {
-        String title = roomName != null ? roomName : "Mouseion";
+        String title = roomName != null ? roomName : "Iris";
         return new PushSummary(roomId, title, title, "New message", roomName != null);
     }
 
