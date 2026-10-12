@@ -23,7 +23,7 @@ import {
   logoutClient,
   startClient,
 } from '../../../client/initMatrix';
-import { resumeSyncOnForeground } from '../../../client/syncResume';
+import { resumeSyncOnForeground, saveSyncOnBackground } from '../../../client/syncResume';
 import { SplashScreen } from '../../components/splash-screen';
 import { ServerConfigsLoader } from '../../components/ServerConfigsLoader';
 import { CapabilitiesProvider } from '../../hooks/useCapabilities';
@@ -180,6 +180,7 @@ export function ClientRoot({ children }: ClientRootProps) {
   }, [mx, startMatrix]);
 
   useEffect(() => (mx ? resumeSyncOnForeground(mx) : undefined), [mx]);
+  useEffect(() => (mx ? saveSyncOnBackground(mx) : undefined), [mx]);
 
   useSyncState(
     mx,
