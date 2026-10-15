@@ -305,7 +305,7 @@ jobs:
       # ~/homeserver/android-build/Dockerfile).
       image: forgejo.example.net/household/android-build:jdk17-jdk21-sdk36-bun
       volumes:
-        - mouseion-gradle-cache:/gradle-cache
+        - forge-gradle-cache:/gradle-cache
     defaults:
       run:
         shell: bash
