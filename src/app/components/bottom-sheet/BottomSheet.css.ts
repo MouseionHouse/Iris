@@ -1,4 +1,4 @@
-import { keyframes, style } from '@vanilla-extract/css';
+import { globalStyle, keyframes, style } from '@vanilla-extract/css';
 import { DefaultReset, color, config, toRem } from 'folds';
 
 const SafeAreaBottom = 'var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px))';
@@ -85,3 +85,32 @@ export const BottomSheetContent = style([
     overscrollBehavior: 'contain',
   },
 ]);
+
+// A sheet that renders the items of a popout menu, resized to touch targets.
+export const BottomSheetMenu = style({
+  padding: `0 ${config.space.S200} ${config.space.S200}`,
+});
+
+globalStyle(`${BottomSheetMenu} button`, {
+  width: '100%',
+  minHeight: toRem(48),
+  gap: config.space.S400,
+  padding: `0 ${config.space.S300}`,
+});
+
+globalStyle(`${BottomSheetMenu} button > span`, {
+  fontSize: toRem(16),
+  lineHeight: toRem(24),
+});
+
+globalStyle(`${BottomSheetMenu} button > svg`, {
+  width: toRem(20),
+  height: toRem(20),
+  flexShrink: 0,
+});
+
+// The icon a menu keeps at the end of an item leads it in a sheet.
+globalStyle(`${BottomSheetMenu}[data-icon-leading=true] button`, {
+  flexDirection: 'row-reverse',
+  justifyContent: 'flex-end',
+});

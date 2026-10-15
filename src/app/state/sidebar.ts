@@ -117,6 +117,9 @@ export type SidebarRoom = {
 
 export type SectionView = { section: SidebarSection; rooms: SidebarRoom[]; hidden: number };
 
+/** A filter set on the device for now, in place of each section's own synced filter. */
+export type SectionFilterOverride = 'unreads' | 'mentions';
+
 export const ACTIVE_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 
 const byName = (a: SidebarRoom, b: SidebarRoom) =>
@@ -137,12 +140,16 @@ export const sortRooms = (rooms: SidebarRoom[], sort: SectionSort): SidebarRoom[
 /**
  * Each section's rooms after sort, filter and collapse. A collapsed section keeps only its unread
  * rooms; the selected room always stays. Empty built-in sections are left out, custom ones stay.
+ *
+ * With `override`, every section is filtered by it instead, folded or not, and a section it
+ * leaves empty is left out, custom ones included.
  */
 export const buildSidebar = (
   sections: SidebarSection[],
   rooms: SidebarRoom[],
   selectedId: string | undefined,
-  now: number
+  now: number,
+  override?: SectionFilterOverride
 ): SectionView[] => {
   const listed = new Set(sections.map((s) => s.tag));
   const members = (s: SidebarSection): SidebarRoom[] => {
@@ -158,6 +165,7 @@ export const buildSidebar = (
     if (all.length === 0 && !isCustomSection(s)) return;
     const shown = sortRooms(all, s.sort).filter((r) => {
       if (r.roomId === selectedId) return true;
+      if (override) return override === 'mentions' ? r.highlight : r.unread;
       if (s.collapsed) return r.unread;
       switch (s.filter) {
         case 'active':
@@ -170,6 +178,7 @@ export const buildSidebar = (
           return true;
       }
     });
+    if (override && shown.length === 0) return;
     views.push({ section: s, rooms: shown, hidden: all.length - shown.length });
   });
   return views;

@@ -21,6 +21,21 @@ export const timeYear = (ts: number): string => dayjs(ts).format('YYYY');
 export const timeHourMinute = (ts: number, hour24Clock: boolean): string =>
   dayjs(ts).format(hour24Clock ? 'HH:mm' : 'hh:mm A');
 
+/**
+ * A short stamp for a list row: the time today, "Yesterday", the weekday within the last week,
+ * then the date, with the year when it is not this year.
+ */
+export const timeShortStamp = (ts: number, hour24Clock: boolean, now = Date.now()): string => {
+  const at = dayjs(ts);
+  const ref = dayjs(now);
+  const daysAgo = ref.startOf('day').diff(at.startOf('day'), 'day');
+
+  if (daysAgo === 0) return at.format(hour24Clock ? 'HH:mm' : 'h:mm A');
+  if (daysAgo === 1) return 'Yesterday';
+  if (daysAgo > 1 && daysAgo < 7) return at.format('ddd');
+  return at.format(at.year() === ref.year() ? 'MMM D' : 'MMM D, YYYY');
+};
+
 export const timeDayMonYear = (ts: number, dateFormatString: string): string =>
   dayjs(ts).format(dateFormatString);
 

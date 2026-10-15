@@ -62,178 +62,189 @@ import { useAutoDiscoveryInfo } from '../../hooks/useAutoDiscoveryInfo';
 import { livekitSupport } from '../../hooks/useLivekitSupport';
 import { StateEvent } from '../../../types/matrix/room';
 import { webRTCSupported } from '../../utils/rtc';
+import { BottomSheet, BottomSheetMenu } from '../../components/bottom-sheet';
+import { useRoomPreview } from '../../hooks/useRoomPreview';
+import { timeShortStamp } from '../../utils/time';
+import { hapticTick } from '../../native/haptics';
+import { RoomRow, RoomRowIconTile } from './RoomRow';
+import * as touchCss from './touch.css';
 
 type RoomNavItemMenuProps = {
   room: Room;
   requestClose: () => void;
   notificationMode?: RoomNotificationMode;
 };
-const RoomNavItemMenu = forwardRef<HTMLDivElement, RoomNavItemMenuProps>(
-  ({ room, requestClose, notificationMode }, ref) => {
-    const mx = useMatrixClient();
-    const [hideActivity] = useSetting(settingsAtom, 'hideActivity');
-    const unread = useRoomUnread(room.roomId, roomToUnreadAtom);
-    const powerLevels = usePowerLevels(room);
-    const creators = useRoomCreators(room);
+/** The items of a room's menu, for the popout menu and for the sheet a phone opens. */
+function RoomNavItemMenuItems({ room, requestClose, notificationMode }: RoomNavItemMenuProps) {
+  const mx = useMatrixClient();
+  const [hideActivity] = useSetting(settingsAtom, 'hideActivity');
+  const unread = useRoomUnread(room.roomId, roomToUnreadAtom);
+  const powerLevels = usePowerLevels(room);
+  const creators = useRoomCreators(room);
 
-    const permissions = useRoomPermissions(creators, powerLevels);
-    const canInvite = permissions.action('invite', mx.getSafeUserId());
-    const openRoomSettings = useOpenRoomSettings();
-    const space = useSpaceOptionally();
+  const permissions = useRoomPermissions(creators, powerLevels);
+  const canInvite = permissions.action('invite', mx.getSafeUserId());
+  const openRoomSettings = useOpenRoomSettings();
+  const space = useSpaceOptionally();
 
-    const [invitePrompt, setInvitePrompt] = useState(false);
+  const [invitePrompt, setInvitePrompt] = useState(false);
 
-    const handleMarkAsRead = () => {
-      markAsRead(mx, room.roomId, hideActivity);
-      requestClose();
-    };
+  const handleMarkAsRead = () => {
+    markAsRead(mx, room.roomId, hideActivity);
+    requestClose();
+  };
 
-    const handleInvite = () => {
-      setInvitePrompt(true);
-    };
+  const handleInvite = () => {
+    setInvitePrompt(true);
+  };
 
-    const handleCopyLink = () => {
-      const roomIdOrAlias = getCanonicalAliasOrRoomId(mx, room.roomId);
-      const viaServers = isRoomAlias(roomIdOrAlias) ? undefined : getViaServers(room);
-      copyToClipboard(getMatrixToRoom(roomIdOrAlias, viaServers));
-      requestClose();
-    };
+  const handleCopyLink = () => {
+    const roomIdOrAlias = getCanonicalAliasOrRoomId(mx, room.roomId);
+    const viaServers = isRoomAlias(roomIdOrAlias) ? undefined : getViaServers(room);
+    copyToClipboard(getMatrixToRoom(roomIdOrAlias, viaServers));
+    requestClose();
+  };
 
-    const handleRoomSettings = () => {
-      openRoomSettings(room.roomId, space?.roomId);
-      requestClose();
-    };
+  const handleRoomSettings = () => {
+    openRoomSettings(room.roomId, space?.roomId);
+    requestClose();
+  };
 
-    return (
-      <Menu ref={ref} style={{ maxWidth: toRem(160), width: '100vw' }}>
-        {invitePrompt && room && (
-          <InviteUserPrompt
-            room={room}
-            requestClose={() => {
-              setInvitePrompt(false);
-              requestClose();
-            }}
-          />
-        )}
-        <Box direction="Column" gap="100" style={{ padding: config.space.S100 }}>
-          <MenuItem
-            onClick={handleMarkAsRead}
-            size="300"
-            after={<Icon size="100" src={Icons.CheckTwice} />}
-            radii="300"
-            disabled={!unread}
-          >
-            <Text style={{ flexGrow: 1 }} as="span" size="T300" truncate>
-              Mark as Read
-            </Text>
-          </MenuItem>
-          <RoomNotificationModeSwitcher roomId={room.roomId} value={notificationMode}>
-            {(handleOpen, opened, changing) => (
+  return (
+    <>
+      {invitePrompt && room && (
+        <InviteUserPrompt
+          room={room}
+          requestClose={() => {
+            setInvitePrompt(false);
+            requestClose();
+          }}
+        />
+      )}
+      <Box direction="Column" gap="100" style={{ padding: config.space.S100 }}>
+        <MenuItem
+          onClick={handleMarkAsRead}
+          size="300"
+          after={<Icon size="100" src={Icons.CheckTwice} />}
+          radii="300"
+          disabled={!unread}
+        >
+          <Text style={{ flexGrow: 1 }} as="span" size="T300" truncate>
+            Mark as Read
+          </Text>
+        </MenuItem>
+        <RoomNotificationModeSwitcher roomId={room.roomId} value={notificationMode}>
+          {(handleOpen, opened, changing) => (
+            <MenuItem
+              size="300"
+              after={
+                changing ? (
+                  <Spinner size="100" variant="Secondary" />
+                ) : (
+                  <Icon size="100" src={getRoomNotificationModeIcon(notificationMode)} />
+                )
+              }
+              radii="300"
+              aria-pressed={opened}
+              onClick={handleOpen}
+            >
+              <Text style={{ flexGrow: 1 }} as="span" size="T300" truncate>
+                Notifications
+              </Text>
+            </MenuItem>
+          )}
+        </RoomNotificationModeSwitcher>
+        <RoomSectionSwitcher room={room}>
+          {(handleOpen, opened) => (
+            <MenuItem
+              size="300"
+              after={<Icon size="100" src={Icons.Star} />}
+              radii="300"
+              aria-pressed={opened}
+              onClick={handleOpen}
+            >
+              <Text style={{ flexGrow: 1 }} as="span" size="T300" truncate>
+                Move to…
+              </Text>
+            </MenuItem>
+          )}
+        </RoomSectionSwitcher>
+      </Box>
+      <Line variant="Surface" size="300" />
+      <Box direction="Column" gap="100" style={{ padding: config.space.S100 }}>
+        <MenuItem
+          onClick={handleInvite}
+          variant="Primary"
+          fill="None"
+          size="300"
+          after={<Icon size="100" src={Icons.UserPlus} />}
+          radii="300"
+          aria-pressed={invitePrompt}
+          disabled={!canInvite}
+        >
+          <Text style={{ flexGrow: 1 }} as="span" size="T300" truncate>
+            Invite
+          </Text>
+        </MenuItem>
+        <MenuItem
+          onClick={handleCopyLink}
+          size="300"
+          after={<Icon size="100" src={Icons.Link} />}
+          radii="300"
+        >
+          <Text style={{ flexGrow: 1 }} as="span" size="T300" truncate>
+            Copy Link
+          </Text>
+        </MenuItem>
+        <MenuItem
+          onClick={handleRoomSettings}
+          size="300"
+          after={<Icon size="100" src={Icons.Setting} />}
+          radii="300"
+        >
+          <Text style={{ flexGrow: 1 }} as="span" size="T300" truncate>
+            Room Settings
+          </Text>
+        </MenuItem>
+      </Box>
+      <Line variant="Surface" size="300" />
+      <Box direction="Column" gap="100" style={{ padding: config.space.S100 }}>
+        <UseStateProvider initial={false}>
+          {(promptLeave, setPromptLeave) => (
+            <>
               <MenuItem
+                onClick={() => setPromptLeave(true)}
+                variant="Critical"
+                fill="None"
                 size="300"
-                after={
-                  changing ? (
-                    <Spinner size="100" variant="Secondary" />
-                  ) : (
-                    <Icon size="100" src={getRoomNotificationModeIcon(notificationMode)} />
-                  )
-                }
+                after={<Icon size="100" src={Icons.ArrowGoLeft} />}
                 radii="300"
-                aria-pressed={opened}
-                onClick={handleOpen}
+                aria-pressed={promptLeave}
               >
                 <Text style={{ flexGrow: 1 }} as="span" size="T300" truncate>
-                  Notifications
+                  Leave Room
                 </Text>
               </MenuItem>
-            )}
-          </RoomNotificationModeSwitcher>
-          <RoomSectionSwitcher room={room}>
-            {(handleOpen, opened) => (
-              <MenuItem
-                size="300"
-                after={<Icon size="100" src={Icons.Star} />}
-                radii="300"
-                aria-pressed={opened}
-                onClick={handleOpen}
-              >
-                <Text style={{ flexGrow: 1 }} as="span" size="T300" truncate>
-                  Move to…
-                </Text>
-              </MenuItem>
-            )}
-          </RoomSectionSwitcher>
-        </Box>
-        <Line variant="Surface" size="300" />
-        <Box direction="Column" gap="100" style={{ padding: config.space.S100 }}>
-          <MenuItem
-            onClick={handleInvite}
-            variant="Primary"
-            fill="None"
-            size="300"
-            after={<Icon size="100" src={Icons.UserPlus} />}
-            radii="300"
-            aria-pressed={invitePrompt}
-            disabled={!canInvite}
-          >
-            <Text style={{ flexGrow: 1 }} as="span" size="T300" truncate>
-              Invite
-            </Text>
-          </MenuItem>
-          <MenuItem
-            onClick={handleCopyLink}
-            size="300"
-            after={<Icon size="100" src={Icons.Link} />}
-            radii="300"
-          >
-            <Text style={{ flexGrow: 1 }} as="span" size="T300" truncate>
-              Copy Link
-            </Text>
-          </MenuItem>
-          <MenuItem
-            onClick={handleRoomSettings}
-            size="300"
-            after={<Icon size="100" src={Icons.Setting} />}
-            radii="300"
-          >
-            <Text style={{ flexGrow: 1 }} as="span" size="T300" truncate>
-              Room Settings
-            </Text>
-          </MenuItem>
-        </Box>
-        <Line variant="Surface" size="300" />
-        <Box direction="Column" gap="100" style={{ padding: config.space.S100 }}>
-          <UseStateProvider initial={false}>
-            {(promptLeave, setPromptLeave) => (
-              <>
-                <MenuItem
-                  onClick={() => setPromptLeave(true)}
-                  variant="Critical"
-                  fill="None"
-                  size="300"
-                  after={<Icon size="100" src={Icons.ArrowGoLeft} />}
-                  radii="300"
-                  aria-pressed={promptLeave}
-                >
-                  <Text style={{ flexGrow: 1 }} as="span" size="T300" truncate>
-                    Leave Room
-                  </Text>
-                </MenuItem>
-                {promptLeave && (
-                  <LeaveRoomPrompt
-                    roomId={room.roomId}
-                    onDone={requestClose}
-                    onCancel={() => setPromptLeave(false)}
-                  />
-                )}
-              </>
-            )}
-          </UseStateProvider>
-        </Box>
-      </Menu>
-    );
-  }
-);
+              {promptLeave && (
+                <LeaveRoomPrompt
+                  roomId={room.roomId}
+                  onDone={requestClose}
+                  onCancel={() => setPromptLeave(false)}
+                />
+              )}
+            </>
+          )}
+        </UseStateProvider>
+      </Box>
+    </>
+  );
+}
+
+const RoomNavItemMenu = forwardRef<HTMLDivElement, RoomNavItemMenuProps>((props, ref) => (
+  <Menu ref={ref} style={{ maxWidth: toRem(160), width: '100vw' }}>
+    <RoomNavItemMenuItems {...props} />
+  </Menu>
+));
 
 function CallChatToggle() {
   const [chat, setChat] = useAtom(callChatAtom);
@@ -454,5 +465,109 @@ export function RoomNavItem({
         </NavItemOptions>
       )}
     </NavItem>
+  );
+}
+
+type RoomNavItemTouchProps = {
+  room: Room;
+  selected: boolean;
+  linkPath: string;
+  notificationMode?: RoomNotificationMode;
+  direct?: boolean;
+};
+
+/**
+ * A room in a conversation list on a phone: a two-line row with the last message. There is no
+ * hover on a touch screen, so the row's menu opens as a sheet on a long-press.
+ */
+export function RoomNavItemTouch({
+  room,
+  selected,
+  direct,
+  notificationMode,
+  linkPath,
+}: RoomNavItemTouchProps) {
+  const mx = useMatrixClient();
+  const useAuthentication = useMediaAuthentication();
+  const [hour24Clock] = useSetting(settingsAtom, 'hour24Clock');
+  const [sheet, setSheet] = useState(false);
+  const unread = useRoomUnread(room.roomId, roomToUnreadAtom);
+  const typingMember = useRoomTypingMember(room.roomId).filter(
+    (receipt) => receipt.userId !== mx.getUserId()
+  );
+  const roomName = useRoomName(room);
+  const { preview, ts } = useRoomPreview(room, !!direct);
+  const callSession = useCallSession(room);
+  const callMembers = useCallMembers(callSession);
+
+  const avatarUrl = direct
+    ? getDirectRoomAvatarUrl(mx, room, 96, useAuthentication)
+    : getRoomAvatarUrl(mx, room, 96, useAuthentication);
+
+  const openSheet = () => {
+    if (sheet) return;
+    hapticTick();
+    setSheet(true);
+  };
+
+  return (
+    <>
+      <RoomRow
+        linkPath={linkPath}
+        name={roomName}
+        avatar={
+          direct || avatarUrl ? (
+            <RoomAvatar
+              roomId={room.roomId}
+              src={avatarUrl}
+              alt={roomName}
+              renderFallback={() => (
+                <Text as="span" size="H4">
+                  {nameInitials(roomName)}
+                </Text>
+              )}
+            />
+          ) : (
+            <RoomRowIconTile>
+              <RoomIcon size="200" joinRule={room.getJoinRule()} roomType={room.getType()} />
+            </RoomRowIconTile>
+          )
+        }
+        time={ts ? timeShortStamp(ts, hour24Clock) : undefined}
+        preview={preview}
+        typing={typingMember.length > 0}
+        unread={unread && { total: unread.total, highlight: unread.highlight > 0 }}
+        notificationIcon={
+          notificationMode !== RoomNotificationMode.Unset
+            ? getRoomNotificationModeIcon(notificationMode)
+            : undefined
+        }
+        notificationLabel={notificationMode}
+        liveCount={callMembers.length}
+        selected={selected}
+        pressed={sheet}
+        onOptions={openSheet}
+      />
+      {sheet && (
+        <BottomSheet
+          open
+          requestClose={() => setSheet(false)}
+          aria-label="Room Options"
+          header={
+            <Text className={touchCss.SheetTitle} size="L400" truncate>
+              {roomName}
+            </Text>
+          }
+        >
+          <BottomSheetMenu iconLeading>
+            <RoomNavItemMenuItems
+              room={room}
+              requestClose={() => setSheet(false)}
+              notificationMode={notificationMode}
+            />
+          </BottomSheetMenu>
+        </BottomSheet>
+      )}
+    </>
   );
 }

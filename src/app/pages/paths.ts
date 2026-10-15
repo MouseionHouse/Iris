@@ -85,6 +85,19 @@ export type InboxNotificationsPathSearchParams = {
 export const INBOX_NOTIFICATIONS_PATH = `/inbox/${_NOTIFICATIONS_PATH}`;
 export const INBOX_INVITES_PATH = `/inbox/${_INVITES_PATH}`;
 
+/** The Search tab of a phone: the chats first, then the way into message search. */
+export type SearchTabSearchParams = {
+  term?: string;
+};
+export const _MESSAGES_PATH = 'messages/';
+export const SEARCH_PATH = '/search/';
+export const SEARCH_MESSAGES_PATH = `/search/${_MESSAGES_PATH}`;
+
+/** The You tab of a phone: the profile and the settings menu, each settings page a path under it. */
+export const _YOU_PAGE_PATH = ':page/';
+export const YOU_PATH = '/you/';
+export const YOU_PAGE_PATH = `/you/${_YOU_PAGE_PATH}`;
+
 export const SPACE_SETTINGS_PATH = '/space-settings/';
 
 export const ROOM_SETTINGS_PATH = '/room-settings/';

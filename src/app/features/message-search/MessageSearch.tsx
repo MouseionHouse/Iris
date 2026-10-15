@@ -207,6 +207,7 @@ export function MessageSearch({
         <SearchInput
           active={!!msgSearchParams.term}
           loading={status === 'pending'}
+          defaultValue={searchPathSearchParams.term}
           searchInputRef={searchInputRef}
           onSearch={handleSearch}
           onReset={handleSearchClear}

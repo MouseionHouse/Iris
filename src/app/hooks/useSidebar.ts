@@ -15,6 +15,7 @@ import {
   replaceSection,
   roomTagSet,
   roomTagsVersionAtom,
+  SectionFilterOverride,
   SectionView,
   SIDEBAR_EVENT_TYPE,
   sidebarSectionsAtom,
@@ -47,7 +48,7 @@ export type Sidebar = {
   moveRoom: (roomId: string, tag: string | undefined) => Promise<unknown>;
 };
 
-export const useSidebar = (): Sidebar => {
+export const useSidebar = (override?: SectionFilterOverride): Sidebar => {
   const mx = useMatrixClient();
   const conversations = useHomeConversations();
   const mDirects = useAtomValue(mDirectAtom);
@@ -87,8 +88,8 @@ export const useSidebar = (): Sidebar => {
         },
       ];
     });
-    return buildSidebar(sections, rooms, selectedId, Date.now());
-  }, [mx, conversations, mDirects, roomToUnread, tagsByRoom, sections, selectedId]);
+    return buildSidebar(sections, rooms, selectedId, Date.now(), override);
+  }, [mx, conversations, mDirects, roomToUnread, tagsByRoom, sections, selectedId, override]);
 
   const save = useCallback(
     (next: SidebarSection[]) => mx.setAccountData(SIDEBAR_EVENT_TYPE as any, { sections: next }),

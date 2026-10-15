@@ -37,6 +37,8 @@ import { AsyncStatus, useAsyncCallback } from '../../../hooks/useAsyncCallback';
 import { useNavToActivePathMapper } from '../../../hooks/useNavToActivePathMapper';
 import { PageNav, PageNavContent, PageNavHeader } from '../../../components/page';
 import { stopPropagation } from '../../../utils/keyboard';
+import { ScreenSize, useScreenSizeContext } from '../../../hooks/useScreenSize';
+import { BackRouteHandler } from '../../../components/BackRouteHandler';
 
 export function AddServer() {
   const mx = useMatrixClient();
@@ -164,13 +166,24 @@ export function Explore() {
   const servers =
     clientConfig.featuredCommunities?.servers?.filter((server) => server !== userServer) ?? [];
 
+  const screenSize = useScreenSizeContext();
   const featuredSelected = useExploreFeaturedSelected();
   const selectedServer = useExploreServer();
 
   return (
     <PageNav>
       <PageNavHeader>
-        <Box grow="Yes" gap="300">
+        <Box grow="Yes" alignItems="Center" gap="300">
+          {/* a phone has no rail to leave by; Explore is opened from Home's + button */}
+          {screenSize === ScreenSize.Mobile && (
+            <BackRouteHandler>
+              {(onBack) => (
+                <IconButton variant="Background" aria-label="Back" onClick={onBack}>
+                  <Icon src={Icons.ArrowLeft} />
+                </IconButton>
+              )}
+            </BackRouteHandler>
+          )}
           <Box grow="Yes">
             <Text size="H4" truncate>
               Explore Community

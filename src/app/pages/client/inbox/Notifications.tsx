@@ -81,7 +81,7 @@ import { EncryptedContent } from '../../../features/room/message';
 import { useMentionClickHandler } from '../../../hooks/useMentionClickHandler';
 import { useSpoilerClickHandler } from '../../../hooks/useSpoilerClickHandler';
 import { ScreenSize, useScreenSizeContext } from '../../../hooks/useScreenSize';
-import { BackRouteHandler } from '../../../components/BackRouteHandler';
+import { ActivityTouchHeader } from './ActivityTouch';
 import { useMediaAuthentication } from '../../../hooks/useMediaAuthentication';
 import { allRoomsAtom } from '../../../state/room-list/roomList';
 import { usePowerLevels } from '../../../hooks/usePowerLevels';
@@ -636,31 +636,25 @@ export function Notifications() {
 
   return (
     <Page>
-      <PageHeader balance>
-        <Box grow="Yes" gap="200">
-          <Box grow="Yes" basis="No">
-            {screenSize === ScreenSize.Mobile && (
-              <BackRouteHandler>
-                {(onBack) => (
-                  <IconButton onClick={onBack}>
-                    <Icon src={Icons.ArrowLeft} />
-                  </IconButton>
-                )}
-              </BackRouteHandler>
-            )}
+      {screenSize === ScreenSize.Mobile ? (
+        <ActivityTouchHeader list="notifications" />
+      ) : (
+        <PageHeader balance>
+          <Box grow="Yes" gap="200">
+            <Box grow="Yes" basis="No" />
+            <Box alignItems="Center" gap="200">
+              <Icon size="400" src={Icons.Message} />
+              <Text size="H3" truncate>
+                Notification Messages
+              </Text>
+            </Box>
+            <Box grow="Yes" basis="No" />
           </Box>
-          <Box alignItems="Center" gap="200">
-            {screenSize !== ScreenSize.Mobile && <Icon size="400" src={Icons.Message} />}
-            <Text size="H3" truncate>
-              Notification Messages
-            </Text>
-          </Box>
-          <Box grow="Yes" basis="No" />
-        </Box>
-      </PageHeader>
+        </PageHeader>
+      )}
 
       <Box style={{ position: 'relative' }} grow="Yes">
-        <Scroll ref={scrollRef} hideTrack visibility="Hover">
+        <Scroll ref={scrollRef} hideTrack visibility="Hover" data-scroll-top-target>
           <PageContent>
             <PageContentCenter>
               <Box direction="Column" gap="200">
