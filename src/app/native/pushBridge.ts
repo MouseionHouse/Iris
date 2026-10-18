@@ -7,6 +7,9 @@ import { IPusherRequest, MatrixClient } from 'matrix-js-sdk';
  */
 
 export const PUSH_APP_ID = 'house.mouseion.iris';
+// The app's id before it became Iris. That app is a separate install with its own pusher, which
+// nothing removes when the phone moves to Iris: it keeps notifying from an app nobody opens.
+const LEGACY_PUSH_APP_IDS = ['house.mouseion.chat'];
 const PUSH_GATEWAY_PATH = '/_matrix/push/v1/notify';
 
 export type PushDistributor = { id: string; label: string };
@@ -68,10 +71,14 @@ export const pushGatewayAt = (endpoint: string): string | undefined => {
 
 export const pushDeviceDisplayName = (deviceName: string) => `Mouseion on ${deviceName}`;
 
-export const removePusher = async (mx: MatrixClient, pushkey: string): Promise<void> => {
+export const removePusher = async (
+  mx: MatrixClient,
+  pushkey: string,
+  appId: string = PUSH_APP_ID
+): Promise<void> => {
   await mx.setPusher({
     pushkey,
-    app_id: PUSH_APP_ID,
+    app_id: appId,
     kind: null,
   } as unknown as IPusherRequest);
 };
@@ -79,7 +86,8 @@ export const removePusher = async (mx: MatrixClient, pushkey: string): Promise<v
 /**
  * Makes [pushkey] this device's pusher. Always set (not only when missing), so the pusher follows
  * the current session: a pusher left on a deleted device would be dropped with it. Pushers this
- * device registered for older endpoints are removed, since they deliver to topics nobody reads.
+ * device registered for older endpoints are removed, since they deliver to topics nobody reads,
+ * and so are the ones it registered as the app Iris replaced.
  */
 export const registerPusher = async (
   mx: MatrixClient,
@@ -105,11 +113,10 @@ export const registerPusher = async (
   type Pusher = { app_id: string; pushkey: string; device_display_name?: string };
   const stale = pushers.filter(
     (p: Pusher) =>
-      p.app_id === PUSH_APP_ID &&
-      p.pushkey !== pushkey &&
-      p.device_display_name === deviceDisplayName
+      p.device_display_name === deviceDisplayName &&
+      (p.app_id === PUSH_APP_ID ? p.pushkey !== pushkey : LEGACY_PUSH_APP_IDS.includes(p.app_id))
   );
-  await Promise.all(stale.map((p: Pusher) => removePusher(mx, p.pushkey)));
+  await Promise.all(stale.map((p: Pusher) => removePusher(mx, p.pushkey, p.app_id)));
 };
 
 /** Signed out: the push service must not keep fetching with the old token. */

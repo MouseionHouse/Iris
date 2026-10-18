@@ -42,3 +42,25 @@ export const resumeSyncOnForeground = (
     mx.removeListener(ClientEvent.Sync, onSync);
   };
 };
+
+/**
+ * Saves the sync store when the page goes to the background.
+ *
+ * The SDK writes what it has synced to IndexedDB once every 5 minutes. Android kills a
+ * backgrounded app sooner or later, and the next start then opens on the last write: a short
+ * visit to the app left nothing behind, so the following cold start showed the room as it was
+ * before that visit (without the message just sent) until the first /sync came back. Saving on
+ * the way out makes a cold start open on what was last on screen.
+ */
+export const saveSyncOnBackground = (
+  mx: MatrixClient,
+  source: VisibilitySource = document
+): (() => void) => {
+  const onVisibilityChange = () => {
+    if (source.visibilityState !== 'hidden') return;
+    mx.store.save(true).catch(() => undefined);
+  };
+
+  source.addEventListener('visibilitychange', onVisibilityChange);
+  return () => source.removeEventListener('visibilitychange', onVisibilityChange);
+};

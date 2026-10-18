@@ -23,7 +23,7 @@ import {
   logoutClient,
   startClient,
 } from '../../../client/initMatrix';
-import { resumeSyncOnForeground } from '../../../client/syncResume';
+import { resumeSyncOnForeground, saveSyncOnBackground } from '../../../client/syncResume';
 import { SplashScreen } from '../../components/splash-screen';
 import { ServerConfigsLoader } from '../../components/ServerConfigsLoader';
 import { CapabilitiesProvider } from '../../hooks/useCapabilities';
@@ -34,6 +34,7 @@ import { AsyncStatus, useAsyncCallback } from '../../hooks/useAsyncCallback';
 import { useSyncState } from '../../hooks/useSyncState';
 import { stopPropagation } from '../../utils/keyboard';
 import { SyncStatus } from './SyncStatus';
+import { PushPrompt } from './PushPrompt';
 import { AuthMetadataProvider } from '../../hooks/useAuthMetadata';
 import { getFallbackSession } from '../../state/sessions';
 import { AutoDiscovery } from './AutoDiscovery';
@@ -180,6 +181,7 @@ export function ClientRoot({ children }: ClientRootProps) {
   }, [mx, startMatrix]);
 
   useEffect(() => (mx ? resumeSyncOnForeground(mx) : undefined), [mx]);
+  useEffect(() => (mx ? saveSyncOnBackground(mx) : undefined), [mx]);
 
   useSyncState(
     mx,
@@ -194,6 +196,7 @@ export function ClientRoot({ children }: ClientRootProps) {
     <AutoDiscovery userId={userId!} baseUrl={baseUrl!}>
       <SpecVersions baseUrl={baseUrl!}>
         {mx && <SyncStatus mx={mx} />}
+        {mx && !loading && <PushPrompt />}
         {loading && <ClientRootOptions mx={mx} />}
         {(loadState.status === AsyncStatus.Error || startState.status === AsyncStatus.Error) && (
           <SplashScreen>

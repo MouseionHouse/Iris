@@ -168,6 +168,11 @@ function PushNotification() {
               {` ${state.error}`}
             </Text>
           )}
+          {enableState.status === AsyncStatus.Error && (
+            <Text as="span" style={{ color: color.Critical.Main }} size="T200">
+              {' Could not turn notifications on.'}
+            </Text>
+          )}
         </>
       }
       after={after}
