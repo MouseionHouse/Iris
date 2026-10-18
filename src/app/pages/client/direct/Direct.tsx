@@ -33,7 +33,20 @@ import { getDirectCreatePath, getDirectRoomPath } from '../../pathUtils';
 import { getCanonicalAliasOrRoomId } from '../../../utils/matrix';
 import { useSelectedRoom } from '../../../hooks/router/useSelectedRoom';
 import { VirtualTile } from '../../../components/virtualizer';
-import { RoomNavCategoryButton, RoomNavItem } from '../../../features/room-nav';
+import { RoomNavCategoryButton, RoomNavItem, RoomNavItemTouch } from '../../../features/room-nav';
+import {
+  ListFab,
+  ListFilterChips,
+  SheetAction,
+  SheetActions,
+  TouchIconButton,
+  TouchListArea,
+  TouchListEmpty,
+} from '../../../features/room-nav/TouchList';
+import * as touchCss from '../../../features/room-nav/touch.css';
+import { BottomSheet } from '../../../components/bottom-sheet';
+import { ScreenSize, useScreenSizeContext } from '../../../hooks/useScreenSize';
+import { directListFilterAtom } from '../../../state/listFilter';
 import { makeNavCategoryId } from '../../../state/closedNavCategories';
 import { roomToUnreadAtom } from '../../../state/room/roomToUnread';
 import { useCategoryHandler } from '../../../hooks/useCategoryHandler';
@@ -138,6 +151,50 @@ function DirectHeader() {
   );
 }
 
+/** The header of the list on a phone, where it is called DMs and its menu is a sheet. */
+function DirectTouchHeader() {
+  const mx = useMatrixClient();
+  const [hideActivity] = useSetting(settingsAtom, 'hideActivity');
+  const directs = useDirectRooms();
+  const unread = useRoomsUnread(directs, roomToUnreadAtom);
+  const [sheet, setSheet] = useState(false);
+
+  const handleMarkAsRead = () => {
+    if (!unread) return;
+    directs.forEach((rId) => markAsRead(mx, rId, hideActivity));
+    setSheet(false);
+  };
+
+  return (
+    <header className={touchCss.TouchHeader}>
+      <Box grow="Yes">
+        <Text size="H3" truncate>
+          DMs
+        </Text>
+      </Box>
+      <TouchIconButton
+        src={Icons.VerticalDots}
+        aria-label="More Options"
+        aria-pressed={sheet}
+        onClick={() => setSheet(true)}
+      />
+      {sheet && (
+        <BottomSheet open requestClose={() => setSheet(false)} aria-label="DMs options">
+          <SheetActions>
+            <SheetAction
+              before={<Icon size="200" src={Icons.CheckTwice} />}
+              aria-disabled={!unread}
+              onClick={handleMarkAsRead}
+            >
+              Mark as Read
+            </SheetAction>
+          </SheetActions>
+        </BottomSheet>
+      )}
+    </header>
+  );
+}
+
 function DirectEmpty() {
   const navigate = useNavigate();
 
@@ -176,6 +233,8 @@ export function Direct() {
   const notificationPreferences = useRoomsNotificationPreferencesContext();
   const roomToUnread = useAtomValue(roomToUnreadAtom);
   const navigate = useNavigate();
+  const mobile = useScreenSizeContext() === ScreenSize.Mobile;
+  const [listFilter, setListFilter] = useAtom(directListFilterAtom);
 
   const createDirectSelected = useDirectCreateSelected();
 
@@ -185,22 +244,83 @@ export function Direct() {
 
   const sortedDirects = useMemo(() => {
     const items = Array.from(directs).sort(factoryRoomIdByActivity(mx));
+    // A phone has no category header to fold the list with; its chip row filters instead.
+    if (mobile) {
+      if (listFilter === 'unreads') return items.filter((rId) => roomToUnread.has(rId));
+      if (listFilter === 'mentions') {
+        return items.filter((rId) => (roomToUnread.get(rId)?.highlight ?? 0) > 0);
+      }
+      return items;
+    }
     if (closedCategories.has(DEFAULT_CATEGORY_ID)) {
       return items.filter((rId) => roomToUnread.has(rId) || rId === selectedRoomId);
     }
     return items;
-  }, [mx, directs, closedCategories, roomToUnread, selectedRoomId]);
+  }, [mx, directs, closedCategories, roomToUnread, selectedRoomId, mobile, listFilter]);
 
   const virtualizer = useVirtualizer({
     count: sortedDirects.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => 38,
+    estimateSize: () => (mobile ? 64 : 38),
     overscan: 10,
   });
 
   const handleCategoryClick = useCategoryHandler(setClosedCategories, (categoryId) =>
     closedCategories.has(categoryId)
   );
+
+  if (mobile) {
+    return (
+      <PageNav>
+        <DirectTouchHeader />
+        {!noRoomToDisplay && (
+          <ListFilterChips
+            value={listFilter}
+            onChange={setListFilter}
+            unreadCount={directs.filter((rId) => roomToUnread.has(rId)).length}
+          />
+        )}
+        <TouchListArea
+          scrollRef={scrollRef}
+          fab={<ListFab aria-label="Create Chat" onClick={() => navigate(getDirectCreatePath())} />}
+        >
+          {noRoomToDisplay && <DirectEmpty />}
+          {!noRoomToDisplay && sortedDirects.length === 0 && (
+            <TouchListEmpty>Nothing here</TouchListEmpty>
+          )}
+          {!noRoomToDisplay && sortedDirects.length > 0 && (
+            <div
+              style={{
+                position: 'relative',
+                height: virtualizer.getTotalSize(),
+              }}
+            >
+              {virtualizer.getVirtualItems().map((vItem) => {
+                const roomId = sortedDirects[vItem.index];
+                const room = mx.getRoom(roomId);
+                if (!room) return null;
+
+                return (
+                  <VirtualTile virtualItem={vItem} key={roomId} ref={virtualizer.measureElement}>
+                    <RoomNavItemTouch
+                      room={room}
+                      selected={selectedRoomId === roomId}
+                      direct
+                      linkPath={getDirectRoomPath(getCanonicalAliasOrRoomId(mx, roomId))}
+                      notificationMode={getRoomNotificationMode(
+                        notificationPreferences,
+                        room.roomId
+                      )}
+                    />
+                  </VirtualTile>
+                );
+              })}
+            </div>
+          )}
+        </TouchListArea>
+      </PageNav>
+    );
+  }
 
   return (
     <PageNav>

@@ -4,11 +4,20 @@ import { Box, Text, Input, Icon, Icons, Spinner, Chip, config } from 'folds';
 type SearchProps = {
   active?: boolean;
   loading?: boolean;
+  /** The term the page was opened with. */
+  defaultValue?: string;
   searchInputRef: RefObject<HTMLInputElement>;
   onSearch: (term: string) => void;
   onReset: () => void;
 };
-export function SearchInput({ active, loading, searchInputRef, onSearch, onReset }: SearchProps) {
+export function SearchInput({
+  active,
+  loading,
+  defaultValue,
+  searchInputRef,
+  onSearch,
+  onReset,
+}: SearchProps) {
   const handleSearchSubmit: FormEventHandler<HTMLFormElement> = (evt) => {
     evt.preventDefault();
     const { searchInput } = evt.target as HTMLFormElement & {
@@ -29,7 +38,9 @@ export function SearchInput({ active, loading, searchInputRef, onSearch, onReset
         ref={searchInputRef}
         style={{ paddingRight: config.space.S300 }}
         name="searchInput"
-        autoFocus
+        defaultValue={defaultValue}
+        // with a term there are results to read, which a phone's keyboard would cover
+        autoFocus={!defaultValue}
         size="500"
         variant="Background"
         placeholder="Search for keyword"

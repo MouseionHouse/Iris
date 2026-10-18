@@ -137,3 +137,23 @@ export function BottomSheet({
     </Overlay>
   );
 }
+
+type BottomSheetMenuProps = {
+  /**
+   * Menu items carry their icon at the end. Set when that icon says what the item is, so it
+   * leads; leave unset when it is a check mark.
+   */
+  iconLeading?: boolean;
+  children: ReactNode;
+};
+
+/**
+ * Wraps the items of a popout menu inside a sheet, so one set of items serves both.
+ */
+export function BottomSheetMenu({ iconLeading, children }: BottomSheetMenuProps) {
+  return (
+    <div className={css.BottomSheetMenu} data-icon-leading={iconLeading}>
+      {children}
+    </div>
+  );
+}
