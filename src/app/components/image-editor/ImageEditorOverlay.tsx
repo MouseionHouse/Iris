@@ -15,7 +15,11 @@ type ImageEditorOverlayProps = Omit<ImageEditorProps, 'compact'>;
  * so the Android back button, closes it and drops the edit. A click outside does not: it
  * would throw away a drawing.
  */
-export function ImageEditorOverlay({ requestClose, ...props }: ImageEditorOverlayProps) {
+export function ImageEditorOverlay({
+  requestClose,
+  title = 'Edit image',
+  ...props
+}: ImageEditorOverlayProps) {
   const compact = useScreenSizeContext() === ScreenSize.Mobile;
 
   const editor = (
@@ -29,8 +33,8 @@ export function ImageEditorOverlay({ requestClose, ...props }: ImageEditorOverla
       }}
     >
       {compact ? (
-        <div className={css.ImageEditorFullScreen} role="dialog" aria-label="Edit image">
-          <ImageEditor compact requestClose={requestClose} {...props} />
+        <div className={css.ImageEditorFullScreen} role="dialog" aria-label={title}>
+          <ImageEditor compact title={title} requestClose={requestClose} {...props} />
         </div>
       ) : (
         <Modal
@@ -38,9 +42,9 @@ export function ImageEditorOverlay({ requestClose, ...props }: ImageEditorOverla
           variant="Surface"
           size="500"
           role="dialog"
-          aria-label="Edit image"
+          aria-label={title}
         >
-          <ImageEditor requestClose={requestClose} {...props} />
+          <ImageEditor title={title} requestClose={requestClose} {...props} />
         </Modal>
       )}
     </FocusTrap>

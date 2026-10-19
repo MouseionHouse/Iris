@@ -2,13 +2,14 @@
 // UploadCardRenderer and ImageEditor on an in-memory client. Uploads take ?uploadMs (default
 // 1500) and can be cancelled; Send builds the real image message content.
 // Open /mock-image-editor.html on the vite dev server. Parameters: ?dark for the dark theme,
-// ?encrypted for an encrypted room, ?editor=avatar for the editor alone with the square crop
-// and round mask the avatar ticket needs. Not part of the app build.
+// ?encrypted for an encrypted room, ?editor=avatar for the avatar flow: Upload avatar, the square crop
+// editor, the compact upload card. Not part of the app build.
 import React, {
   ChangeEvent,
   ComponentProps,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -35,14 +36,14 @@ import { MatrixClientProvider } from '../app/hooks/useMatrixClient';
 import { SpecVersionsProvider } from '../app/hooks/useSpecVersions';
 import { MediaConfigProvider } from '../app/hooks/useMediaConfig';
 import { ScreenSizeProvider, useScreenSize } from '../app/hooks/useScreenSize';
-import { UploadCardRenderer } from '../app/components/upload-card';
+import { CompactUploadCardRenderer, UploadCardRenderer } from '../app/components/upload-card';
 import {
   UploadBoard,
   UploadBoardContent,
   UploadBoardHeader,
   UploadBoardImperativeHandlers,
 } from '../app/components/upload-board';
-import { ImageEditorOverlay } from '../app/components/image-editor';
+import { useAvatarPicker } from '../app/hooks/useAvatarPicker';
 import {
   TUploadItem,
   TUploadMetadata,
@@ -53,6 +54,7 @@ import {
   Upload,
   UploadStatus,
   UploadSuccess,
+  createUploadAtom,
   createUploadFamilyObserverAtom,
 } from '../app/state/upload';
 import { TUploadContent, decryptFile, encryptFile } from '../app/utils/matrix';
@@ -378,32 +380,39 @@ function MockComposer() {
   );
 }
 
-// ---- the editor alone, with the avatar options
+// ---- the avatar flow: the real picker hook, editor and compact upload card
 
-function MockAvatarEditor() {
-  const [source, setSource] = useState<File>();
-  const [log, setLog] = useState('editing');
-  useEffect(() => {
-    makePhoto().then(setSource);
-  }, []);
+function MockAvatarFlow() {
+  const [file, setFile] = useState<File>();
+  const [log, setLog] = useState('idle');
+  const uploadAtom = useMemo(() => (file ? createUploadAtom(file) : undefined), [file]);
+  const [pickAvatar, avatarEditor] = useAvatarPicker(setFile);
   return (
-    <Box direction="Column" style={{ height: '100%', padding: config.space.S300 }}>
+    <Box direction="Column" gap="300" style={{ height: '100%', padding: config.space.S300 }}>
       <Text id="mock-log" size="T300">
         {log}
       </Text>
-      {source && log === 'editing' && (
-        <ImageEditorOverlay
-          source={source}
-          name={source.name}
-          aspect={1}
-          round
-          onDone={(result) => {
-            (window as unknown as { avatarResult: unknown }).avatarResult = result;
-            setLog(result ? `done ${result.file.name}` : 'done unedited');
+      {uploadAtom ? (
+        <CompactUploadCardRenderer
+          uploadAtom={uploadAtom}
+          onRemove={() => {
+            setFile(undefined);
+            setLog('removed');
           }}
-          requestClose={() => setLog('closed')}
+          onComplete={(upload) => {
+            (window as unknown as { avatarSet: unknown }).avatarSet = upload.file;
+            setFile(undefined);
+            setLog(`set ${upload.file.name} ${upload.file.type}`);
+          }}
         />
+      ) : (
+        <Box>
+          <Button onClick={pickAvatar}>
+            <Text size="B300">Upload avatar</Text>
+          </Button>
+        </Box>
       )}
+      {avatarEditor}
     </Box>
   );
 }
@@ -412,7 +421,7 @@ function MockApp() {
   const screenSize = useScreenSize();
   return (
     <ScreenSizeProvider value={screenSize}>
-      {params.get('editor') === 'avatar' ? <MockAvatarEditor /> : <MockComposer />}
+      {params.get('editor') === 'avatar' ? <MockAvatarFlow /> : <MockComposer />}
     </ScreenSizeProvider>
   );
 }
