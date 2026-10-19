@@ -1,9 +1,9 @@
-import React, { ReactNode, useEffect } from 'react';
+import React, { ReactNode, useEffect, useState } from 'react';
 import { Box, Chip, Icon, IconButton, Icons, Text, color, config, toRem } from 'folds';
 import { UploadCard, UploadCardError, UploadCardProgress } from './UploadCard';
 import { UploadStatus, UploadSuccess, useBindUploadAtom } from '../../state/upload';
 import { useMatrixClient } from '../../hooks/useMatrixClient';
-import { TUploadContent } from '../../utils/matrix';
+import { TUploadContent, encryptFile } from '../../utils/matrix';
 import { bytesToSize, getFileTypeIcon } from '../../utils/common';
 import {
   roomUploadAtomFamily,
@@ -12,11 +12,13 @@ import {
 } from '../../state/room/roomInputDrafts';
 import { useObjectURL } from '../../hooks/useObjectURL';
 import { useMediaConfig } from '../../hooks/useMediaConfig';
+import { ImageEditorOverlay, ImageEditResult, isEditableImageType } from '../image-editor';
 
 type PreviewImageProps = {
   fileItem: TUploadItem;
+  onDecoded?: (decoded: boolean) => void;
 };
-function PreviewImage({ fileItem }: PreviewImageProps) {
+function PreviewImage({ fileItem, onDecoded }: PreviewImageProps) {
   const { originalFile, metadata } = fileItem;
   const fileUrl = useObjectURL(originalFile);
 
@@ -30,6 +32,8 @@ function PreviewImage({ fileItem }: PreviewImageProps) {
       }}
       alt={originalFile.name}
       src={fileUrl}
+      onLoad={() => onDecoded?.(true)}
+      onError={() => onDecoded?.(false)}
     />
   );
 }
@@ -58,9 +62,11 @@ function PreviewVideo({ fileItem }: PreviewVideoProps) {
 type MediaPreviewProps = {
   fileItem: TUploadItem;
   onSpoiler: (marked: boolean) => void;
+  /** shows the Edit chip */
+  onEdit?: () => void;
   children: ReactNode;
 };
-function MediaPreview({ fileItem, onSpoiler, children }: MediaPreviewProps) {
+function MediaPreview({ fileItem, onSpoiler, onEdit, children }: MediaPreviewProps) {
   const { originalFile, metadata } = fileItem;
   const fileUrl = useObjectURL(originalFile);
 
@@ -76,6 +82,7 @@ function MediaPreview({ fileItem, onSpoiler, children }: MediaPreviewProps) {
       {children}
       <Box
         justifyContent="End"
+        gap="100"
         style={{
           position: 'absolute',
           bottom: config.space.S100,
@@ -83,6 +90,17 @@ function MediaPreview({ fileItem, onSpoiler, children }: MediaPreviewProps) {
           right: config.space.S100,
         }}
       >
+        {onEdit && (
+          <Chip
+            variant={fileItem.edit ? 'Primary' : 'Secondary'}
+            fill="Soft"
+            radii="Pill"
+            before={<Icon src={Icons.Pencil} size="50" />}
+            onClick={onEdit}
+          >
+            <Text size="B300">{fileItem.edit ? 'Edited' : 'Edit'}</Text>
+          </Chip>
+        )}
         <Chip
           variant={metadata.markedAsSpoiler ? 'Warning' : 'Secondary'}
           fill="Soft"
@@ -102,6 +120,8 @@ type UploadCardRendererProps = {
   isEncrypted?: boolean;
   fileItem: TUploadItem;
   setMetadata: (fileItem: TUploadItem, metadata: TUploadMetadata) => void;
+  /** swaps the item for its edited image; images get an Edit chip with it */
+  onReplace?: (fileItem: TUploadItem, replacement: TUploadItem) => void;
   onRemove: (file: TUploadContent) => void;
   onComplete?: (upload: UploadSuccess) => void;
 };
@@ -109,6 +129,7 @@ export function UploadCardRenderer({
   isEncrypted,
   fileItem,
   setMetadata,
+  onReplace,
   onRemove,
   onComplete,
 }: UploadCardRendererProps) {
@@ -128,6 +149,28 @@ export function UploadCardRenderer({
 
   const handleSpoiler = (marked: boolean) => {
     setMetadata(fileItem, { ...metadata, markedAsSpoiler: marked });
+  };
+
+  // edits always start from the untouched source
+  const editSource = fileItem.edit?.source ?? fileItem.originalFile;
+  const [decoded, setDecoded] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const canEdit = !!onReplace && decoded && isEditableImageType(editSource.type);
+
+  const handleEdited = async (result: ImageEditResult | undefined) => {
+    setEditing(false);
+    // unedited and never edited: nothing to swap
+    if (!result && !fileItem.edit) return;
+    const edited = result?.file ?? editSource;
+    await cancelUpload();
+    const content = fileItem.encInfo
+      ? await encryptFile(edited)
+      : { file: edited, originalFile: edited, encInfo: undefined };
+    onReplace?.(fileItem, {
+      ...content,
+      metadata: fileItem.metadata,
+      edit: result ? { source: editSource, state: result.state } : undefined,
+    });
   };
 
   const removeUpload = () => {
@@ -173,8 +216,12 @@ export function UploadCardRenderer({
       bottom={
         <>
           {fileItem.originalFile.type.startsWith('image') && (
-            <MediaPreview fileItem={fileItem} onSpoiler={handleSpoiler}>
-              <PreviewImage fileItem={fileItem} />
+            <MediaPreview
+              fileItem={fileItem}
+              onSpoiler={handleSpoiler}
+              onEdit={canEdit ? () => setEditing(true) : undefined}
+            >
+              <PreviewImage fileItem={fileItem} onDecoded={setDecoded} />
             </MediaPreview>
           )}
           {fileItem.originalFile.type.startsWith('video') && (
@@ -210,6 +257,15 @@ export function UploadCardRenderer({
       </Text>
       {upload.status === UploadStatus.Success && (
         <Icon style={{ color: color.Success.Main }} src={Icons.Check} size="100" />
+      )}
+      {editing && (
+        <ImageEditorOverlay
+          source={editSource}
+          name={editSource instanceof File ? editSource.name : file.name}
+          initialState={fileItem.edit?.state}
+          onDone={handleEdited}
+          requestClose={() => setEditing(false)}
+        />
       )}
     </UploadCard>
   );

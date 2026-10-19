@@ -6,9 +6,16 @@ import { IEventRelation } from 'matrix-js-sdk';
 import { createUploadAtomFamily } from '../upload';
 import { TUploadContent } from '../../utils/matrix';
 import { createListAtom } from '../list';
+import type { ImageEditState } from '../../components/image-editor/imageEdit';
 
 export type TUploadMetadata = {
   markedAsSpoiler: boolean;
+};
+
+/** An edited image keeps its untouched source and the edit, so it can be edited again. */
+export type TUploadEdit = {
+  source: TUploadContent;
+  state: ImageEditState;
 };
 
 export type TUploadItem = {
@@ -16,13 +23,12 @@ export type TUploadItem = {
   originalFile: TUploadContent;
   metadata: TUploadMetadata;
   encInfo: EncryptedAttachmentInfo | undefined;
+  edit?: TUploadEdit;
 };
 
 export type TUploadListAtom = ReturnType<typeof createListAtom<TUploadItem>>;
 
-export const roomIdToUploadItemsAtomFamily = atomFamily<string, TUploadListAtom>(
-  createListAtom
-);
+export const roomIdToUploadItemsAtomFamily = atomFamily<string, TUploadListAtom>(createListAtom);
 
 export const roomUploadAtomFamily = createUploadAtomFamily();
 

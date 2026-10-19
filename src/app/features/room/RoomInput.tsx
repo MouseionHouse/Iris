@@ -254,6 +254,14 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
       [setSelectedFiles]
     );
 
+    const handleReplaceUpload = useCallback(
+      (fileItem: TUploadItem, replacement: TUploadItem) => {
+        setSelectedFiles({ type: 'REPLACE', item: fileItem, replacement });
+        roomUploadAtomFamily.remove(fileItem.file);
+      },
+      [setSelectedFiles]
+    );
+
     const handleRemoveUpload = useCallback(
       (upload: TUploadContent | TUploadContent[]) => {
         const uploads = Array.isArray(upload) ? upload : [upload];
@@ -473,6 +481,7 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
                         isEncrypted={!!fileItem.encInfo}
                         fileItem={fileItem}
                         setMetadata={handleFileMetadata}
+                        onReplace={handleReplaceUpload}
                         onRemove={handleRemoveUpload}
                       />
                     ))}
