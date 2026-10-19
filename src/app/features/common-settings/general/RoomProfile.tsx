@@ -36,7 +36,7 @@ import { StateEvent } from '../../../../types/matrix/room';
 import { CompactUploadCardRenderer } from '../../../components/upload-card';
 import { useObjectURL } from '../../../hooks/useObjectURL';
 import { createUploadAtom, UploadSuccess } from '../../../state/upload';
-import { useFilePicker } from '../../../hooks/useFilePicker';
+import { useAvatarPicker } from '../../../hooks/useAvatarPicker';
 import { AsyncStatus, useAsyncCallback } from '../../../hooks/useAsyncCallback';
 import { useAlive } from '../../../hooks/useAlive';
 import { RoomPermissionsAPI } from '../../../hooks/useRoomPermissions';
@@ -78,7 +78,7 @@ export function RoomProfileEdit({
     return undefined;
   }, [imageFile]);
 
-  const pickFile = useFilePicker(setImageFile, false);
+  const [pickAvatar, avatarEditor] = useAvatarPicker(setImageFile);
 
   const handleRemoveUpload = useCallback(() => {
     setImageFile(undefined);
@@ -138,6 +138,7 @@ export function RoomProfileEdit({
 
   return (
     <Box as="form" onSubmit={handleSubmit} direction="Column" gap="400">
+      {avatarEditor}
       <Box gap="400">
         <Box grow="Yes" direction="Column" gap="100">
           <Text size="L400">Avatar</Text>
@@ -158,7 +159,7 @@ export function RoomProfileEdit({
                 fill="Soft"
                 radii="300"
                 disabled={!canEditAvatar || submitting}
-                onClick={() => pickFile('image/*')}
+                onClick={pickAvatar}
               >
                 <Text size="B300">Upload</Text>
               </Button>

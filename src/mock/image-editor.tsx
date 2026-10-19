@@ -4,13 +4,14 @@
 // has "fail" in it fails its first upload. Send builds the real message contents.
 // Open /mock-image-editor.html on the vite dev server. Parameters: ?dark for the dark theme,
 // ?encrypted for an encrypted room, ?set=one|four|eight|failed|big|empty for the attachments it
-// starts with (default: the four images of the editor checks), ?editor=avatar for the editor
-// alone with the square crop and round mask the avatar ticket needs. Not part of the app build.
+// starts with (default: the four images of the editor checks), ?editor=avatar for the avatar
+// flow: Upload avatar, the square crop editor, the compact upload card. Not part of the app build.
 import React, {
   ChangeEvent,
   ComponentProps,
   KeyboardEvent,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -20,6 +21,7 @@ import 'folds/dist/style.css';
 import '../index.css';
 import {
   Box,
+  Button,
   Icon,
   IconButton,
   Icons,
@@ -44,8 +46,10 @@ import {
   useSendAfterUploads,
 } from '../app/components/upload-strip';
 import { CustomEditor, resetEditor, toPlainText, useEditor } from '../app/components/editor';
-import { ImageEditorOverlay } from '../app/components/image-editor';
+import { CompactUploadCardRenderer } from '../app/components/upload-card';
+import { useAvatarPicker } from '../app/hooks/useAvatarPicker';
 import { TUploadItem } from '../app/state/room/roomInputDrafts';
+import { createUploadAtom } from '../app/state/upload';
 import { decryptFile } from '../app/utils/matrix';
 import { useComposerUploads } from '../app/features/room/useComposerUploads';
 import { handleBackButton } from '../app/native/backButton';
@@ -434,32 +438,39 @@ function MockComposer() {
   );
 }
 
-// ---- the editor alone, with the avatar options
+// ---- the avatar flow: the real picker hook, editor and compact upload card
 
-function MockAvatarEditor() {
-  const [source, setSource] = useState<File>();
-  const [log, setLog] = useState('editing');
-  useEffect(() => {
-    makePhoto().then(setSource);
-  }, []);
+function MockAvatarFlow() {
+  const [file, setFile] = useState<File>();
+  const [log, setLog] = useState('idle');
+  const uploadAtom = useMemo(() => (file ? createUploadAtom(file) : undefined), [file]);
+  const [pickAvatar, avatarEditor] = useAvatarPicker(setFile);
   return (
-    <Box direction="Column" style={{ height: '100%', padding: config.space.S300 }}>
+    <Box direction="Column" gap="300" style={{ height: '100%', padding: config.space.S300 }}>
       <Text id="mock-log" size="T300">
         {log}
       </Text>
-      {source && log === 'editing' && (
-        <ImageEditorOverlay
-          source={source}
-          name={source.name}
-          aspect={1}
-          round
-          onDone={(result) => {
-            (window as unknown as { avatarResult: unknown }).avatarResult = result;
-            setLog(result ? `done ${result.file.name}` : 'done unedited');
+      {uploadAtom ? (
+        <CompactUploadCardRenderer
+          uploadAtom={uploadAtom}
+          onRemove={() => {
+            setFile(undefined);
+            setLog('removed');
           }}
-          requestClose={() => setLog('closed')}
+          onComplete={(upload) => {
+            (window as unknown as { avatarSet: unknown }).avatarSet = upload.file;
+            setFile(undefined);
+            setLog(`set ${upload.file.name} ${upload.file.type}`);
+          }}
         />
+      ) : (
+        <Box>
+          <Button onClick={pickAvatar}>
+            <Text size="B300">Upload avatar</Text>
+          </Button>
+        </Box>
       )}
+      {avatarEditor}
     </Box>
   );
 }
@@ -468,7 +479,7 @@ function MockApp() {
   const screenSize = useScreenSize();
   return (
     <ScreenSizeProvider value={screenSize}>
-      {params.get('editor') === 'avatar' ? <MockAvatarEditor /> : <MockComposer />}
+      {params.get('editor') === 'avatar' ? <MockAvatarFlow /> : <MockComposer />}
     </ScreenSizeProvider>
   );
 }

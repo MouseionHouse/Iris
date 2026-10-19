@@ -18,7 +18,6 @@ import {
   Overlay,
   OverlayBackdrop,
   OverlayCenter,
-  Modal,
   Dialog,
   Header,
   config,
@@ -35,11 +34,8 @@ import { UserAvatar } from '../../../components/user-avatar';
 import { useMediaAuthentication } from '../../../hooks/useMediaAuthentication';
 import { nameInitials } from '../../../utils/common';
 import { AsyncStatus, useAsyncCallback } from '../../../hooks/useAsyncCallback';
-import { useFilePicker } from '../../../hooks/useFilePicker';
-import { useObjectURL } from '../../../hooks/useObjectURL';
+import { useAvatarPicker } from '../../../hooks/useAvatarPicker';
 import { stopPropagation } from '../../../utils/keyboard';
-import { ImageEditor } from '../../../components/image-editor';
-import { ModalWide } from '../../../styles/Modal.css';
 import { createUploadAtom, UploadSuccess } from '../../../state/upload';
 import { CompactUploadCardRenderer } from '../../../components/upload-card';
 import { useCapabilities } from '../../../hooks/useCapabilities';
@@ -61,13 +57,12 @@ function ProfileAvatar({ profile, userId }: ProfileProps) {
     : undefined;
 
   const [imageFile, setImageFile] = useState<File>();
-  const imageFileURL = useObjectURL(imageFile);
   const uploadAtom = useMemo(() => {
     if (imageFile) return createUploadAtom(imageFile);
     return undefined;
   }, [imageFile]);
 
-  const pickFile = useFilePicker(setImageFile, false);
+  const [pickAvatar, avatarEditor] = useAvatarPicker(setImageFile);
 
   const handleRemoveUpload = useCallback(() => {
     setImageFile(undefined);
@@ -115,7 +110,7 @@ function ProfileAvatar({ profile, userId }: ProfileProps) {
       ) : (
         <Box gap="200">
           <Button
-            onClick={() => pickFile('image/*')}
+            onClick={pickAvatar}
             size="300"
             variant="Secondary"
             fill="Soft"
@@ -140,33 +135,7 @@ function ProfileAvatar({ profile, userId }: ProfileProps) {
         </Box>
       )}
 
-      {imageFileURL && (
-        <Overlay open={false} backdrop={<OverlayBackdrop />}>
-          <OverlayCenter>
-            <FocusTrap
-              focusTrapOptions={{
-                initialFocus: false,
-                onDeactivate: handleRemoveUpload,
-                clickOutsideDeactivates: true,
-                escapeDeactivates: stopPropagation,
-              }}
-            >
-              <Modal className={ModalWide} variant="Surface" size="500">
-                {imageFile && (
-                  <ImageEditor
-                    source={imageFile}
-                    name={imageFile.name}
-                    aspect={1}
-                    round
-                    onDone={handleRemoveUpload}
-                    requestClose={handleRemoveUpload}
-                  />
-                )}
-              </Modal>
-            </FocusTrap>
-          </OverlayCenter>
-        </Overlay>
-      )}
+      {avatarEditor}
 
       <Overlay open={alertRemove} backdrop={<OverlayBackdrop />}>
         <OverlayCenter>

@@ -288,3 +288,16 @@ export const SizeDot = style({
   borderRadius: '50%',
   backgroundColor: 'currentColor',
 });
+
+export const Preview = style({
+  flexShrink: 0,
+  display: 'block',
+  maxWidth: toRem(40),
+  maxHeight: toRem(40),
+  backgroundColor: color.SurfaceVariant.Container,
+  boxShadow: `0 0 0 ${config.borderWidth.B300} ${color.Surface.ContainerLine}`,
+});
+
+export const PreviewRound = style({
+  borderRadius: '50%',
+});
