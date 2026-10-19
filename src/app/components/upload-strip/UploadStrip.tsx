@@ -121,8 +121,10 @@ const fileName = (file: TUploadContent): string => (file instanceof File ? file.
 type TileThumbnailProps = {
   fileItem: TUploadItem;
   onDecoded: (decoded: boolean) => void;
+  /** the progress ring or failure mark: over a picture, in place of a file's icon */
+  mark?: ReactNode;
 };
-function TileThumbnail({ fileItem, onDecoded }: TileThumbnailProps) {
+function TileThumbnail({ fileItem, onDecoded, mark }: TileThumbnailProps) {
   const { originalFile, metadata } = fileItem;
   const url = useObjectURL(originalFile);
   const media = classNames(css.UploadTileMedia, {
@@ -131,13 +133,16 @@ function TileThumbnail({ fileItem, onDecoded }: TileThumbnailProps) {
 
   if (url && originalFile.type.startsWith('image')) {
     return (
-      <img
-        className={media}
-        alt=""
-        src={url}
-        onLoad={() => onDecoded(true)}
-        onError={() => onDecoded(false)}
-      />
+      <>
+        <img
+          className={media}
+          alt=""
+          src={url}
+          onLoad={() => onDecoded(true)}
+          onError={() => onDecoded(false)}
+        />
+        {mark && <span className={css.UploadTileScrim}>{mark}</span>}
+      </>
     );
   }
   if (url && originalFile.type.startsWith('video')) {
@@ -146,15 +151,19 @@ function TileThumbnail({ fileItem, onDecoded }: TileThumbnailProps) {
         {/* the first frame; the fragment makes browsers that wait for play draw one */}
         {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
         <video className={media} src={`${url}#t=0.001`} preload="metadata" muted playsInline />
-        <span className={css.UploadTilePlay}>
-          <Icon src={Icons.Play} size="50" filled />
-        </span>
+        {mark ? (
+          <span className={css.UploadTileScrim}>{mark}</span>
+        ) : (
+          <span className={css.UploadTilePlay}>
+            <Icon src={Icons.Play} size="50" filled />
+          </span>
+        )}
       </>
     );
   }
   return (
     <span className={css.UploadTileFile}>
-      <Icon src={getFileTypeIcon(Icons, originalFile.type)} size="300" />
+      {mark ?? <Icon src={getFileTypeIcon(Icons, originalFile.type)} size="300" />}
       <Text className={css.UploadTileFileName} as="span" size="T200" truncate>
         {fileName(fileItem.file)}
       </Text>
@@ -304,6 +313,13 @@ function UploadTile({
       loaded
     )} / ${bytesToSize(file.size)}`;
   }
+  let mark: ReactNode;
+  if (failed) {
+    mark = <Icon className={css.UploadTileFailedMark} src={Icons.Warning} size="200" filled />;
+  } else if (uploading) {
+    mark = <UploadProgressRing value={loaded} max={file.size} size={isMedia ? 28 : 24} />;
+  }
+
   let statusLabel = 'uploaded';
   if (failed) statusLabel = 'can not be sent';
   else if (uploading) statusLabel = 'uploading';
@@ -387,17 +403,7 @@ function UploadTile({
         onClick={() => onMenuOpen(true)}
         onKeyDown={handleKeyDown}
       >
-        <TileThumbnail fileItem={fileItem} onDecoded={setDecoded} />
-        {uploading && !fileSizeExceeded && (
-          <span className={css.UploadTileScrim}>
-            <UploadProgressRing value={loaded} max={file.size} />
-          </span>
-        )}
-        {failed && (
-          <span className={css.UploadTileScrim}>
-            <Icon className={css.UploadTileFailedMark} src={Icons.Warning} size="200" filled />
-          </span>
-        )}
+        <TileThumbnail fileItem={fileItem} onDecoded={setDecoded} mark={mark} />
         {(fileItem.edit || metadata.markedAsSpoiler) && (
           <span className={css.UploadTileBadges}>
             {metadata.markedAsSpoiler && (
