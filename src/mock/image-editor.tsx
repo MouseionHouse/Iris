@@ -1,28 +1,30 @@
-// Mock of the upload board with the image editor, rendered with the real UploadBoard,
-// UploadCardRenderer and ImageEditor on an in-memory client. Uploads take ?uploadMs (default
-// 1500) and can be cancelled; Send builds the real image message content.
+// Mock of the composer's attachments with the image editor, rendered with the real CustomEditor,
+// UploadStrip, Send button and ImageEditor, and the composer's own useComposerUploads, on an
+// in-memory client. Uploads take ?uploadMs (default 1500) and can be cancelled; a file whose name
+// has "fail" in it fails its first upload. Send builds the real message contents.
 // Open /mock-image-editor.html on the vite dev server. Parameters: ?dark for the dark theme,
-// ?encrypted for an encrypted room, ?editor=avatar for the editor alone with the square crop
-// and round mask the avatar ticket needs. Not part of the app build.
+// ?encrypted for an encrypted room, ?set=one|four|eight|failed|big|empty for the attachments it
+// starts with (default: the four images of the editor checks), ?editor=avatar for the editor
+// alone with the square crop and round mask the avatar ticket needs. Not part of the app build.
 import React, {
   ChangeEvent,
   ComponentProps,
-  useCallback,
+  KeyboardEvent,
   useEffect,
   useRef,
   useState,
 } from 'react';
 import { createRoot } from 'react-dom/client';
-import { useAtom } from 'jotai';
 import '@fontsource/inter/variable.css';
 import 'folds/dist/style.css';
 import '../index.css';
 import {
   Box,
-  Button,
+  Icon,
+  IconButton,
+  Icons,
   OverlayContainerProvider,
   PopOutContainerProvider,
-  Scroll,
   Text,
   color,
   config,
@@ -35,30 +37,17 @@ import { MatrixClientProvider } from '../app/hooks/useMatrixClient';
 import { SpecVersionsProvider } from '../app/hooks/useSpecVersions';
 import { MediaConfigProvider } from '../app/hooks/useMediaConfig';
 import { ScreenSizeProvider, useScreenSize } from '../app/hooks/useScreenSize';
-import { UploadCardRenderer } from '../app/components/upload-card';
 import {
-  UploadBoard,
-  UploadBoardContent,
-  UploadBoardHeader,
-  UploadBoardImperativeHandlers,
-} from '../app/components/upload-board';
+  UploadStrip,
+  UploadStripHandle,
+  UploadsSendButton,
+  useSendAfterUploads,
+} from '../app/components/upload-strip';
+import { CustomEditor, resetEditor, toPlainText, useEditor } from '../app/components/editor';
 import { ImageEditorOverlay } from '../app/components/image-editor';
-import {
-  TUploadItem,
-  TUploadMetadata,
-  roomIdToUploadItemsAtomFamily,
-  roomUploadAtomFamily,
-} from '../app/state/room/roomInputDrafts';
-import {
-  Upload,
-  UploadStatus,
-  UploadSuccess,
-  createUploadFamilyObserverAtom,
-} from '../app/state/upload';
-import { TUploadContent, decryptFile, encryptFile } from '../app/utils/matrix';
-import { safeFile } from '../app/utils/mimeTypes';
-import { fulfilledPromiseSettledResult } from '../app/utils/common';
-import { getImageMsgContent } from '../app/features/room/msgContent';
+import { TUploadItem } from '../app/state/room/roomInputDrafts';
+import { decryptFile } from '../app/utils/matrix';
+import { useComposerUploads } from '../app/features/room/useComposerUploads';
 import { handleBackButton } from '../app/native/backButton';
 
 type Client = ComponentProps<typeof MatrixClientProvider>['value'];
@@ -76,6 +65,8 @@ const later = (ms: number) =>
 // ---- the in-memory client: uploads are kept by mxc, and can be cancelled
 
 type MockState = {
+  /** holds every upload where it is, for screenshots */
+  paused: boolean;
   uploads: Record<string, Blob>;
   cancelled: number;
   sent: Record<string, unknown>[];
@@ -83,6 +74,7 @@ type MockState = {
   decrypt: (mxc: string, item: Record<string, unknown>) => Promise<Blob>;
 };
 const mock: MockState = {
+  paused: false,
   uploads: {},
   cancelled: 0,
   sent: [],
@@ -92,6 +84,7 @@ const mock: MockState = {
 (window as unknown as { mock: MockState }).mock = mock;
 
 let uploadCount = 0;
+const failedOnce = new Set<string>();
 const cancels = new Map<Promise<unknown>, () => void>();
 const mx = {
   getUserId: () => '@hector:example.org',
@@ -102,11 +95,19 @@ const mx = {
     const promise = new Promise<{ content_uri: string }>((resolve, rej) => {
       reject = rej;
       (async () => {
-        const steps = 5;
+        const steps = 10;
+        const name = file instanceof File ? file.name : '';
         for (let i = 1; i <= steps; i += 1) {
           // eslint-disable-next-line no-await-in-loop
           await later(uploadMs / steps);
+          // eslint-disable-next-line no-await-in-loop
+          while (mock.paused && !cancelled) await later(50);
           if (cancelled) return;
+          if (i === 4 && name.includes('fail') && !failedOnce.has(name)) {
+            failedOnce.add(name);
+            rej(new Error('The server hung up'));
+            return;
+          }
           opts?.progressHandler?.({ loaded: (file.size * i) / steps, total: file.size });
         }
         uploadCount += 1;
@@ -205,74 +206,148 @@ const makeSvg = () =>
 const makeHeic = () =>
   new File([new Uint8Array(4096).fill(7)], 'IMG_0042.heic', { type: 'image/heic' });
 
-// ---- the composer's upload board, wired like RoomInput
+/** an 800 × 600 picture in one colour with its label, for the longer rows */
+const makeSwatch = async (name: string, fill: string): Promise<File> => {
+  const canvas = document.createElement('canvas');
+  canvas.width = 800;
+  canvas.height = 600;
+  const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
+  ctx.fillStyle = fill;
+  ctx.fillRect(0, 0, 800, 600);
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = 'bold 160px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(name.slice(0, 2).toUpperCase(), 400, 300);
+  return new File([await canvasBlob(canvas, 'image/jpeg')], name, { type: 'image/jpeg' });
+};
+
+/** a short WebM clip recorded from a canvas, so the tile has a first frame to show */
+const makeVideo = (): Promise<File> =>
+  new Promise((resolve) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 320;
+    canvas.height = 240;
+    const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
+    const recorder = new MediaRecorder(canvas.captureStream(30), { mimeType: 'video/webm' });
+    const chunks: Blob[] = [];
+    recorder.ondataavailable = (evt) => chunks.push(evt.data);
+    recorder.onstop = () => resolve(new File(chunks, 'birthday.webm', { type: 'video/webm' }));
+    let frame = 0;
+    const draw = () => {
+      ctx.fillStyle = '#3E63DD';
+      ctx.fillRect(0, 0, 320, 240);
+      ctx.fillStyle = '#FFC53D';
+      ctx.beginPath();
+      ctx.arc(60 + frame * 4, 120, 50, 0, Math.PI * 2);
+      ctx.fill();
+      frame += 1;
+    };
+    draw();
+    recorder.start();
+    const timer = window.setInterval(draw, 33);
+    window.setTimeout(() => {
+      window.clearInterval(timer);
+      recorder.stop();
+    }, 600);
+  });
+
+/** a second of silence as WAV */
+const makeAudio = (): File => {
+  const rate = 8000;
+  const buffer = new ArrayBuffer(44 + rate);
+  const view = new DataView(buffer);
+  const text = (at: number, value: string) =>
+    value.split('').forEach((c, i) => view.setUint8(at + i, c.charCodeAt(0)));
+  text(0, 'RIFF');
+  view.setUint32(4, 36 + rate, true);
+  text(8, 'WAVEfmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, rate, true);
+  view.setUint32(28, rate, true);
+  view.setUint16(32, 1, true);
+  view.setUint16(34, 8, true);
+  text(36, 'data');
+  view.setUint32(40, rate, true);
+  new Uint8Array(buffer, 44).fill(128);
+  return new File([buffer], 'voice-note.wav', { type: 'audio/wav' });
+};
+
+const makePdf = () =>
+  new File(['%PDF-1.4\n% mock\n'], 'household-budget-2026.pdf', { type: 'application/pdf' });
+
+const UPLOAD_LIMIT = 50 * 1024 * 1024;
+// over the mock server's limit
+const makeBig = () =>
+  new File([new Uint8Array(UPLOAD_LIMIT + 1024 * 1024)], 'photos-backup.zip', {
+    type: 'application/zip',
+  });
+
+const SWATCHES: [string, string][] = [
+  ['autumn.jpg', '#C2410C'],
+  ['beach.jpg', '#0EA5E9'],
+  ['cat.jpg', '#7C3AED'],
+  ['dinner.jpg', '#15803D'],
+  ['forest.jpg', '#166534'],
+  ['kitchen.jpg', '#B45309'],
+  ['lake.jpg', '#1D4ED8'],
+];
+
+const makeSet = async (set: string | null): Promise<File[]> => {
+  if (set === 'one') return [await makePhoto()];
+  if (set === 'four') return [await makePhoto(), await makeVideo(), makeAudio(), makePdf()];
+  if (set === 'eight') {
+    return [
+      await makePhoto(),
+      ...(await Promise.all(SWATCHES.map(([name, fill]) => makeSwatch(name, fill)))),
+    ];
+  }
+  if (set === 'failed') return [await makePhoto(), await makeSwatch('fail-upload.jpg', '#E5484D')];
+  if (set === 'big') return [await makePhoto(), makeBig()];
+  return [makeHeic(), makeSvg(), makeGif(), await makePhoto()];
+};
+
+// ---- the composer, wired like RoomInput
 
 function MockComposer() {
-  const [items, setItems] = useAtom(roomIdToUploadItemsAtomFamily(ROOM_ID));
-  const [log, setLog] = useState('Nothing sent yet');
-  const [open, setOpen] = useState(true);
-  const handlers = useRef<UploadBoardImperativeHandlers>();
+  const editor = useEditor();
+  const uploads = useComposerUploads(ROOM_ID);
+  const stripRef = useRef<UploadStripHandle>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const observer = createUploadFamilyObserverAtom(
-    roomUploadAtomFamily,
-    items.map((f) => f.file)
-  );
-  mock.items = () => items;
+  const [log, setLog] = useState('Nothing sent yet');
+  mock.items = () => uploads.items;
 
-  const handleFiles = useCallback(
-    async (files: File[]) => {
-      const safeFiles = files.map(safeFile);
-      const fileItems: TUploadItem[] = encrypted
-        ? fulfilledPromiseSettledResult(
-            await Promise.allSettled(safeFiles.map((f) => encryptFile(f)))
-          ).map((ef) => ({ ...ef, metadata: { markedAsSpoiler: false } }))
-        : safeFiles.map((f) => ({
-            file: f,
-            originalFile: f,
-            encInfo: undefined,
-            metadata: { markedAsSpoiler: false },
-          }));
-      setItems({ type: 'PUT', item: fileItems });
-    },
-    [setItems]
-  );
-
+  const { addFiles } = uploads;
   useEffect(() => {
-    if (params.has('empty')) return;
-    makePhoto().then((photo) => handleFiles([makeHeic(), makeSvg(), makeGif(), photo]));
-  }, [handleFiles]);
+    if (params.get('set') === 'empty') return;
+    makeSet(params.get('set')).then((files) => addFiles(files, encrypted));
+  }, [addFiles]);
 
-  const handleMetadata = (fileItem: TUploadItem, metadata: TUploadMetadata) =>
-    setItems({ type: 'REPLACE', item: fileItem, replacement: { ...fileItem, metadata } });
-  const handleReplace = (fileItem: TUploadItem, replacement: TUploadItem) => {
-    setItems({ type: 'REPLACE', item: fileItem, replacement });
-    roomUploadAtomFamily.remove(fileItem.file);
-  };
-  const handleRemove = (upload: TUploadContent | TUploadContent[]) => {
-    const uploads = Array.isArray(upload) ? upload : [upload];
-    setItems({ type: 'DELETE', item: items.filter((f) => uploads.includes(f.file)) });
-    uploads.forEach((u) => roomUploadAtomFamily.remove(u));
-  };
-  const handleCancel = (uploads: Upload[]) => {
-    uploads.forEach((u) => {
-      if (u.status === UploadStatus.Loading) mx.cancelUpload(u.promise);
+  // RoomInput's send: the attachments, then the text
+  const sendDraft = () => {
+    const uploadContents = uploads.takeContents();
+    const text = toPlainText(editor.children, false).trim();
+    resetEditor(editor);
+    uploadContents.then((contents) => {
+      const sent = [
+        ...(contents as Record<string, unknown>[]),
+        ...(text ? [{ msgtype: 'm.text', body: text }] : []),
+      ];
+      mock.sent.push(...sent);
+      setLog(`sent ${sent.map((c) => c.body).join(', ')}`);
     });
-    handleRemove(uploads.map((u) => u.file));
   };
-  const handleSend = async (uploads: UploadSuccess[]) => {
-    const contents = await Promise.all(
-      uploads.map(async (upload) => {
-        const fileItem = items.find((f) => f.file === upload.file);
-        if (!fileItem) throw new Error('Broken upload');
-        if (!fileItem.file.type.startsWith('image')) {
-          return { msgtype: 'm.file', body: fileItem.file.name, url: upload.mxc };
-        }
-        return getImageMsgContent(mx, fileItem, upload.mxc);
-      })
-    );
-    handleCancel(uploads);
-    mock.sent.push(...contents);
-    setLog(`sent ${contents.map((c) => c.body).join(', ')}`);
+  const { pending, request, cancel } = useSendAfterUploads(uploads.summary, sendDraft, (file) =>
+    stripRef.current?.reveal(file)
+  );
+
+  const handleKeyDown = (evt: KeyboardEvent) => {
+    if (evt.key === 'Enter' && !evt.shiftKey) {
+      evt.preventDefault();
+      request();
+    }
   };
 
   return (
@@ -286,93 +361,74 @@ function MockComposer() {
     >
       <Box
         shrink="No"
-        alignItems="Center"
-        gap="200"
+        direction="Column"
         style={{
           padding: config.space.S300,
           borderBottom: `${config.borderWidth.B300} solid ${color.Surface.ContainerLine}`,
         }}
       >
-        <Box grow="Yes" direction="Column">
-          <Text size="H5">{encrypted ? 'Household (encrypted)' : 'Household'}</Text>
-          <Text id="mock-log" size="T200" priority="300">
-            {log}
-          </Text>
-        </Box>
-        <input
-          ref={inputRef}
-          id="mock-file"
-          type="file"
-          accept="image/*"
-          multiple
-          hidden
-          onChange={(evt: ChangeEvent<HTMLInputElement>) => {
-            handleFiles(Array.from(evt.target.files ?? []));
-            // eslint-disable-next-line no-param-reassign
-            evt.target.value = '';
-          }}
-        />
-        <Button
-          size="300"
-          variant="Secondary"
-          fill="Soft"
-          onClick={() => inputRef.current?.click()}
-        >
-          <Text size="B300">Attach</Text>
-        </Button>
+        <Text size="H5">{encrypted ? 'Household (encrypted)' : 'Household'}</Text>
+        <Text id="mock-log" size="T200" priority="300">
+          {log}
+        </Text>
       </Box>
       <Box grow="Yes" />
-      <Box shrink="No" direction="Column" style={{ padding: config.space.S200 }}>
-        {items.length > 0 && (
-          <UploadBoard
-            header={
-              <UploadBoardHeader
-                open={open}
-                onToggle={() => setOpen(!open)}
-                uploadFamilyObserverAtom={observer}
-                onSend={handleSend}
-                imperativeHandlerRef={handlers}
-                onCancel={handleCancel}
+      <input
+        ref={inputRef}
+        id="mock-file"
+        type="file"
+        multiple
+        hidden
+        onChange={(evt: ChangeEvent<HTMLInputElement>) => {
+          addFiles(Array.from(evt.target.files ?? []), encrypted);
+          // eslint-disable-next-line no-param-reassign
+          evt.target.value = '';
+        }}
+      />
+      <Box
+        shrink="No"
+        direction="Column"
+        style={{ padding: `0 ${config.space.S400} ${config.space.S400}` }}
+      >
+        <CustomEditor
+          editableName="RoomInput"
+          editor={editor}
+          placeholder="Send a message..."
+          onKeyDown={handleKeyDown}
+          top={
+            uploads.items.length > 0 && (
+              <UploadStrip
+                ref={stripRef}
+                items={uploads.items}
+                setMetadata={uploads.setMetadata}
+                onReplace={uploads.replace}
+                onRemove={uploads.remove}
               />
-            }
-          >
-            {open && (
-              <Scroll size="300" hideTrack visibility="Hover">
-                <UploadBoardContent>
-                  {Array.from(items)
-                    .reverse()
-                    .map((fileItem, index) => (
-                      <UploadCardRenderer
-                        // eslint-disable-next-line react/no-array-index-key
-                        key={index}
-                        isEncrypted={!!fileItem.encInfo}
-                        fileItem={fileItem}
-                        setMetadata={handleMetadata}
-                        onReplace={handleReplace}
-                        onRemove={handleRemove}
-                      />
-                    ))}
-                </UploadBoardContent>
-              </Scroll>
-            )}
-          </UploadBoard>
-        )}
-        <Box
-          alignItems="Center"
-          style={{
-            marginTop: config.space.S200,
-            padding: config.space.S300,
-            borderRadius: config.radii.R400,
-            backgroundColor: color.SurfaceVariant.Container,
-          }}
-        >
-          <Text size="T300" priority="300" style={{ flexGrow: 1 }}>
-            Send a message…
-          </Text>
-          <Button size="300" variant="Primary" onClick={() => handlers.current?.handleSend()}>
-            <Text size="B300">Send</Text>
-          </Button>
-        </Box>
+            )
+          }
+          before={
+            <IconButton
+              onClick={() => inputRef.current?.click()}
+              variant="SurfaceVariant"
+              size="300"
+              radii="300"
+              aria-label="Attach"
+            >
+              <Icon src={Icons.PlusCircle} />
+            </IconButton>
+          }
+          after={
+            <UploadsSendButton
+              waiting={
+                pending && uploads.summary.state === 'running'
+                  ? uploads.summary.progress
+                  : undefined
+              }
+              onSend={request}
+              onCancel={cancel}
+            />
+          }
+        />
       </Box>
     </Box>
   );
@@ -437,7 +493,7 @@ const portalContainer = document.getElementById('portalContainer') ?? undefined;
 
 createRoot(document.getElementById('mock-root') as HTMLElement).render(
   <SpecVersionsProvider value={{ versions: ['v1.11'] }}>
-    <MediaConfigProvider value={{ 'm.upload.size': 50 * 1024 * 1024 }}>
+    <MediaConfigProvider value={{ 'm.upload.size': UPLOAD_LIMIT }}>
       <MatrixClientProvider value={mx}>
         <PopOutContainerProvider value={portalContainer}>
           <OverlayContainerProvider value={portalContainer}>
