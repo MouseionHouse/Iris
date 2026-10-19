@@ -7,3 +7,4 @@ export * from './Item';
 export * from './Group';
 export * from './Layout';
 export * from './AddToPack';
+export * from './StickerManage';

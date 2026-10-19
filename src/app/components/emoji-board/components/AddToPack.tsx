@@ -1,121 +1,189 @@
-import React, { useCallback, useState } from 'react';
-import { Box, Button, Chip, Icon, IconButton, Icons, Scroll, Spinner, Text, config } from 'folds';
-import { MatrixClient } from 'matrix-js-sdk';
-import { ImagePack, ImageUsage, PackContent, PackImage } from '../../../plugins/custom-emoji';
-import { StateEvent } from '../../../../types/matrix/room';
-import { AccountDataEvent } from '../../../../types/matrix/accountData';
+import React, { useCallback, useRef, useState } from 'react';
+import {
+  Box,
+  Button,
+  Chip,
+  Icon,
+  IconButton,
+  Icons,
+  Input,
+  Scroll,
+  Spinner,
+  Text,
+  color,
+  config,
+} from 'folds';
+import {
+  getPackLabel,
+  ImagePack,
+  ImageUsage,
+  normalizeShortcode,
+  packKey,
+  PackImage,
+  shortcodeError,
+  updatePack,
+  withImage,
+} from '../../../plugins/custom-emoji';
+import { useMatrixClient } from '../../../hooks/useMatrixClient';
 import { useFilePicker } from '../../../hooks/useFilePicker';
 import { AsyncStatus, useAsyncCallback } from '../../../hooks/useAsyncCallback';
 import { CompactUploadCardRenderer } from '../../upload-card';
 import { ImageTileUpload } from '../../image-pack-view/ImageTile';
 import { SequenceCard } from '../../sequence-card';
 import { UploadSuccess } from '../../../state/upload';
-import { getImageInfo, isUserId, TUploadContent } from '../../../utils/matrix';
-import { getImageFileUrl, loadImageElement, renameFile } from '../../../utils/dom';
-import { replaceSpaceWithDash, suffixRename } from '../../../utils/common';
+import { getImageInfo, TUploadContent } from '../../../utils/matrix';
+import { getImageFileUrl, loadImageElement } from '../../../utils/dom';
+import { replaceSpaceWithDash } from '../../../utils/common';
 import { getFileNameWithoutExt } from '../../../utils/mimeTypes';
 
-type UploadedImage = {
-  shortcode: string;
-  image: PackImage;
-};
-
-const getPackLabel = (mx: MatrixClient, pack: ImagePack): string =>
-  pack.meta.name || (isUserId(pack.id) ? 'Personal Pack' : mx.getRoom(pack.id)?.name) || 'Unknown';
-
-const commitPack = async (mx: MatrixClient, pack: ImagePack, content: PackContent) => {
-  const { address } = pack;
-  if (address) {
-    await mx.sendStateEvent(address.roomId, StateEvent.PoniesRoomEmotes, content, address.stateKey);
-  } else {
-    await mx.setAccountData(AccountDataEvent.PoniesUserEmotes, content);
-  }
+type UploadEntry = {
+  id: number;
+  file: File;
+  name: string;
+  image?: PackImage;
 };
 
 type AddToPackProps = {
-  mx: MatrixClient;
   packs: ImagePack[];
-  onDone: () => void;
+  /** Open on this pack (a `packKey`) and skip the pack picker. */
+  initialPackKey?: string;
+  onDone: (count: number, pack: ImagePack) => void;
   onCancel: () => void;
 };
-export function AddToPack({ mx, packs, onDone, onCancel }: AddToPackProps) {
-  const [selectedId, setSelectedId] = useState<string | undefined>(
-    packs.length === 1 ? packs[0].id : undefined
+export function AddToPack({ packs, initialPackKey, onDone, onCancel }: AddToPackProps) {
+  const mx = useMatrixClient();
+  const [selectedKey, setSelectedKey] = useState<string | undefined>(
+    initialPackKey ?? (packs.length === 1 ? packKey(packs[0]) : undefined)
   );
-  const pack = packs.find((p) => p.id === selectedId);
+  const pack = packs.find((p) => packKey(p) === selectedKey);
 
-  const [files, setFiles] = useState<File[]>([]);
-  const [uploaded, setUploaded] = useState<UploadedImage[]>([]);
+  const nextId = useRef(0);
+  const [entries, setEntries] = useState<UploadEntry[]>([]);
 
-  const hasShortcode = useCallback(
-    (shortcode: string, pending: File[] = files): boolean =>
-      !!pack?.images.collection.has(shortcode) ||
-      uploaded.some((u) => u.shortcode === shortcode) ||
-      pending.some((f) => getFileNameWithoutExt(f.name) === shortcode),
-    [pack, uploaded, files]
-  );
+  const nameError = (entry: UploadEntry): string | undefined =>
+    shortcodeError(
+      normalizeShortcode(entry.name),
+      (shortcode) =>
+        !!pack?.images.collection.has(shortcode) ||
+        entries.some((e) => e.id !== entry.id && normalizeShortcode(e.name) === shortcode)
+    );
 
   const pickFiles = useFilePicker(
-    useCallback(
-      (picked: File[]) => {
-        const batch: File[] = [];
-        picked.forEach((file) => {
-          const name = replaceSpaceWithDash(file.name);
-          const shortcode = getFileNameWithoutExt(name);
-          const isTaken = (sc: string) => hasShortcode(sc, [...files, ...batch]);
-          if (isTaken(shortcode)) {
-            const ext = name.slice(shortcode.length);
-            batch.push(renameFile(file, suffixRename(shortcode, isTaken) + ext));
-          } else {
-            batch.push(name !== file.name ? renameFile(file, name) : file);
-          }
-        });
-        setFiles((f) => [...f, ...batch]);
-      },
-      [hasShortcode, files]
-    ),
+    useCallback((picked: File[]) => {
+      setEntries((es) => [
+        ...es,
+        ...picked.map((file) => {
+          nextId.current += 1;
+          return {
+            id: nextId.current,
+            file,
+            name: getFileNameWithoutExt(replaceSpaceWithDash(file.name)),
+          };
+        }),
+      ]);
+    }, []),
     true
   );
 
   const handleRemove = useCallback((file: TUploadContent) => {
-    setFiles((fs) => fs.filter((f) => f !== file));
+    setEntries((es) => es.filter((e) => e.file !== file));
   }, []);
 
-  const handleComplete = useCallback(
-    async (data: UploadSuccess) => {
-      const imgEl = await loadImageElement(getImageFileUrl(data.file));
-      setUploaded((u) => [
-        ...u,
-        {
-          shortcode: getFileNameWithoutExt(data.file.name),
-          image: {
-            url: data.mxc,
-            info: getImageInfo(imgEl, data.file),
-            usage: [ImageUsage.Sticker],
-          },
-        },
-      ]);
-      handleRemove(data.file);
-    },
-    [handleRemove]
-  );
+  const handleNameChange = (id: number, value: string) => {
+    setEntries((es) => es.map((e) => (e.id === id ? { ...e, name: value } : e)));
+  };
+
+  // The upload card can report success again when it re-renders, so this is idempotent.
+  const handleComplete = useCallback(async (data: UploadSuccess) => {
+    const imgEl = await loadImageElement(getImageFileUrl(data.file));
+    const image: PackImage = {
+      url: data.mxc,
+      info: getImageInfo(imgEl, data.file),
+      usage: [ImageUsage.Sticker],
+    };
+    setEntries((es) => es.map((e) => (e.file === data.file && !e.image ? { ...e, image } : e)));
+  }, []);
 
   const [commitState, commit] = useAsyncCallback(
     useCallback(async () => {
       if (!pack) return;
-      const images: Record<string, PackImage> = {};
-      pack.images.collection.forEach((img, shortcode) => {
-        images[shortcode] = img.content;
-      });
-      uploaded.forEach((u) => {
-        images[u.shortcode] = u.image;
-      });
-      await commitPack(mx, pack, { pack: pack.meta.content, images });
-      onDone();
-    }, [mx, pack, uploaded, onDone])
+      const ready = entries.flatMap((e) =>
+        e.image ? [{ shortcode: normalizeShortcode(e.name), image: e.image }] : []
+      );
+      await updatePack(mx, pack.address, (content) =>
+        ready.reduce((c, { shortcode, image }) => withImage(c, shortcode, image), content)
+      );
+      onDone(ready.length, pack);
+    }, [mx, pack, entries, onDone])
   );
   const committing = commitState.status === AsyncStatus.Loading;
-  const canCommit = !!pack && uploaded.length > 0 && files.length === 0 && !committing;
+  const uploading = entries.some((e) => !e.image);
+  const invalid = entries.some((e) => nameError(e) !== undefined);
+  const canCommit = !!pack && entries.length > 0 && !uploading && !invalid && !committing;
+
+  const renderEntry = (entry: UploadEntry) => {
+    const error = nameError(entry);
+    const errorId = `AddToPack-${entry.id}-error`;
+    return (
+      <SequenceCard
+        key={entry.id}
+        style={{ padding: config.space.S300 }}
+        variant="SurfaceVariant"
+        direction="Column"
+        gap="400"
+      >
+        <ImageTileUpload file={entry.file}>
+          {(uploadAtom) => (
+            <Box direction="Column" gap="200">
+              <Box direction="Column" gap="100">
+                <Input
+                  before={<Text size="L400">Name:</Text>}
+                  value={entry.name}
+                  onChange={(evt) => handleNameChange(entry.id, evt.currentTarget.value)}
+                  aria-label="Sticker name"
+                  aria-invalid={!!error}
+                  aria-describedby={error ? errorId : undefined}
+                  variant={error ? 'Critical' : 'Secondary'}
+                  size="300"
+                  radii="300"
+                  readOnly={committing}
+                />
+                {error && (
+                  <Text id={errorId} size="T200" style={{ color: color.Critical.Main }}>
+                    {error}
+                  </Text>
+                )}
+              </Box>
+              {entry.image ? (
+                <Box alignItems="Center" gap="200">
+                  <Icon style={{ color: color.Success.Main }} src={Icons.Check} size="100" />
+                  <Box grow="Yes">
+                    <Text size="T200">Uploaded</Text>
+                  </Box>
+                  <IconButton
+                    onClick={() => handleRemove(entry.file)}
+                    aria-label="Remove"
+                    variant="SurfaceVariant"
+                    radii="Pill"
+                    size="300"
+                    disabled={committing}
+                  >
+                    <Icon src={Icons.Cross} size="200" />
+                  </IconButton>
+                </Box>
+              ) : (
+                <CompactUploadCardRenderer
+                  uploadAtom={uploadAtom}
+                  onRemove={handleRemove}
+                  onComplete={handleComplete}
+                />
+              )}
+            </Box>
+          )}
+        </ImageTileUpload>
+      </SequenceCard>
+    );
+  };
 
   const renderBody = () => {
     if (packs.length === 0) {
@@ -127,10 +195,10 @@ export function AddToPack({ mx, packs, onDone, onCancel }: AddToPackProps) {
           <Text size="L400">Add to pack</Text>
           {packs.map((p) => (
             <Chip
-              key={p.id}
+              key={packKey(p)}
               variant="SurfaceVariant"
               radii="300"
-              onClick={() => setSelectedId(p.id)}
+              onClick={() => setSelectedKey(packKey(p))}
             >
               <Text size="T300">{getPackLabel(mx, p)}</Text>
             </Chip>
@@ -138,6 +206,7 @@ export function AddToPack({ mx, packs, onDone, onCancel }: AddToPackProps) {
         </Box>
       );
     }
+    const count = entries.length;
     return (
       <Box direction="Column" gap="200">
         <Box alignItems="Center" gap="200">
@@ -146,12 +215,12 @@ export function AddToPack({ mx, packs, onDone, onCancel }: AddToPackProps) {
               Add to {getPackLabel(mx, pack)}
             </Text>
           </Box>
-          {packs.length > 1 && (
+          {packs.length > 1 && !initialPackKey && (
             <Chip
               variant="SurfaceVariant"
               radii="Pill"
-              disabled={files.length > 0 || uploaded.length > 0 || committing}
-              onClick={() => setSelectedId(undefined)}
+              disabled={count > 0 || committing}
+              onClick={() => setSelectedKey(undefined)}
             >
               <Text size="B300">Change</Text>
             </Chip>
@@ -169,33 +238,9 @@ export function AddToPack({ mx, packs, onDone, onCancel }: AddToPackProps) {
         >
           <Text size="B300">Select images</Text>
         </Button>
-        {files.map((file) => (
-          <SequenceCard
-            key={file.name}
-            style={{ padding: config.space.S300 }}
-            variant="SurfaceVariant"
-            direction="Column"
-            gap="400"
-          >
-            <ImageTileUpload file={file}>
-              {(uploadAtom) => (
-                <CompactUploadCardRenderer
-                  uploadAtom={uploadAtom}
-                  onRemove={handleRemove}
-                  onComplete={handleComplete}
-                />
-              )}
-            </ImageTileUpload>
-          </SequenceCard>
-        ))}
-        {uploaded.length > 0 && (
-          <Text size="T200">
-            {uploaded.length} image{uploaded.length === 1 ? '' : 's'} uploaded:{' '}
-            {uploaded.map((u) => u.shortcode).join(', ')}
-          </Text>
-        )}
+        {entries.map(renderEntry)}
         {commitState.status === AsyncStatus.Error && (
-          <Text size="T200" style={{ color: 'var(--critical, inherit)' }}>
+          <Text size="T200" style={{ color: color.Critical.Main }}>
             <b>Failed to add to the pack. Please try again.</b>
           </Text>
         )}
@@ -205,9 +250,13 @@ export function AddToPack({ mx, packs, onDone, onCancel }: AddToPackProps) {
           radii="300"
           disabled={!canCommit}
           before={committing && <Spinner variant="Primary" fill="Solid" size="100" />}
-          onClick={commit}
+          onClick={() => commit().catch(() => undefined)}
         >
-          <Text size="B300">{commitState.status === AsyncStatus.Error ? 'Retry' : 'Add'}</Text>
+          <Text size="B300">
+            {commitState.status === AsyncStatus.Error
+              ? 'Retry'
+              : `Add ${count > 0 ? `${count} ` : ''}sticker${count === 1 ? '' : 's'}`}
+          </Text>
         </Button>
       </Box>
     );
@@ -216,7 +265,13 @@ export function AddToPack({ mx, packs, onDone, onCancel }: AddToPackProps) {
   return (
     <Box grow="Yes" direction="Column">
       <Box alignItems="Center" gap="200" style={{ padding: config.space.S200 }} shrink="No">
-        <IconButton size="300" radii="300" onClick={onCancel} disabled={committing}>
+        <IconButton
+          size="300"
+          radii="300"
+          onClick={onCancel}
+          disabled={committing}
+          aria-label="Cancel"
+        >
           <Icon size="100" src={Icons.ArrowLeft} />
         </IconButton>
         <Text size="T300">Cancel</Text>

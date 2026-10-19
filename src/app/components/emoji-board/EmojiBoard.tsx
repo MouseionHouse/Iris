@@ -1,7 +1,10 @@
 import React, {
   ChangeEventHandler,
+  DOMAttributes,
   FocusEventHandler,
+  KeyboardEventHandler,
   MouseEventHandler,
+  PointerEventHandler,
   ReactNode,
   RefObject,
   useCallback,
@@ -10,7 +13,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { Box, config, Icon, IconButton, Icons, Scroll } from 'folds';
+import { Box, Button, Chip, config, Icon, IconButton, Icons, Scroll, Text } from 'folds';
 import FocusTrap from 'focus-trap-react';
 import { isKeyHotkey } from 'is-hotkey';
 import { Room } from 'matrix-js-sdk';
@@ -21,14 +24,12 @@ import { useEmojiGroupLabels } from './useEmojiGroupLabels';
 import { useEmojiGroupIcons } from './useEmojiGroupIcons';
 import { preventScrollWithArrowKey, stopPropagation } from '../../utils/keyboard';
 import {
+  useGlobalImagePacks,
   useRelevantImagePacks,
   useRoomsImagePacks,
   useUserImagePack,
 } from '../../hooks/useImagePacks';
 import { useRoomsPowerLevels } from '../../hooks/usePowerLevels';
-import { getRoomPermissionsAPI } from '../../hooks/useRoomPermissions';
-import { getRoomCreatorsForRoomId } from '../../hooks/useRoomCreators';
-import { StateEvent } from '../../../types/matrix/room';
 import { useMatrixClient } from '../../hooks/useMatrixClient';
 import { useRecentEmoji } from '../../hooks/useRecentEmoji';
 import { isUserId, mxcUrlToHttp } from '../../utils/matrix';
@@ -38,7 +39,21 @@ import { useDebounce } from '../../hooks/useDebounce';
 import { useThrottle } from '../../hooks/useThrottle';
 import { addRecentEmoji } from '../../plugins/recent-emoji';
 import { useMediaAuthentication } from '../../hooks/useMediaAuthentication';
-import { ImagePack, ImageUsage, PackImageReader } from '../../plugins/custom-emoji';
+import {
+  getPackLabel,
+  ImagePack,
+  ImageUsage,
+  normalizeShortcode,
+  PackImageReader,
+  packKey,
+  shortcodeError,
+  updatePack,
+  withImage,
+  withoutImage,
+  withPackName,
+  withRenamedImage,
+} from '../../plugins/custom-emoji';
+import { suffixRename } from '../../utils/common';
 import { getEmoticonSearchStr } from '../../plugins/utils';
 import {
   SearchInput,
@@ -59,7 +74,19 @@ import {
   EmojiGroup,
   EmojiBoardLayout,
   AddToPack,
+  BoardAnchor,
+  BoardBar,
+  BoardMenu,
+  BoardToast,
+  BoardToastData,
+  canEditRoomPacks,
+  DeletePackConfirm,
+  NameField,
+  NewPackForm,
+  PackMenu,
+  StickerMenu,
 } from './components';
+import * as css from './components/styles.css';
 import { EmojiBoardTab, EmojiType } from './types';
 import { VirtualTile } from '../virtualizer';
 
@@ -125,12 +152,9 @@ const useGroups = (
     if (tab !== EmojiBoardTab.Sticker) return g;
 
     imagePacks.forEach((pack) => {
-      let label = pack.meta.name;
-      if (!label) label = isUserId(pack.id) ? 'Personal Pack' : mx.getRoom(pack.id)?.name;
-
       g.push({
         id: pack.id,
-        name: label ?? 'Unknown',
+        name: getPackLabel(mx, pack),
         items: pack
           .getImages(ImageUsage.Sticker)
           .sort((a, b) => a.shortcode.localeCompare(b.shortcode)),
@@ -298,11 +322,14 @@ type EmojiGroupHolderProps = {
   previewAtom: PrimitiveAtom<PreviewData | undefined>;
   children?: ReactNode;
   onGroupItemClick: MouseEventHandler;
+  /** Extra handlers on the items' container, for the sticker menu. */
+  itemHandlers?: DOMAttributes<HTMLDivElement>;
 };
 function EmojiGroupHolder({
   contentScrollRef,
   previewAtom,
   onGroupItemClick,
+  itemHandlers,
   children,
 }: EmojiGroupHolderProps) {
   const setPreviewData = useSetAtom(previewAtom);
@@ -339,6 +366,7 @@ function EmojiGroupHolder({
   return (
     <Scroll ref={contentScrollRef} size="400" onKeyDown={preventScrollWithArrowKey} hideTrack>
       <Box
+        {...itemHandlers}
         onClick={onGroupItemClick}
         onMouseMove={handleEmojiHover}
         onFocus={handleEmojiFocus}
@@ -374,6 +402,18 @@ type EmojiBoardProps = {
   addToRecentEmoji?: boolean;
 };
 
+const LONG_PRESS_MS = 500;
+const UNDO_TOAST_MS = 6000;
+
+type BoardPanel =
+  | { kind: 'add'; packKey: string }
+  | { kind: 'newPack' }
+  | { kind: 'deletePack'; packKey: string };
+type BoardMenuState =
+  | { kind: 'sticker'; packKey: string; shortcode: string; anchor: BoardAnchor }
+  | { kind: 'pack'; packKey: string; anchor: BoardAnchor };
+type StickerRef = { packKey: string; shortcode: string };
+
 export function EmojiBoard({
   tab = EmojiBoardTab.Emoji,
   onTabChange,
@@ -387,26 +427,39 @@ export function EmojiBoard({
   addToRecentEmoji = true,
 }: EmojiBoardProps) {
   const mx = useMatrixClient();
-  const [addMode, setAddMode] = useState(false);
+  const useAuthentication = useMediaAuthentication();
 
   const userPack = useUserImagePack();
   const roomPacks = useRoomsImagePacks(imagePackRooms);
+  const globalPacks = useGlobalImagePacks();
   const roomsPowerLevels = useRoomsPowerLevels(imagePackRooms);
   const editablePacks = useMemo(() => {
-    const userId = mx.getUserId() ?? '';
-    const packs = [userPack ?? new ImagePack(userId, {}, undefined)];
-    roomPacks.forEach((pack) => {
+    const packs = [userPack ?? new ImagePack(mx.getUserId() ?? '', {}, undefined)];
+    const seen = new Set<string>();
+    roomPacks.concat(globalPacks).forEach((pack) => {
       const roomId = pack.address?.roomId;
-      const powerLevels = roomId ? roomsPowerLevels.get(roomId) : undefined;
-      if (!roomId || !powerLevels || !mx.getRoom(roomId)) return;
-      const permissions = getRoomPermissionsAPI(getRoomCreatorsForRoomId(mx, roomId), powerLevels);
-      if (permissions.stateEvent(StateEvent.PoniesRoomEmotes, userId)) packs.push(pack);
+      if (!roomId || pack.deleted || seen.has(packKey(pack))) return;
+      seen.add(packKey(pack));
+      if (canEditRoomPacks(mx, roomId)) packs.push(pack);
     });
     return packs;
-  }, [mx, userPack, roomPacks, roomsPowerLevels]);
+    // roomsPowerLevels: recheck when power levels in this room or its spaces change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mx, userPack, roomPacks, globalPacks, roomsPowerLevels]);
+  const editableKeys = useMemo(() => new Set(editablePacks.map(packKey)), [editablePacks]);
+  const boardRoomIds = useMemo(() => imagePackRooms.map((room) => room.roomId), [imagePackRooms]);
 
   const emojiTab = tab === EmojiBoardTab.Emoji;
+  const stickerTab = tab === EmojiBoardTab.Sticker;
   const usage = emojiTab ? ImageUsage.Emoticon : ImageUsage.Sticker;
+
+  const [editMode, setEditMode] = useState(false);
+  const editing = stickerTab && editMode;
+  const [panel, setPanel] = useState<BoardPanel>();
+  const [menu, setMenu] = useState<BoardMenuState>();
+  const [renaming, setRenaming] = useState<StickerRef>();
+  const [renamingPack, setRenamingPack] = useState<string>();
+  const [toast, setToast] = useState<BoardToastData>();
 
   const previewAtom = useMemo(
     () => createPreviewDataAtom(emojiTab ? DefaultEmojiPreview : undefined),
@@ -415,9 +468,245 @@ export function EmojiBoard({
   const activeGroupIdAtom = useMemo(() => atom<string | undefined>(undefined), []);
   const setActiveGroupId = useSetAtom(activeGroupIdAtom);
   const imagePacks = useRelevantImagePacks(usage, imagePackRooms);
-  const [emojiGroupItems, stickerGroupItems] = useGroups(tab, imagePacks);
+  // in edit mode, packs you can edit show even with no stickers yet, to add to them
+  const boardPacks = useMemo(() => {
+    if (!editing) return imagePacks;
+    const shown = new Set(imagePacks.map(packKey));
+    return imagePacks.concat(editablePacks.filter((pack) => !shown.has(packKey(pack))));
+  }, [editing, imagePacks, editablePacks]);
+  const [emojiGroupItems, stickerGroupItems] = useGroups(tab, boardPacks);
   const groups = emojiTab ? emojiGroupItems : stickerGroupItems;
   const renderItem = useItemRenderer(tab);
+
+  const packsByKey = useMemo(() => {
+    const map = new Map<string, ImagePack>();
+    boardPacks.concat(editablePacks).forEach((pack) => map.set(packKey(pack), pack));
+    return map;
+  }, [boardPacks, editablePacks]);
+  const packsById = useMemo(() => new Map(boardPacks.map((pack) => [pack.id, pack])), [boardPacks]);
+  const packOfImage = useMemo(() => {
+    const map = new Map<PackImageReader, ImagePack>();
+    if (!stickerTab) return map;
+    boardPacks.forEach((pack) =>
+      pack.getImages(ImageUsage.Sticker).forEach((image) => map.set(image, pack))
+    );
+    return map;
+  }, [stickerTab, boardPacks]);
+
+  const resolveSticker = (ref: StickerRef | undefined) => {
+    const pack = ref && packsByKey.get(ref.packKey);
+    const image = ref && pack?.images.collection.get(ref.shortcode);
+    return pack && image ? { pack, image } : undefined;
+  };
+
+  const showToast = useCallback((data: BoardToastData) => setToast(data), []);
+  useEffect(() => {
+    if (!toast || toast.critical) return undefined;
+    const timer = window.setTimeout(
+      () => setToast((t) => (t === toast ? undefined : t)),
+      UNDO_TOAST_MS
+    );
+    return () => window.clearTimeout(timer);
+  }, [toast]);
+
+  const closeAll = () => {
+    setPanel(undefined);
+    setMenu(undefined);
+    setRenaming(undefined);
+    setRenamingPack(undefined);
+  };
+
+  const handleDeleteSticker = (pack: ImagePack, image: PackImageReader) => {
+    const { address } = pack;
+    const { shortcode, content } = image;
+    setMenu(undefined);
+    setRenaming(undefined);
+    updatePack(mx, address, (c) => withoutImage(c, shortcode)).then(
+      () =>
+        showToast({
+          message: `Deleted “${shortcode}”`,
+          onUndo: async () => {
+            await updatePack(mx, address, (c) => {
+              const isTaken = (sc: string) => !!c.images?.[sc];
+              return withImage(
+                c,
+                isTaken(shortcode) ? suffixRename(shortcode, isTaken) : shortcode,
+                content
+              );
+            });
+          },
+        }),
+      (err) =>
+        showToast({
+          message: `Couldn’t delete “${shortcode}”${
+            err instanceof Error ? `: ${err.message}` : ''
+          }`,
+          critical: true,
+        })
+    );
+  };
+
+  const boardRef = useRef<HTMLDivElement>(null);
+  const anchorAt = (x: number, y: number): BoardAnchor => {
+    const rect = boardRef.current?.getBoundingClientRect();
+    return { x: x - (rect?.left ?? 0), y: y - (rect?.top ?? 0) };
+  };
+  const anchorBelow = (el: Element): BoardAnchor => {
+    const rect = el.getBoundingClientRect();
+    return anchorAt(rect.left, rect.bottom);
+  };
+
+  const openStickerMenu = (el: Element, point?: { x: number; y: number }) => {
+    const ref = {
+      packKey: el.getAttribute('data-pack-key') ?? '',
+      shortcode: el.getAttribute('data-emoji-shortcode') ?? '',
+    };
+    if (!resolveSticker(ref)) return;
+    const rect = el.getBoundingClientRect();
+    // a keyboard-opened menu has no pointer position
+    const anchor =
+      point && (point.x !== 0 || point.y !== 0)
+        ? anchorAt(point.x, point.y)
+        : anchorAt(rect.left + rect.width / 2, rect.top + rect.height / 2);
+    setMenu({ kind: 'sticker', ...ref, anchor });
+  };
+
+  // long-press (touch) and right-click (or the context-menu key) open the sticker menu
+  const STICKER_SELECTOR = `button[data-emoji-type="${EmojiType.Sticker}"]`;
+  const pressRef = useRef<{ timer: number; x: number; y: number }>();
+  const suppressClickRef = useRef(false);
+  const cancelPress = () => {
+    if (pressRef.current) window.clearTimeout(pressRef.current.timer);
+    pressRef.current = undefined;
+  };
+  useEffect(() => cancelPress, []);
+  const handlePointerDown: PointerEventHandler = (evt) => {
+    suppressClickRef.current = false;
+    cancelPress();
+    if (evt.pointerType === 'mouse') return;
+    const el = targetFromEvent(evt.nativeEvent, STICKER_SELECTOR);
+    if (!el) return;
+    const { clientX: x, clientY: y } = evt;
+    pressRef.current = {
+      x,
+      y,
+      timer: window.setTimeout(() => {
+        pressRef.current = undefined;
+        // the tap that ends this press must not also send the sticker
+        suppressClickRef.current = true;
+        openStickerMenu(el, { x, y });
+      }, LONG_PRESS_MS),
+    };
+  };
+  const handlePointerMove: PointerEventHandler = (evt) => {
+    const press = pressRef.current;
+    if (press && Math.hypot(evt.clientX - press.x, evt.clientY - press.y) > 10) cancelPress();
+  };
+  const handleContextMenu: MouseEventHandler = (evt) => {
+    const el = targetFromEvent(evt.nativeEvent, STICKER_SELECTOR);
+    if (!el) return;
+    evt.preventDefault();
+    cancelPress();
+    openStickerMenu(el, { x: evt.clientX, y: evt.clientY });
+  };
+  const handleItemKeyDown: KeyboardEventHandler = (evt) => {
+    if (!isKeyHotkey('shift+f10', evt) && evt.key !== 'ContextMenu') return;
+    const el = targetFromEvent(evt.nativeEvent, STICKER_SELECTOR);
+    if (!el) return;
+    evt.preventDefault();
+    openStickerMenu(el);
+  };
+  const stickerHandlers: DOMAttributes<HTMLDivElement> = {
+    onPointerDown: handlePointerDown,
+    onPointerMove: handlePointerMove,
+    onPointerUp: cancelPress,
+    onPointerCancel: cancelPress,
+    onContextMenu: handleContextMenu,
+    onKeyDown: handleItemKeyDown,
+  };
+
+  const renderSticker = (image: PackImageReader, index: number) => {
+    const pack = packOfImage.get(image);
+    const key = pack ? packKey(pack) : undefined;
+    const editable = !!pack && key !== undefined && editableKeys.has(key);
+    const item = (
+      <StickerItem
+        key={image.shortcode + index}
+        mx={mx}
+        useAuthentication={useAuthentication}
+        image={image}
+        packKey={key}
+        label={editing && editable ? `Rename ${image.shortcode}` : undefined}
+      />
+    );
+    if (!editing || !editable || !pack) return item;
+    return (
+      <div key={image.shortcode + index} className={css.StickerEditItem}>
+        {item}
+        <button
+          type="button"
+          className={css.StickerDeleteBadge}
+          aria-label={`Delete ${image.shortcode}`}
+          title={`Delete ${image.shortcode}`}
+          onClick={(evt) => {
+            evt.stopPropagation();
+            handleDeleteSticker(pack, image);
+          }}
+        >
+          <Icon size="50" src={Icons.Cross} />
+        </button>
+      </div>
+    );
+  };
+  const renderBoardItem = stickerTab
+    ? (item: IEmoji | PackImageReader, index: number) =>
+        'unicode' in item ? renderItem(item, index) : renderSticker(item, index)
+    : renderItem;
+
+  const isViewOnly = (groupId: string) => {
+    const pack = packsById.get(groupId);
+    return !!pack && !editableKeys.has(packKey(pack));
+  };
+
+  const renderGroupActions = (groupId: string) => {
+    if (!editing) return undefined;
+    const pack = packsById.get(groupId);
+    if (!pack) return undefined;
+    const key = packKey(pack);
+    if (!editableKeys.has(key)) {
+      return (
+        <Text size="T200" priority="300">
+          view only
+        </Text>
+      );
+    }
+    const label = getPackLabel(mx, pack);
+    return (
+      <>
+        <Chip
+          variant="Secondary"
+          radii="Pill"
+          before={<Icon size="50" src={Icons.Plus} />}
+          aria-label={`Add stickers to ${label}`}
+          onClick={() => setPanel({ kind: 'add', packKey: key })}
+        >
+          <Text size="B300">Add</Text>
+        </Chip>
+        <IconButton
+          size="300"
+          radii="Pill"
+          variant="Secondary"
+          aria-label={`${label} pack actions`}
+          aria-haspopup="dialog"
+          onClick={(evt: React.MouseEvent<HTMLButtonElement>) =>
+            setMenu({ kind: 'pack', packKey: key, anchor: anchorBelow(evt.currentTarget) })
+          }
+        >
+          <Icon size="100" src={Icons.HorizontalDots} />
+        </IconButton>
+      </>
+    );
+  };
 
   const searchList = useMemo(() => {
     let list: Array<PackImageReader | IEmoji> = [];
@@ -457,9 +746,23 @@ export function EmojiBoard({
   const vItems = virtualizer.getVirtualItems();
 
   const handleGroupItemClick: MouseEventHandler = (evt) => {
+    if (suppressClickRef.current) {
+      suppressClickRef.current = false;
+      return;
+    }
     const targetEl = targetFromEvent(evt.nativeEvent, 'button');
     const emojiInfo = targetEl && getEmojiItemInfo(targetEl);
     if (!emojiInfo) return;
+
+    if (editing && emojiInfo.type === EmojiType.Sticker) {
+      // in edit mode a tap renames instead of sending
+      const key = targetEl.getAttribute('data-pack-key');
+      if (key !== null && editableKeys.has(key)) {
+        setRenamingPack(undefined);
+        setRenaming({ packKey: key, shortcode: emojiInfo.shortcode });
+      }
+      return;
+    }
 
     if (emojiInfo.type === EmojiType.Emoji) {
       onEmojiSelect?.(emojiInfo.data, emojiInfo.shortcode);
@@ -514,6 +817,160 @@ export function EmojiBoard({
     }
   }, [tab, virtualizer, groups]);
 
+  const renderRenameBar = () => {
+    if (!stickerTab) return null;
+    const sticker = resolveSticker(renaming);
+    if (sticker) {
+      const { pack, image } = sticker;
+      return (
+        <BoardBar
+          key={`sticker-${packKey(pack)}-${image.shortcode}`}
+          before={
+            <img
+              className={css.BoardBarImg}
+              src={mxcUrlToHttp(mx, image.url, useAuthentication) ?? ''}
+              alt=""
+            />
+          }
+          title={`Rename sticker in ${getPackLabel(mx, pack)}`}
+        >
+          <NameField
+            defaultValue={image.shortcode}
+            label="Sticker name"
+            normalize={normalizeShortcode}
+            validate={(name) =>
+              shortcodeError(name, (sc) => sc !== image.shortcode && pack.images.collection.has(sc))
+            }
+            onSave={async (name) => {
+              await updatePack(mx, pack.address, (c) => withRenamedImage(c, image.shortcode, name));
+              setRenaming(undefined);
+            }}
+            onCancel={() => setRenaming(undefined)}
+          />
+        </BoardBar>
+      );
+    }
+    const pack = renamingPack !== undefined ? packsByKey.get(renamingPack) : undefined;
+    if (pack) {
+      const current = pack.meta.name ?? getPackLabel(mx, pack);
+      return (
+        <BoardBar key={`pack-${packKey(pack)}`} title="Rename pack">
+          <NameField
+            defaultValue={current}
+            label="Pack name"
+            validate={(name) => (name ? undefined : 'Name can’t be empty')}
+            onSave={async (name) => {
+              await updatePack(mx, pack.address, (c) => withPackName(c, name));
+              setRenamingPack(undefined);
+            }}
+            onCancel={() => setRenamingPack(undefined)}
+          />
+        </BoardBar>
+      );
+    }
+    return null;
+  };
+
+  const renderMenu = () => {
+    if (!stickerTab || !menu) return null;
+    const close = () => setMenu(undefined);
+    if (menu.kind === 'sticker') {
+      const sticker = resolveSticker(menu);
+      if (!sticker) return null;
+      const { pack, image } = sticker;
+      return (
+        <BoardMenu anchor={menu.anchor} label={`${image.shortcode} sticker`} onClose={close}>
+          <StickerMenu
+            pack={pack}
+            image={image}
+            editable={editableKeys.has(menu.packKey)}
+            targets={editablePacks.filter((p) => packKey(p) !== menu.packKey)}
+            onRename={() => {
+              close();
+              setRenamingPack(undefined);
+              setRenaming({ packKey: menu.packKey, shortcode: image.shortcode });
+            }}
+            onDelete={() => handleDeleteSticker(pack, image)}
+            onDone={(data) => {
+              close();
+              showToast(data);
+            }}
+          />
+        </BoardMenu>
+      );
+    }
+    const pack = packsByKey.get(menu.packKey);
+    if (!pack) return null;
+    return (
+      <BoardMenu anchor={menu.anchor} label={`${getPackLabel(mx, pack)} pack`} onClose={close}>
+        <PackMenu
+          pack={pack}
+          onRename={() => {
+            close();
+            setRenaming(undefined);
+            setRenamingPack(menu.packKey);
+          }}
+          onDelete={() => {
+            close();
+            setPanel({ kind: 'deletePack', packKey: menu.packKey });
+          }}
+          onNewPack={() => {
+            close();
+            setPanel({ kind: 'newPack' });
+          }}
+        />
+      </BoardMenu>
+    );
+  };
+
+  const renderPanel = () => {
+    if (!stickerTab || !panel) return null;
+    if (panel.kind === 'add') {
+      return (
+        <AddToPack
+          packs={editablePacks}
+          initialPackKey={panel.packKey}
+          onDone={(count, pack) => {
+            setPanel(undefined);
+            showToast({
+              message: `Added ${count} sticker${count === 1 ? '' : 's'} to ${getPackLabel(
+                mx,
+                pack
+              )}`,
+            });
+          }}
+          onCancel={() => setPanel(undefined)}
+        />
+      );
+    }
+    if (panel.kind === 'newPack') {
+      return (
+        <NewPackForm
+          boardRoomIds={boardRoomIds}
+          onCreated={(name) => {
+            setPanel(undefined);
+            showToast({ message: `Created pack “${name}”` });
+          }}
+          onCancel={() => setPanel(undefined)}
+        />
+      );
+    }
+    const pack = packsByKey.get(panel.packKey);
+    if (!pack?.address) return null;
+    return (
+      <DeletePackConfirm
+        pack={pack}
+        address={pack.address}
+        onDeleted={() => {
+          setPanel(undefined);
+          showToast({ message: `Deleted pack “${getPackLabel(mx, pack)}”` });
+        }}
+        onCancel={() => setPanel(undefined)}
+      />
+    );
+  };
+  const panelView = renderPanel();
+
   return (
     <FocusTrap
       focusTrapOptions={{
@@ -530,6 +987,8 @@ export function EmojiBoard({
       }}
     >
       <EmojiBoardLayout
+        ref={boardRef}
+        className={css.BoardRoot}
         header={
           <Box direction="Column" gap="200">
             {onTabChange && <EmojiBoardTabs tab={tab} onTabChange={onTabChange} />}
@@ -543,17 +1002,20 @@ export function EmojiBoard({
                   onTextCustomEmojiSelect={handleTextCustomEmojiSelect}
                 />
               </Box>
-              {tab === EmojiBoardTab.Sticker && (
+              {stickerTab && (
                 <IconButton
-                  variant="SurfaceVariant"
+                  variant={editMode ? 'Primary' : 'SurfaceVariant'}
                   size="400"
                   radii="300"
-                  aria-label="Add stickers to a pack"
-                  title="Add stickers to a pack"
-                  aria-pressed={addMode}
-                  onClick={() => setAddMode((a) => !a)}
+                  aria-label="Edit stickers"
+                  title="Edit stickers"
+                  aria-pressed={editMode}
+                  onClick={() => {
+                    closeAll();
+                    setEditMode((e) => !e);
+                  }}
                 >
-                  <Icon size="200" src={Icons.Plus} />
+                  <Icon size="200" src={Icons.Pencil} />
                 </IconButton>
               )}
             </Box>
@@ -569,64 +1031,84 @@ export function EmojiBoard({
           ) : (
             <StickerSidebar
               activeGroupAtom={activeGroupIdAtom}
-              packs={imagePacks}
+              packs={boardPacks}
               onScrollToGroup={handleScrollToGroup}
             />
           )
         }
       >
-        {tab === EmojiBoardTab.Sticker && addMode ? (
-          <AddToPack
-            mx={mx}
-            packs={editablePacks}
-            onDone={() => setAddMode(false)}
-            onCancel={() => setAddMode(false)}
-          />
-        ) : (
-          <Box grow="Yes">
-            <EmojiGroupHolder
-              key={tab}
-              contentScrollRef={contentScrollRef}
-              previewAtom={previewAtom}
-              onGroupItemClick={handleGroupItemClick}
-            >
-              {searchedItems && (
-                <EmojiGroup
-                  id={SEARCH_GROUP_ID}
-                  label={searchedItems.length ? 'Search Results' : 'No Results found'}
-                >
-                  {searchedItems.map(renderItem)}
-                </EmojiGroup>
-              )}
-              <div
-                ref={virtualBaseRef}
-                style={{
-                  position: 'relative',
-                  height: virtualizer.getTotalSize(),
-                }}
+        {panelView ?? (
+          <>
+            {renderRenameBar()}
+            <Box grow="Yes">
+              <EmojiGroupHolder
+                key={tab}
+                contentScrollRef={contentScrollRef}
+                previewAtom={previewAtom}
+                onGroupItemClick={handleGroupItemClick}
+                itemHandlers={stickerTab ? stickerHandlers : undefined}
               >
-                {vItems.map((vItem) => {
-                  const group = groups[vItem.index];
+                {searchedItems && (
+                  <EmojiGroup
+                    id={SEARCH_GROUP_ID}
+                    label={searchedItems.length ? 'Search Results' : 'No Results found'}
+                  >
+                    {searchedItems.map(renderBoardItem)}
+                  </EmojiGroup>
+                )}
+                <div
+                  ref={virtualBaseRef}
+                  style={{
+                    position: 'relative',
+                    height: virtualizer.getTotalSize(),
+                  }}
+                >
+                  {vItems.map((vItem) => {
+                    const group = groups[vItem.index];
+                    const actions = renderGroupActions(group.id);
 
-                  return (
-                    <VirtualTile
-                      virtualItem={vItem}
-                      style={{ paddingTop: config.space.S200 }}
-                      ref={virtualizer.measureElement}
-                      key={vItem.index}
+                    return (
+                      <VirtualTile
+                        virtualItem={vItem}
+                        style={{ paddingTop: config.space.S200 }}
+                        ref={virtualizer.measureElement}
+                        key={vItem.index}
+                      >
+                        <EmojiGroup
+                          key={group.id}
+                          id={group.id}
+                          label={group.name}
+                          after={actions}
+                          dimmed={editing && isViewOnly(group.id)}
+                        >
+                          {group.items.map(renderBoardItem)}
+                        </EmojiGroup>
+                      </VirtualTile>
+                    );
+                  })}
+                </div>
+                {editing && (
+                  <Box justifyContent="Center" style={{ padding: config.space.S300 }}>
+                    <Button
+                      variant="Secondary"
+                      fill="Soft"
+                      size="300"
+                      radii="300"
+                      before={<Icon size="100" src={Icons.Plus} />}
+                      onClick={() => setPanel({ kind: 'newPack' })}
                     >
-                      <EmojiGroup key={group.id} id={group.id} label={group.name}>
-                        {group.items.map(renderItem)}
-                      </EmojiGroup>
-                    </VirtualTile>
-                  );
-                })}
-              </div>
-              {tab === EmojiBoardTab.Sticker && groups.length === 0 && <NoStickerPacks />}
-            </EmojiGroupHolder>
-          </Box>
+                      <Text size="B300">New pack</Text>
+                    </Button>
+                  </Box>
+                )}
+                {stickerTab && groups.length === 0 && <NoStickerPacks />}
+              </EmojiGroupHolder>
+            </Box>
+          </>
         )}
+        {stickerTab && toast && <BoardToast toast={toast} onDismiss={() => setToast(undefined)} />}
         <Preview previewAtom={previewAtom} />
+        {renderMenu()}
       </EmojiBoardLayout>
     </FocusTrap>
   );
