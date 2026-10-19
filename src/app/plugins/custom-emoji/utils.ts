@@ -92,8 +92,10 @@ export function getUserImagePack(mx: MatrixClient): ImagePack | undefined {
  * Stable key of a pack across edits. A room pack's id is its state event id, which changes on
  * every commit, so packs are matched by address instead. The personal pack has no address.
  */
-export const packKey = (pack: ImagePack): string =>
-  pack.address ? `${pack.address.roomId}\u0000${pack.address.stateKey}` : '';
+const addressKey = (address: PackAddress | undefined): string =>
+  address ? JSON.stringify([address.roomId, address.stateKey]) : '';
+
+export const packKey = (pack: ImagePack): string => addressKey(pack.address);
 
 export const getPackLabel = (mx: MatrixClient, pack: ImagePack): string =>
   pack.meta.name ||
@@ -136,9 +138,6 @@ export const withPackName = (content: PackContent, name: string): PackContent =>
   ...content,
   pack: { ...content.pack, display_name: name },
 });
-
-const addressKey = (address: PackAddress | undefined): string =>
-  address ? `${address.roomId}\u0000${address.stateKey}` : '';
 
 const readLiveEvent = (mx: MatrixClient, address: PackAddress | undefined) => {
   if (!address) return getAccountData(mx, AccountDataEvent.PoniesUserEmotes);

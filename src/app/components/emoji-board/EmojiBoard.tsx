@@ -1107,7 +1107,7 @@ export function EmojiBoard({
           </>
         )}
         {stickerTab && toast && <BoardToast toast={toast} onDismiss={() => setToast(undefined)} />}
-        <Preview previewAtom={previewAtom} />
+        {!panelView && <Preview previewAtom={previewAtom} />}
         {renderMenu()}
       </EmojiBoardLayout>
     </FocusTrap>
