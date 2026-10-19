@@ -18,6 +18,15 @@
 # - A push to any other branch is a check only: the web build and the image smoke test always,
 #   and the Android project (unit tests and an unsigned, unminified APK) only when the branch
 #   changes something native.
+# - A `merge_group` run is the house merge queue testing a train (mouseion/forgejo, README "A merge
+#   queue"): the scheduled pull requests merged onto RELEASE_BRANCH's newest commit, on the ref
+#   `refs/merge-queue/heads/dev`. It is a check, never a release: the web build and the image
+#   smoke test when the train changes any path above, the Android project when it changes
+#   something native, and never a deploy, an F-Droid publish or a tag. What it changes is the diff
+#   from the commit the train was built on (`merge_group.base_sha`). `merge_group:` takes no
+#   `paths:`, so a train of README edits gets a run too: then only `plan` runs, and passes, since a
+#   run whose every job was skipped fails the train. The release happens afterwards, as for any
+#   merge: the train lands as one push to RELEASE_BRANCH, which runs this workflow as a push.
 #
 # Android versioning is automatic, not manual tags: a release computes the next semantic version
 # from the latest `mobile-vX.Y.Z` tag and the commit messages since it. A `feat:` commit bumps
@@ -25,7 +34,8 @@
 # anything else (including this project's own informal `mobile: ...`/`web: ...` commits) bumps
 # patch. The git tag itself is best-effort (see "Tag this release" below): it is never what
 # triggers a release, only a record of one after the fact. versionCode is the Forgejo run number,
-# which only ever increases, as F-Droid requires to offer the update. Release builds are
+# which only ever increases, as F-Droid requires to offer the update. Branch pushes and trains
+# use run numbers too, so releases skip numbers; nothing needs them consecutive. Release builds are
 # R8-minified; the mapping is uploaded as an artifact so release crashes can be decoded.
 #
 # The web deploy follows the hub's one-build-and-deploy pattern (mouseion/hub ADR-0005), plus the
@@ -76,13 +86,20 @@ on:
         'mobile/**',
         '.forgejo/workflows/build.yml',
       ]
+  # Turns the house merge queue on for dev. Takes `branches:` only, no `paths:`.
+  merge_group:
+    branches: [dev]
   workflow_dispatch:
 
 # On a branch a newer push makes an older run moot. On dev every run finishes: a release is not
-# cancelled half-published, and deploys land in the order of the pushes.
+# cancelled half-published, and deploys land in the order of the pushes. A train's run finishes
+# too, queued behind the one before it: the queue tests one train at a time, so a second run is
+# only a train built again, and a cancelled run counts as a failure that takes the pull requests
+# out of the queue. Trains have their own group (the ref is refs/merge-queue/heads/dev), so they
+# never wait on dev's releases.
 concurrency:
   group: build-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/dev' }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/dev' && github.event_name != 'merge_group' }}
 
 env:
   IMAGE: forgejo.example.net/mouseion/iris-web
@@ -97,6 +114,7 @@ jobs:
       run:
         shell: bash
     outputs:
+      build: ${{ steps.what.outputs.build }}
       deploy: ${{ steps.what.outputs.deploy }}
       android: ${{ steps.what.outputs.android }}
       publish: ${{ steps.what.outputs.publish }}
@@ -106,13 +124,21 @@ jobs:
       - uses: actions/checkout@v4
         with:
           # Full history and tags: the diff below and the version step need the commits and every
-          # `mobile-v*` tag, which a shallow clone would not have.
-          fetch-depth: 0
+          # `mobile-v*` tag, which a shallow clone would not have. A train's commit is on no branch,
+          # and at depth 0 the action fetches branches and tags only, so a train checks out its
+          # commit alone and fetches the history in the next step (mouseion/forgejo README, "A
+          # merge queue").
+          fetch-depth: ${{ github.event_name == 'merge_group' && 1 || 0 }}
+
+      - name: History of a train
+        if: github.event_name == 'merge_group'
+        run: git fetch --unshallow --no-tags origin '+refs/heads/*:refs/remotes/origin/*'
 
       - name: What this push does
         id: what
         env:
           BEFORE: ${{ github.event.before }}
+          BASE: ${{ github.event.merge_group.base_sha }}
         run: |
           set -euo pipefail
           # Served by the web client.
@@ -122,8 +148,18 @@ jobs:
           # What Gradle compiles or packages besides the web build.
           native='^(mobile/android/|capacitor\.config\.ts$|package\.json$|package-lock\.json$|scripts/mobile-bundle\.js$|\.forgejo/workflows/build\.yml$)'
 
-          deploy=false; android=false; publish=false
-          if [[ "$GITHUB_REF" == "refs/heads/$RELEASE_BRANCH" ]]; then
+          # `build` is false only for a train that changes none of these paths. A push or "Run
+          # workflow" always builds: `push.paths` already left out the pushes that change none.
+          build=true; deploy=false; android=false; publish=false
+          if [[ "$GITHUB_EVENT_NAME" == "merge_group" ]]; then
+            # A train: what it brings in since the commit of RELEASE_BRANCH it was built on.
+            # Without that commit, everything counts. Never a deploy or a release.
+            if [[ ! "$BASE" =~ ^[0-9a-f]+$ ]] || ! changed="$(git diff --name-only "$BASE" "$GITHUB_SHA" 2>/dev/null)"; then
+              changed="$(git ls-files)"
+            fi
+            if ! grep -qE "$web|$app" <<< "$changed"; then build=false; fi
+            if grep -qE "$native" <<< "$changed"; then android=true; fi
+          elif [[ "$GITHUB_REF" == "refs/heads/$RELEASE_BRANCH" ]]; then
             if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
               deploy=true
             else
@@ -139,8 +175,8 @@ jobs:
             changed="$(git diff --name-only "origin/$RELEASE_BRANCH...HEAD")"
             if grep -qE "$native" <<< "$changed"; then android=true; fi
           fi
-          echo "deploy=$deploy android=$android publish=$publish"
-          { echo "deploy=$deploy"; echo "android=$android"; echo "publish=$publish"; } >> "$GITHUB_OUTPUT"
+          echo "build=$build deploy=$deploy android=$android publish=$publish"
+          { echo "build=$build"; echo "deploy=$deploy"; echo "android=$android"; echo "publish=$publish"; } >> "$GITHUB_OUTPUT"
 
       - name: Version — the next semantic release, or a build-only marker
         id: ver
@@ -186,6 +222,7 @@ jobs:
 
   bundle:
     needs: [plan]
+    if: needs.plan.outputs.build == 'true'
     runs-on: builder-docker
     steps:
       - uses: actions/checkout@v4
@@ -235,7 +272,7 @@ jobs:
           path: android-inputs.tgz
 
       - name: Push
-        if: needs.plan.outputs.deploy == 'true'
+        if: needs.plan.outputs.deploy == 'true' && github.event_name != 'merge_group'
         run: |
           set -euo pipefail
           docker tag "$IMAGE:${GITHUB_SHA:0:7}" "$IMAGE:latest"
@@ -244,7 +281,8 @@ jobs:
 
   deploy:
     needs: [plan, bundle]
-    if: needs.plan.outputs.deploy == 'true'
+    # `plan` never says deploy for a train; said again here because this job changes what is live.
+    if: needs.plan.outputs.deploy == 'true' && github.event_name != 'merge_group'
     runs-on: homeserver
     env:
       COMPOSE_FILE: /home/user/homeserver/docker-compose.yml
@@ -373,7 +411,7 @@ jobs:
       # checkout's token turns out not to have push access on this instance, this step fails
       # loudly in the log but never fails the run.
       - name: Tag this release in git (best-effort)
-        if: needs.plan.outputs.publish == 'true'
+        if: needs.plan.outputs.publish == 'true' && github.event_name != 'merge_group'
         continue-on-error: true
         run: |
           set -euo pipefail
@@ -401,7 +439,8 @@ jobs:
 
   publish-fdroid:
     needs: [plan, apk]
-    if: needs.plan.outputs.publish == 'true'
+    # As for `deploy`: `plan` never says publish for a train.
+    if: needs.plan.outputs.publish == 'true' && github.event_name != 'merge_group'
     runs-on: homeserver
     env:
       APPDATA: /srv/data/appdata

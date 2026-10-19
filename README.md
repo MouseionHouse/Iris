@@ -43,6 +43,8 @@ One workflow does it all: [`.forgejo/workflows/build.yml`](.forgejo/workflows/bu
 
 `dev` is the one trunk. Changes that touch only `design/` or docs build nothing.
 
+Pull requests into `dev` merge through the house merge queue: "Merge when ready" (`fj pr merge --auto`, merge commit). The queue tests the scheduled pull requests together on what `dev` will be, as a `merge_group` run that checks the build only, never deploys or publishes, and then lands them with one push to `dev`, which releases as above.
+
 Homeservers are set in [`config.json`](config.json) for the web and [`config.mobile.json`](config.mobile.json) for the Android app.
 
 ## Design
