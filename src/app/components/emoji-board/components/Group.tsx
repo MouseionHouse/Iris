@@ -11,24 +11,50 @@ export const EmojiGroup = as<
     id: string;
     label: string;
     children: ReactNode;
+    /** Actions beside the label; the label then sits at the start of the header. */
+    after?: ReactNode;
+    dimmed?: boolean;
   }
->(({ className, id, label, children, ...props }, ref) => (
-  <Box
-    id={getDOMGroupId(id)}
-    data-group-id={id}
-    className={classNames(css.EmojiGroup, className)}
-    direction="Column"
-    gap="200"
-    {...props}
-    ref={ref}
-  >
-    <Text id={`EmojiGroup-${id}-label`} as="label" className={css.EmojiGroupLabel} size="O400">
+>(({ className, id, label, children, after, dimmed, ...props }, ref) => {
+  const labelEl = (
+    <Text
+      id={`EmojiGroup-${id}-label`}
+      as="label"
+      className={after ? css.EmojiGroupHeaderLabel : css.EmojiGroupLabel}
+      size="O400"
+      truncate={!!after}
+    >
       {label}
     </Text>
-    <div aria-labelledby={`EmojiGroup-${id}-label`} className={css.EmojiGroupContent}>
-      <Box wrap="Wrap" justifyContent="Center">
-        {children}
-      </Box>
-    </div>
-  </Box>
-));
+  );
+
+  return (
+    <Box
+      id={getDOMGroupId(id)}
+      data-group-id={id}
+      className={classNames(css.EmojiGroup, className)}
+      direction="Column"
+      gap="200"
+      {...props}
+      ref={ref}
+    >
+      {after ? (
+        <Box className={css.EmojiGroupHeader} alignItems="Center" gap="100">
+          {labelEl}
+          <Box grow="Yes" />
+          {after}
+        </Box>
+      ) : (
+        labelEl
+      )}
+      <div
+        aria-labelledby={`EmojiGroup-${id}-label`}
+        className={classNames(css.EmojiGroupContent, dimmed && css.EmojiGroupDimmed)}
+      >
+        <Box wrap="Wrap" justifyContent="Center">
+          {children}
+        </Box>
+      </div>
+    </Box>
+  );
+});

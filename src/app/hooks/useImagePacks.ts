@@ -2,7 +2,9 @@ import { Room } from 'matrix-js-sdk';
 import { useCallback, useMemo, useState } from 'react';
 import { AccountDataEvent } from '../../types/matrix/accountData';
 import { StateEvent } from '../../types/matrix/room';
+import { getAccountData } from '../utils/room';
 import {
+  EmoteRoomsContent,
   getGlobalImagePacks,
   getRoomImagePack,
   getRoomImagePacks,
@@ -57,10 +59,16 @@ export const useGlobalImagePacks = (): ImagePack[] => {
         const roomId = mEvent.getRoomId();
         const stateKey = mEvent.getStateKey();
         if (eventType === StateEvent.PoniesRoomEmotes && roomId && typeof stateKey === 'string') {
-          const global = !!globalPacks.find(
-            (pack) =>
-              pack.address && pack.address.roomId === roomId && pack.address.stateKey === stateKey
-          );
+          // a pack turned on before its state event arrived isn't in globalPacks yet
+          const emoteRooms = getAccountData(mx, AccountDataEvent.PoniesEmoteRooms)?.getContent() as
+            | EmoteRoomsContent
+            | undefined;
+          const global =
+            !!emoteRooms?.rooms?.[roomId]?.[stateKey] ||
+            !!globalPacks.find(
+              (pack) =>
+                pack.address && pack.address.roomId === roomId && pack.address.stateKey === stateKey
+            );
           if (global) {
             setGlobalPacks(getGlobalImagePacks(mx));
           }

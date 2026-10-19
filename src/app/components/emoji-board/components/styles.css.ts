@@ -139,6 +139,10 @@ export const StickerItem = style([
   {
     width: toRem(112),
     height: toRem(112),
+    // a long-press opens the sticker menu, not the browser's image callout
+    userSelect: 'none',
+    WebkitUserSelect: 'none',
+    WebkitTouchCallout: 'none',
   },
 ]);
 
@@ -159,3 +163,88 @@ export const StickerImg = style([
     objectFit: 'contain',
   },
 ]);
+
+/**
+ * Sticker management
+ */
+
+export const BoardRoot = style({
+  position: 'relative',
+});
+
+export const EmojiGroupHeader = style({
+  position: 'sticky',
+  top: config.space.S200,
+  zIndex: 1,
+  padding: `0 ${config.space.S200}`,
+});
+
+export const EmojiGroupHeaderLabel = style({
+  minWidth: 0,
+  padding: `${config.space.S100} ${config.space.S200}`,
+  borderRadius: config.radii.Pill,
+  backgroundColor: color.SurfaceVariant.Container,
+  color: color.SurfaceVariant.OnContainer,
+});
+
+export const EmojiGroupDimmed = style({
+  opacity: 0.55,
+});
+
+export const StickerEditItem = style({
+  position: 'relative',
+});
+
+export const StickerDeleteBadge = style([
+  DefaultReset,
+  FocusOutline,
+  {
+    position: 'absolute',
+    top: config.space.S100,
+    right: config.space.S100,
+    width: toRem(24),
+    height: toRem(24),
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: config.radii.Pill,
+    backgroundColor: color.Critical.Main,
+    color: color.Critical.OnMain,
+    boxShadow: config.shadow.E100,
+    cursor: 'pointer',
+  },
+]);
+
+export const BoardBar = style({
+  padding: config.space.S200,
+  margin: `${config.space.S200} ${config.space.S300} 0`,
+  borderRadius: config.radii.R400,
+  backgroundColor: color.SurfaceVariant.Container,
+  color: color.SurfaceVariant.OnContainer,
+});
+
+export const BoardBarImg = style([
+  DefaultReset,
+  {
+    width: toRem(32),
+    height: toRem(32),
+    objectFit: 'contain',
+  },
+]);
+
+export const BoardMenuBackdrop = style({
+  position: 'absolute',
+  inset: 0,
+  zIndex: 2,
+  backgroundColor: 'rgba(0, 0, 0, 0.2)',
+});
+
+export const BoardMenu = style({
+  position: 'absolute',
+  zIndex: 3,
+  width: toRem(240),
+  maxWidth: `calc(100% - 2 * ${config.space.S200})`,
+  maxHeight: `calc(100% - 2 * ${config.space.S200})`,
+  overflowY: 'auto',
+  padding: config.space.S100,
+});

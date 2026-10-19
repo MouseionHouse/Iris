@@ -78,9 +78,12 @@ type StickerItemProps = {
   mx: MatrixClient;
   useAuthentication?: boolean;
   image: PackImageReader;
+  /** `packKey` of the pack the sticker is in, read back by the sticker menu. */
+  packKey?: string;
+  label?: string;
 };
 
-export function StickerItem({ mx, useAuthentication, image }: StickerItemProps) {
+export function StickerItem({ mx, useAuthentication, image, packKey, label }: StickerItemProps) {
   return (
     <Box
       as="button"
@@ -89,10 +92,11 @@ export function StickerItem({ mx, useAuthentication, image }: StickerItemProps) 
       justifyContent="Center"
       className={css.StickerItem}
       title={image.body || image.shortcode}
-      aria-label={`${image.body || image.shortcode} emoji`}
+      aria-label={label ?? `${image.body || image.shortcode} emoji`}
       data-emoji-type={EmojiType.Sticker}
       data-emoji-data={image.url}
       data-emoji-shortcode={image.shortcode}
+      data-pack-key={packKey}
     >
       <img
         loading="lazy"
