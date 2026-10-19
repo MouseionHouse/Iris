@@ -268,7 +268,17 @@ function UploadTile({
     }
     tile.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     setAnchor(tile.getBoundingClientRect());
-  }, [menuOpen]);
+    // opened by a blocked send, the text field still has focus, and Escape (so Android back)
+    // leaves menus alone there: put the keyboard away so the sheet can be closed
+    const active = document.activeElement;
+    if (
+      screenSize === ScreenSize.Mobile &&
+      active instanceof HTMLElement &&
+      active.isContentEditable
+    ) {
+      active.blur();
+    }
+  }, [menuOpen, screenSize]);
 
   const isMedia =
     fileItem.originalFile.type.startsWith('image') ||
@@ -286,7 +296,7 @@ function UploadTile({
       </>
     );
   } else if (upload.status === UploadStatus.Error) {
-    status = `Upload failed: ${upload.error.message}`;
+    status = `Upload failed: ${upload.error.data.error ?? upload.error.message}`;
   } else if (upload.status === UploadStatus.Success) {
     status = `Uploaded · ${bytesToSize(file.size)}`;
   } else {
@@ -435,7 +445,7 @@ function UploadTile({
           content={
             <FocusTrap
               focusTrapOptions={{
-                initialFocus: false,
+                // the first item: a menu opened from the text field must take the keyboard
                 onDeactivate: () => onMenuOpen(false),
                 clickOutsideDeactivates: true,
                 isKeyForward: (evt: KeyboardEvent) => evt.key === 'ArrowDown',
