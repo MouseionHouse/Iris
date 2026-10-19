@@ -89,8 +89,10 @@ def main():
     badge(logo, (0, 166, 99, 255)).save(pub / "res/iris-logo-unread.png")
     badge(logo, (200, 16, 16, 255)).save(pub / "res/iris-logo-highlight.png")
     fit(light, 64).save(pub / "favicon.ico", sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (64, 64)])
+    # The PWA icon is the lone mark, not over the tile: the night colours on a clear ground. The
+    # tile stays with the native app icon (ic_launcher) and the apple touch icons.
     for f in sorted((pub / "res/android").glob("android-chrome-*.png")):
-        fit(icon, int(re.search(r"(\d+)x", f.name).group(1))).save(f)
+        fit(dark, int(re.search(r"(\d+)x", f.name).group(1))).save(f)
     for f in sorted((pub / "res/apple").glob("apple-touch-icon-*.png")):
         size = int(re.search(r"(\d+)x", f.name).group(1))
         on(DEEP, dark, size, .684).convert("RGB").save(f)  # iOS rounds the corners itself and wants no clear pixels
