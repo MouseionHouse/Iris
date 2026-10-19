@@ -85,7 +85,7 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/dev' }}
 
 env:
-  IMAGE: forgejo.example.net/mouseion/chat-web
+  IMAGE: forgejo.example.net/mouseion/iris-web
   # The branch that deploys and releases. `dev` is the fork's one trunk (owner decision,
   # 2026-09-23), and upstream Cinny merges land there too.
   RELEASE_BRANCH: dev
@@ -204,7 +204,7 @@ jobs:
       - name: Smoke-test the image
         run: |
           set -euo pipefail
-          name="chat-web-smoke-${GITHUB_RUN_ID}"
+          name="iris-web-smoke-${GITHUB_RUN_ID}"
           trap 'docker rm -f "$name" >/dev/null 2>&1 || true' EXIT
           docker run -d --name "$name" "$IMAGE:${GITHUB_SHA:0:7}" >/dev/null
           headers=""
@@ -254,13 +254,13 @@ jobs:
       - name: Back up the compose file
         run: |
           set -euo pipefail
-          cp -a "$COMPOSE_FILE" "$COMPOSE_FILE.bak.chat-web-$(date +%Y%m%d-%H%M%S)"
-          ls -t "$COMPOSE_FILE".bak.chat-web-* | tail -n +11 | xargs -r rm --
+          cp -a "$COMPOSE_FILE" "$COMPOSE_FILE.bak.iris-web-$(date +%Y%m%d-%H%M%S)"
+          ls -t "$COMPOSE_FILE".bak.iris-web-* | tail -n +11 | xargs -r rm --
 
-      # Pin the cinny service's image line to the new tag. The pattern matches both the old
-      # locally built form (mouseion-chat-web:<sha>) and the registry form this line takes from the
-      # first automatic deploy onwards. The edit is checked in a temp file and then written back
-      # into the same file rather than renamed over it, in case anything bind-mounts this one file.
+      # Pin the cinny service's image line to the new tag. The pattern matches iris-web and the
+      # names the image had before Iris (mouseion-chat-web, chat-web), so the first deploy after the
+      # rename moves the line over. The edit is checked in a temp file and then written back into
+      # the same file rather than renamed over it, in case anything bind-mounts this one file.
       - name: Pin the cinny service to the new image
         run: |
           set -euo pipefail
@@ -268,7 +268,7 @@ jobs:
           tmp="$(mktemp "$COMPOSE_FILE.deploy-web.XXXXXX")"
           trap 'rm -f "$tmp"' EXIT
           sed -E \
-            -e "s#^([[:space:]]+image: )(mouseion-chat-web|forgejo\.example\.net/mouseion/chat-web):.*#\1$IMAGE:${sha}  \# pinned by mouseion/iris .forgejo/workflows/build.yml#" \
+            -e "s#^([[:space:]]+image: )(mouseion-chat-web|forgejo\.example\.net/mouseion/(chat|iris)-web):.*#\1$IMAGE:${sha}  \# pinned by mouseion/iris .forgejo/workflows/build.yml#" \
             "$COMPOSE_FILE" > "$tmp"
           test "$(grep -c "image: $IMAGE:${sha}  # pinned by" "$tmp")" = 1 \
             || { echo "expected exactly one cinny image line to update; aborting before touching anything" >&2; exit 1; }
