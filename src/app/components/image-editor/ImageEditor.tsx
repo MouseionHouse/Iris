@@ -394,7 +394,7 @@ export const ImageEditor = as<'div', ImageEditorProps>(
 
     const drawTools = (
       <>
-        <Box gap="200" alignItems="Center" role="group" aria-label="Pen colour">
+        <Box gap="100" alignItems="Center" role="group" aria-label="Pen colour">
           {PEN_COLORS.map((c) => (
             <button
               key={c.value}
@@ -408,7 +408,7 @@ export const ImageEditor = as<'div', ImageEditorProps>(
           ))}
         </Box>
         <span className={css.ToolDivider} />
-        <Box gap="100" alignItems="Center" role="group" aria-label="Pen size">
+        <Box gap="0" alignItems="Center" role="group" aria-label="Pen size">
           {PEN_SIZES.map((s) => (
             <button
               key={s.value}

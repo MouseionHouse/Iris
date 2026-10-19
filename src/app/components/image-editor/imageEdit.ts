@@ -360,9 +360,10 @@ const resizeLocked = (
     const roomW = handle.includes('w') ? right : bounds.width - left;
     const roomH = handle.includes('n') ? bottom : bounds.height - top;
     maxW = Math.min(roomW, roomH * aspect);
+    // the axis the pointer moved further along leads
     const byX = start.width + (handle.includes('w') ? -dx : dx);
     const byY = (start.height + (handle.includes('n') ? -dy : dy)) * aspect;
-    wantW = Math.max(byX, byY);
+    wantW = Math.abs(dx) >= Math.abs(dy * aspect) ? byX : byY;
   }
   const width = clamp(wantW, Math.min(minW, maxW), maxW);
   const height = width / aspect;

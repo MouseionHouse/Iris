@@ -191,6 +191,7 @@ export const ToolRow = style({
   minHeight: toRem(36),
   gap: config.space.S200,
   flexWrap: 'wrap',
+  rowGap: config.space.S100,
 });
 
 export const Segmented = style({
@@ -237,8 +238,8 @@ export const ToolDivider = style({
 export const Swatch = style([
   DefaultReset,
   {
-    width: toRem(30),
-    height: toRem(30),
+    width: toRem(28),
+    height: toRem(28),
     borderRadius: '50%',
     cursor: 'pointer',
     border: `${toRem(2)} solid ${color.Surface.ContainerLine}`,
@@ -259,8 +260,8 @@ export const Swatch = style([
 export const SizeButton = style([
   DefaultReset,
   {
-    width: toRem(32),
-    height: toRem(32),
+    width: toRem(30),
+    height: toRem(30),
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
