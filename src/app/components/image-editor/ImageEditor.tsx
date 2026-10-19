@@ -110,12 +110,57 @@ export type ImageEditorProps = {
   aspect?: number;
   /** shows the crop through a round mask */
   round?: boolean;
+  /** header text; defaults to "Edit image" */
+  title?: string;
+  /** false leaves out the Draw mode and its switch */
+  drawing?: boolean;
+  /** a small live preview of the result beside the crop tools */
+  preview?: boolean;
+  /** caps the longest edge of the export; a larger image is exported even when not edited */
+  maxEdge?: number;
   /** the phone layout: tools above the mode switch */
   compact?: boolean;
   /** `undefined` when the image ends up unedited */
   onDone: (result: ImageEditResult | undefined) => void;
   requestClose: () => void;
 };
+
+const PREVIEW_SIZE = 40;
+
+/** The result at avatar size, drawn by the same render function as the export. */
+function EditPreview({
+  image,
+  size,
+  edit,
+  round,
+}: {
+  image: EditImage;
+  size: Size;
+  edit: ImageEditState;
+  round?: boolean;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const dpr = window.devicePixelRatio || 1;
+  const out = editedSize(edit, size);
+  const scale = (PREVIEW_SIZE * dpr) / Math.max(out.width, out.height);
+  const width = Math.max(1, Math.round(out.width * scale));
+  const height = Math.max(1, Math.round(out.height * scale));
+  useEffect(() => {
+    const ctx = canvasRef.current?.getContext('2d');
+    if (ctx) renderEdit(ctx, image, size, edit, { scale });
+  }, [image, size, edit, scale]);
+  return (
+    <canvas
+      ref={canvasRef}
+      className={classNames(css.Preview, round && css.PreviewRound)}
+      data-testid="edit-preview"
+      width={width}
+      height={height}
+      style={{ width: width / dpr, height: height / dpr }}
+      aria-label="Preview"
+    />
+  );
+}
 
 type Drag = {
   pointerId: number;
@@ -134,6 +179,10 @@ export const ImageEditor = as<'div', ImageEditorProps>(
       initialState,
       aspect,
       round,
+      title = 'Edit image',
+      drawing = true,
+      preview,
+      maxEdge,
       compact,
       onDone,
       requestClose,
@@ -144,7 +193,8 @@ export const ImageEditor = as<'div', ImageEditorProps>(
     const [loaded, setLoaded] = useState<LoadedImage>();
     const [loadError, setLoadError] = useState(false);
     const [edit, setEdit] = useState<ImageEditState>(initialState ?? createEditState());
-    const [mode, setMode] = useState<EditorMode>('crop');
+    const [editorMode, setMode] = useState<EditorMode>('crop');
+    const mode = drawing ? editorMode : 'crop';
     const [penColor, setPenColor] = useState(PEN_COLORS[0].value);
     const [penSize, setPenSize] = useState(PEN_SIZES[1].value);
     const [exporting, setExporting] = useState(false);
@@ -344,18 +394,22 @@ export const ImageEditor = as<'div', ImageEditorProps>(
 
     const handleDone = async () => {
       if (!size || exporting) return;
-      if (!isEdited(edit, size)) {
+      if (!isEdited(edit, size) && (!maxEdge || Math.max(size.width, size.height) <= maxEdge)) {
         onDone(undefined);
         return;
       }
-      if (initialState && sameEditState(initialState, edit)) {
+      if (initialState && sameEditState(initialState, edit) && !maxEdge) {
         requestClose();
         return;
       }
       setExporting(true);
       setExportError(undefined);
       try {
-        const file = await exportEdit(source, size, edit, { name, type: source.type });
+        const file = await exportEdit(source, size, edit, {
+          name,
+          type: source.type,
+          maxEdge,
+        });
         onDone({ file, state: edit });
       } catch (err) {
         setExporting(false);
@@ -367,6 +421,9 @@ export const ImageEditor = as<'div', ImageEditorProps>(
 
     const cropTools = (
       <>
+        {preview && loaded && (
+          <EditPreview image={loaded.image} size={loaded.size} edit={edit} round={round} />
+        )}
         <Button
           size="300"
           variant="Secondary"
@@ -483,7 +540,7 @@ export const ImageEditor = as<'div', ImageEditorProps>(
               <Icon size="200" src={Icons.ArrowLeft} />
             </IconButton>
             <Text size="H4" truncate>
-              Edit image
+              {title}
             </Text>
           </Box>
           <Box shrink="No" alignItems="Center" gap="200">
@@ -600,11 +657,11 @@ export const ImageEditor = as<'div', ImageEditorProps>(
               <Box className={css.ToolRow} alignItems="Center" justifyContent="Center">
                 {tools}
               </Box>
-              <Box justifyContent="Center">{modeSwitch}</Box>
+              {drawing && <Box justifyContent="Center">{modeSwitch}</Box>}
             </>
           ) : (
             <>
-              {modeSwitch}
+              {drawing ? modeSwitch : <span />}
               <Box className={css.ToolRow} alignItems="Center" justifyContent="End">
                 {tools}
               </Box>
