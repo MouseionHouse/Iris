@@ -152,11 +152,16 @@ function ProfileAvatar({ profile, userId }: ProfileProps) {
               }}
             >
               <Modal className={ModalWide} variant="Surface" size="500">
-                <ImageEditor
-                  name={imageFile?.name ?? 'Unnamed'}
-                  url={imageFileURL}
-                  requestClose={handleRemoveUpload}
-                />
+                {imageFile && (
+                  <ImageEditor
+                    source={imageFile}
+                    name={imageFile.name}
+                    aspect={1}
+                    round
+                    onDone={handleRemoveUpload}
+                    requestClose={handleRemoveUpload}
+                  />
+                )}
               </Modal>
             </FocusTrap>
           </OverlayCenter>
