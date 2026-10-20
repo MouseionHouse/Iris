@@ -46,6 +46,7 @@ public class MouseionPushPlugin extends Plugin {
     @Override
     public void load() {
         instance = this;
+        PushNotifier.createChannel(getContext());
     }
 
     @Override
