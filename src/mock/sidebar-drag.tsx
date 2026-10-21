@@ -62,6 +62,10 @@ const room = (name: string, direct: boolean, tags: string[] = []): SidebarRoom =
   highlight: false,
 });
 
+// A plain square for every avatar; it only has to be an <img>.
+const AVATAR =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1 1'%3E%3Crect width='1' height='1' fill='%23888'/%3E%3C/svg%3E";
+
 const FAMILY = 'u.Family';
 const GARDEN = 'u.Garden';
 const START: SidebarRoom[] = [
@@ -156,26 +160,40 @@ function App() {
                     drag={drag}
                     last={i === view.rooms.length - 1}
                   >
-                    <button
-                      type="button"
+                    {/* A link with an avatar image, as RoomNavItem renders a row: both are
+                        drag sources of their own in a browser (#52). */}
+                    <a
+                      href={`#/home/${r.roomId}`}
                       data-room={r.name}
-                      onClick={() => log('open', r.roomId)}
+                      onClick={(evt) => {
+                        evt.preventDefault();
+                        log('open', r.roomId);
+                      }}
                       style={{
-                        all: 'unset',
-                        display: 'block',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
                         boxSizing: 'border-box',
                         width: '100%',
                         height: 38,
                         padding: '0 12px',
-                        lineHeight: '38px',
-                        cursor: 'pointer',
+                        color: 'inherit',
+                        textDecoration: 'none',
                       }}
                     >
+                      <img
+                        src={AVATAR}
+                        alt=""
+                        data-avatar={r.name}
+                        width={24}
+                        height={24}
+                        style={{ borderRadius: 8 }}
+                      />
                       <Text as="span" size="T400">
                         {r.direct ? '@ ' : '# '}
                         {r.name}
                       </Text>
-                    </button>
+                    </a>
                   </SidebarDragTile>
                 ))}
               </React.Fragment>
