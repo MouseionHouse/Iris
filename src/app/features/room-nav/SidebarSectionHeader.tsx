@@ -1,4 +1,4 @@
-import React, { MouseEventHandler, useMemo, useState } from 'react';
+import React, { MouseEventHandler, forwardRef, useMemo, useState } from 'react';
 import FocusTrap from 'focus-trap-react';
 import {
   Box,
@@ -123,13 +123,13 @@ function SectionOptionsItems({
   );
 }
 
-function SectionOptionsMenu(props: SectionOptionsMenuProps) {
-  return (
-    <Menu style={{ width: toRem(200) }}>
-      <SectionOptionsItems {...props} />
-    </Menu>
-  );
-}
+// FocusTrap takes its container from this ref: without it Escape, a click outside and a second
+// click on ⋯ leave the menu open.
+const SectionOptionsMenu = forwardRef<HTMLDivElement, SectionOptionsMenuProps>((props, ref) => (
+  <Menu ref={ref} style={{ width: toRem(200) }}>
+    <SectionOptionsItems {...props} />
+  </Menu>
+));
 
 type SidebarSectionHeaderProps = {
   view: SectionView;
