@@ -199,6 +199,50 @@ export const moveSection = (list: SidebarSection[], tag: string, up: boolean): S
   return next;
 };
 
+/**
+ * Moves a section to `toIndex`, its place in the list that comes back. The same list comes back
+ * when the section is already there.
+ */
+export const moveSectionTo = (
+  list: SidebarSection[],
+  tag: string,
+  toIndex: number
+): SidebarSection[] => {
+  const from = list.findIndex((s) => s.tag === tag);
+  if (from < 0 || from === toIndex || toIndex < 0 || toIndex >= list.length) return list;
+  const next = [...list];
+  const [moved] = next.splice(from, 1);
+  next.splice(toIndex, 0, moved);
+  return next;
+};
+
+/** Where a section dropped on the near or far edge of `targetTag` lands, as a `moveSectionTo` index. */
+export const sectionDropIndex = (
+  list: SidebarSection[],
+  tag: string,
+  targetTag: string,
+  after: boolean
+): number => {
+  const from = list.findIndex((s) => s.tag === tag);
+  const target = list.findIndex((s) => s.tag === targetTag);
+  if (from < 0 || target < 0) return -1;
+  const gap = after ? target + 1 : target;
+  return from < gap ? gap - 1 : gap;
+};
+
+/**
+ * Whether a room can be dropped on a section: not its own, a direct chat not on Rooms and a room
+ * not on Chats.
+ */
+export const canDropRoom = (direct: boolean, fromTag: string, toTag: string): boolean => {
+  if (fromTag === toTag) return false;
+  return toTag !== (direct ? ROOMS_SECTION : CHATS_SECTION);
+};
+
+/** The tag `moveRoom` takes for a drop on `toTag`: Chats and Rooms are no tag. */
+export const dropRoomTag = (toTag: string): string | undefined =>
+  toTag === CHATS_SECTION || toTag === ROOMS_SECTION ? undefined : toTag;
+
 // ---------------------------------------------------------------------------------------------
 // Atoms: the stored sections, and a counter that bumps whenever any room's tags change so lists
 // re-read `room.tags`.

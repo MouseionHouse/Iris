@@ -49,6 +49,7 @@ import {
 } from '../../../hooks/router/useHomeSelected';
 import { useHomeConversations, useSidebar } from '../../../hooks/useSidebar';
 import { SidebarSectionHeader } from '../../../features/room-nav/SidebarSectionHeader';
+import { SidebarDragTile, useSidebarDrag } from '../../../features/room-nav/sidebarDrag';
 import { SectionDialog } from '../../../features/room-nav/SectionDialog';
 import { SidebarSection, sectionName } from '../../../state/sidebar';
 import { mDirectAtom } from '../../../state/mDirectList';
@@ -298,6 +299,40 @@ export function Home() {
     overscan: 10,
   });
 
+  const drag = useSidebarDrag({
+    scrollRef,
+    enabled: !mobile && !noRoomToDisplay,
+    sections: sidebar.sections,
+    save: sidebar.save,
+    moveRoom: sidebar.moveRoom,
+  });
+
+  // Drag and drop is for a pointer; a phone keeps the menus.
+  const dragTile = (
+    row: HomeRow,
+    index: number,
+    direct: boolean,
+    content: React.ReactNode
+  ): React.ReactNode => {
+    if (mobile) return content;
+    const tag = row.kind === 'header' ? row.view.section.tag : row.sectionTag;
+    const next = rows[index + 1];
+    const last = !next || next.kind === 'header';
+    return (
+      <SidebarDragTile
+        tag={tag}
+        header={row.kind === 'header'}
+        roomId={row.kind === 'room' ? row.roomId : undefined}
+        direct={direct}
+        drag={drag}
+        first={row.kind === 'header'}
+        last={last}
+      >
+        {content}
+      </SidebarDragTile>
+    );
+  };
+
   const list = (
     <div
       style={{
@@ -314,13 +349,18 @@ export function Home() {
               key={`header:${row.view.section.tag}`}
               ref={virtualizer.measureElement}
             >
-              <SidebarSectionHeader
-                view={row.view}
-                sidebar={sidebar}
-                onNewSection={() => setNewSection(true)}
-                onRename={setRenameSection}
-                onDelete={setDeleteSection}
-              />
+              {dragTile(
+                row,
+                vItem.index,
+                false,
+                <SidebarSectionHeader
+                  view={row.view}
+                  sidebar={sidebar}
+                  onNewSection={() => setNewSection(true)}
+                  onRename={setRenameSection}
+                  onDelete={setDeleteSection}
+                />
+              )}
             </VirtualTile>
           );
         }
@@ -347,14 +387,19 @@ export function Home() {
                 notificationMode={notificationMode}
               />
             ) : (
-              <RoomNavItem
-                room={room}
-                selected={selected}
-                showAvatar={direct}
-                direct={direct}
-                linkPath={linkPath}
-                notificationMode={notificationMode}
-              />
+              dragTile(
+                row,
+                vItem.index,
+                direct,
+                <RoomNavItem
+                  room={room}
+                  selected={selected}
+                  showAvatar={direct}
+                  direct={direct}
+                  linkPath={linkPath}
+                  notificationMode={notificationMode}
+                />
+              )
             )}
           </VirtualTile>
         );
