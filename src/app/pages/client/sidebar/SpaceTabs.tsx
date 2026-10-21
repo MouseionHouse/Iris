@@ -277,6 +277,8 @@ const useDropTarget = (
     return dropTargetForElements({
       element: target,
       canDrop: ({ source }) => {
+        // Home's sidebar drags sections and rooms; neither carries an `item`.
+        if (source.data.item === undefined) return false;
         const dragItem = source.data.item as SidebarDraggable;
         return dragItem !== item;
       },
@@ -326,6 +328,8 @@ function useDropTargetInstruction<T extends InstructionType>(
     return dropTargetForElements({
       element: target,
       canDrop: ({ source }) => {
+        // Home's sidebar drags sections and rooms; neither carries an `item`.
+        if (source.data.item === undefined) return false;
         const dragItem = source.data.item as SidebarDraggable;
         return dragItem !== item;
       },
