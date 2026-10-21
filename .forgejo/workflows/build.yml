@@ -442,18 +442,18 @@ jobs:
     # As for `deploy`: `plan` never says publish for a train.
     if: needs.plan.outputs.publish == 'true' && github.event_name != 'merge_group'
     runs-on: homeserver
-    env:
-      APPDATA: /srv/data/appdata
     steps:
       - uses: actions/download-artifact@v3
         with:
           name: mouseion-apk
           path: ./apk
 
+      # The house publish, shared with media, ada and forge (mouseion/common#12).
       - name: Publish to F-Droid repo
-        run: |
-          set -euo pipefail
-          /home/user/homeserver/scripts/fdroid-publish.sh \
-            --apk "./apk/house.mouseion.iris-${{ needs.plan.outputs.name }}.apk" \
-            --app-id house.mouseion.iris \
-            --mark-current --version-code "${{ needs.plan.outputs.code }}" --version-name "${{ needs.plan.outputs.name }}"
+        uses: https://forgejo.example.net/mouseion/common/actions/fdroid-publish@72e1ca4f049917f87f2616b99d06a7266f9bf285 # v1.0.0
+        with:
+          apk: ./apk/house.mouseion.iris-${{ needs.plan.outputs.name }}.apk
+          app-id: house.mouseion.iris
+          mark-current: 'true'
+          version-code: ${{ needs.plan.outputs.code }}
+          version-name: ${{ needs.plan.outputs.name }}
