@@ -200,6 +200,21 @@ export function SidebarDragTile({
     );
   }, [tag, header, roomId, direct]);
 
+  // A link or an image is a drag source of its own, and the browser drags the innermost one, so a
+  // row's link or avatar would be dragged instead of the tile: the browser's link drag (a new tab,
+  // a split view) and nothing the sidebar sees. They give up dragging here, avatars that load
+  // later included, so the drag falls through to the tile.
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) return undefined;
+    const disown = () =>
+      element.querySelectorAll('a, img').forEach((el) => el.setAttribute('draggable', 'false'));
+    disown();
+    const observer = new MutationObserver(disown);
+    observer.observe(element, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, []);
+
   const sectionLine = drag.line?.tag === tag ? drag.line : undefined;
   return (
     <div
