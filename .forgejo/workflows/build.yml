@@ -450,7 +450,7 @@ jobs:
 
       # The house publish, shared with media, ada and forge (mouseion/common#12).
       - name: Publish to F-Droid repo
-        uses: https://forgejo.example.net/mouseion/common/actions/fdroid-publish@72e1ca4f049917f87f2616b99d06a7266f9bf285 # v1.0.0
+        uses: https://forgejo.example.net/mouseion/common/actions/fdroid-publish@47adab754fecf1183f6068810961cfa2eeb345bc # v1.0.1
         with:
           apk: ./apk/house.mouseion.iris-${{ needs.plan.outputs.name }}.apk
           app-id: house.mouseion.iris
