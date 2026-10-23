@@ -1,10 +1,10 @@
 <h1><img src="branding/iris-mark-on-light.svg" alt="" width="44" height="44" align="top"> Iris</h1>
 
-Iris is the chat of [Mouseion](https://forgejo.example.net/mouseion), our household's software. It is a [Matrix](https://matrix.org) client, forked from [Cinny](https://cinny.in) v4.12.6. The name is Homer's messenger in the Iliad, and the flower.
+Iris is the chat of [Mouseion](https://forgejo.example.org/mouseion), our household's software. It is a [Matrix](https://matrix.org) client, forked from [Cinny](https://cinny.in) v4.12.6. The name is Homer's messenger in the Iliad, and the flower.
 
 - **On the web:** [iris.example.org](https://iris.example.org), on its own or framed inside the Mouseion Hub.
 - **On Android:** the app `house.mouseion.iris`, from the household F-Droid repo.
-- **Tracker:** [issues on this repo](https://forgejo.example.net/mouseion/iris/issues).
+- **Tracker:** [issues on this repo](https://forgejo.example.org/mouseion/iris/issues).
 
 It was called Mouseion Chat until 2026-10-09, and this repo was `mouseion/chat`.
 
@@ -49,7 +49,7 @@ Homeservers are set in [`config.json`](config.json) for the web and [`config.mob
 
 ## Design
 
-Iris owns its own design: the name, the mark and the colors were decided in rounds kept under [`design/`](design), and the record is [issue #12](https://forgejo.example.net/mouseion/iris/issues/12).
+Iris owns its own design: the name, the mark and the colors were decided in rounds kept under [`design/`](design), and the record is [issue #12](https://forgejo.example.org/mouseion/iris/issues/12).
 
 - [`branding/`](branding): the mark on dark, the mark on light, and the app icon, as SVG.
 - [`design/tokens.json`](design/tokens.json): the five Iris colors.

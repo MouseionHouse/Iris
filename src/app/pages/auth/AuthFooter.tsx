@@ -8,7 +8,7 @@ export function AuthFooter() {
       <Text
         as="a"
         size="T300"
-        href="https://forgejo.example.net/mouseion/iris"
+        href="https://forgejo.example.org/mouseion/iris"
         target="_blank"
         rel="noreferrer"
       >

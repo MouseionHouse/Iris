@@ -1,7 +1,7 @@
 # Iris: one build of the web app per push, used for everything that ships.
 #
 #   plan ── bundle ──┬── deploy                  (dev: the web client on server, iris.example.org)
-#                    └── apk ── publish-fdroid   (dev: the Android app, fdroid.example.net)
+#                    └── apk ── publish-fdroid   (dev: the Android app, fdroid.example.org)
 #
 # `bundle` runs the one `npm ci` and `vite build` of a push, inside the Docker image that serves
 # the web client, and exports what the Android project needs from them as an artifact: the same
@@ -102,7 +102,7 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/dev' && github.event_name != 'merge_group' }}
 
 env:
-  IMAGE: forgejo.example.net/mouseion/iris-web
+  IMAGE: forgejo.example.org/mouseion/iris-web
   # The branch that deploys and releases. `dev` is the fork's one trunk (owner decision,
   # 2026-09-23), and upstream Cinny merges land there too.
   RELEASE_BRANCH: dev
@@ -229,7 +229,7 @@ jobs:
 
       - name: Login to Forgejo Packages
         if: needs.plan.outputs.deploy == 'true'
-        run: echo "${{ secrets.REGISTRY_TOKEN }}" | docker login forgejo.example.net -u "${{ vars.REGISTRY_USER }}" --password-stdin
+        run: echo "${{ secrets.REGISTRY_TOKEN }}" | docker login forgejo.example.org -u "${{ vars.REGISTRY_USER }}" --password-stdin
 
       # The one `npm ci` + `vite build` of the run, in the image's builder stage.
       - name: Build the web image
@@ -341,7 +341,7 @@ jobs:
       # Hardcoded: the DOMAIN/REGISTRY_USER Actions variables exist on the forge repo, not here.
       # Node 22, Android SDK 36, and JDK 21 beside the default 17 (server:
       # ~/homeserver/android-build/Dockerfile).
-      image: forgejo.example.net/household/android-build:jdk17-jdk21-sdk36-bun
+      image: forgejo.example.org/household/android-build:jdk17-jdk21-sdk36-bun
       volumes:
         - forge-gradle-cache:/gradle-cache
     defaults:
@@ -450,7 +450,7 @@ jobs:
 
       # The house publish, shared with media, ada and forge (mouseion/common#12).
       - name: Publish to F-Droid repo
-        uses: https://forgejo.example.net/mouseion/common/actions/fdroid-publish@47adab754fecf1183f6068810961cfa2eeb345bc # v1.0.1
+        uses: https://forgejo.example.org/mouseion/common/actions/fdroid-publish@47adab754fecf1183f6068810961cfa2eeb345bc # v1.0.1
         with:
           apk: ./apk/house.mouseion.iris-${{ needs.plan.outputs.name }}.apk
           app-id: house.mouseion.iris
