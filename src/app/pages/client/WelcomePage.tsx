@@ -3,7 +3,7 @@ import { Box, Button, Icon, Icons, Text, config, toRem } from 'folds';
 import { Page, PageHeroSection } from '../../components/page';
 import { IrisLockup } from '../../components/iris-lockup';
 
-export const MOUSEION_SOURCE_URL = 'https://forgejo.example.net/mouseion/iris';
+export const MOUSEION_SOURCE_URL = 'https://forgejo.example.org/mouseion/iris';
 export const CINNY_URL = 'https://cinny.in';
 
 export function WelcomePage() {
