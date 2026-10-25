@@ -313,8 +313,13 @@ jobs:
           docker compose -f "$tmp" --project-directory "$(dirname "$COMPOSE_FILE")" config -q
           cat "$tmp" > "$COMPOSE_FILE"
 
+      # Each deploy pins a new :<sha>, so the replaced image is tagged with its old sha: same-repository removes it.
       - name: Pull and restart
-        run: docker compose -f "$COMPOSE_FILE" pull cinny && docker compose -f "$COMPOSE_FILE" up -d cinny
+        uses: https://forgejo.example.org/mouseion/common/actions/compose-deploy@da24f1a359c36b76c0635d1b5c0b1ef2bfe42ac8 # v1.0.0
+        with:
+          service: cinny
+          compose-file: ${{ env.COMPOSE_FILE }}
+          replaced-tags: same-repository
 
       # Success means the running container is on the new image and serves the header. Checked
       # by service name on the compose network: the public URL is unreachable from this runner.
