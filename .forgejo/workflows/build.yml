@@ -298,7 +298,8 @@ jobs:
       # Pin the cinny service's image line to the new tag. The pattern matches iris-web and the
       # names the image had before Iris (mouseion-chat-web, chat-web), so the first deploy after the
       # rename moves the line over. The edit is checked in a temp file and then written back into
-      # the same file rather than renamed over it, in case anything bind-mounts this one file.
+      # the same file rather than renamed over it, in case anything bind-mounts this one file. The
+      # registry domain is mouseion.house: example.net is no longer used (#58).
       - name: Pin the cinny service to the new image
         run: |
           set -euo pipefail
@@ -306,7 +307,7 @@ jobs:
           tmp="$(mktemp "$COMPOSE_FILE.deploy-web.XXXXXX")"
           trap 'rm -f "$tmp"' EXIT
           sed -E \
-            -e "s#^([[:space:]]+image: )(mouseion-chat-web|forgejo\.example\.net/mouseion/(chat|iris)-web):.*#\1$IMAGE:${sha}  \# pinned by mouseion/iris .forgejo/workflows/build.yml#" \
+            -e "s#^([[:space:]]+image: )(mouseion-chat-web|forgejo\.example\.org/mouseion/(chat|iris)-web):.*#\1$IMAGE:${sha}  \# pinned by mouseion/iris .forgejo/workflows/build.yml#" \
             "$COMPOSE_FILE" > "$tmp"
           test "$(grep -c "image: $IMAGE:${sha}  # pinned by" "$tmp")" = 1 \
             || { echo "expected exactly one cinny image line to update; aborting before touching anything" >&2; exit 1; }
