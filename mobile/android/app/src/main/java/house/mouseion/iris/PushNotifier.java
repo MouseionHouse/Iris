@@ -39,7 +39,10 @@ final class PushNotifier {
 
     static final String EXTRA_ROOM_ID = "house.mouseion.iris.ROOM_ID";
 
-    private static final String CHANNEL_MESSAGES = "messages";
+    // Heads-up popups need an IMPORTANCE_HIGH channel, and a channel's importance cannot be raised
+    // once it exists: the first "messages" channel (IMPORTANCE_DEFAULT) is replaced, not changed.
+    private static final String CHANNEL_MESSAGES = "messages.popup";
+    private static final String CHANNEL_MESSAGES_OLD = "messages";
     private static final String GROUP = "house.mouseion.iris.messages";
     private static final int SUMMARY_ID = 0;
 
@@ -209,7 +212,7 @@ final class PushNotifier {
             context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) return;
         NotificationManager manager = manager(context);
-        manager.createNotificationChannel(new NotificationChannel(CHANNEL_MESSAGES, "Messages", NotificationManager.IMPORTANCE_DEFAULT));
+        createChannel(context);
 
         int id = summary.roomId.hashCode();
         Intent open = new Intent(context, MainActivity.class)
@@ -268,6 +271,16 @@ final class PushNotifier {
                 .setContentIntent(PendingIntent.getActivity(context, SUMMARY_ID, launch, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE))
                 .build()
         );
+    }
+
+    /**
+     * The message channel: pops up on screen (silent notifications still do not). Created at app
+     * start too, so Android's settings list it before the first message.
+     */
+    static void createChannel(Context context) {
+        NotificationManager manager = manager(context);
+        manager.createNotificationChannel(new NotificationChannel(CHANNEL_MESSAGES, "Messages", NotificationManager.IMPORTANCE_HIGH));
+        manager.deleteNotificationChannel(CHANNEL_MESSAGES_OLD);
     }
 
     private static NotificationManager manager(Context context) {
