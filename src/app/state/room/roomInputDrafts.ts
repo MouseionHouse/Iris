@@ -49,6 +49,18 @@ export const roomIdToMsgDraftAtomFamily = atomFamily<string, TMsgDraftAtom>(() =
   createMsgDraftAtom()
 );
 
+/**
+ * Where this device stands with the room's synced draft (state/room/draftSync.ts): `key` is the
+ * draft it last saved or loaded, `ts` the newest synced draft it has seen. A composer that no
+ * longer matches `key` has unsaved changes.
+ */
+export type TDraftSyncState = { ts: number; key: string };
+const createDraftSyncAtom = () => atom<TDraftSyncState>({ ts: 0, key: '' });
+export type TDraftSyncAtom = ReturnType<typeof createDraftSyncAtom>;
+export const roomIdToDraftSyncAtomFamily = atomFamily<string, TDraftSyncAtom>(() =>
+  createDraftSyncAtom()
+);
+
 export type IReplyDraft = {
   userId: string;
   eventId: string;

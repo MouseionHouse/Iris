@@ -23,7 +23,12 @@ import { useAtom, useAtomValue } from 'jotai';
 import { NavItem, NavItemContent, NavItemOptions, NavLink } from '../../components/nav';
 import { UnreadBadge, UnreadBadgeCenter } from '../../components/unread-badge';
 import { RoomAvatar, RoomIcon } from '../../components/room-avatar';
-import { getDirectRoomAvatarUrl, getRoomAvatarUrl, getStateEvent } from '../../utils/room';
+import {
+  getDirectRoomAvatarUrl,
+  getMemberDisplayName,
+  getRoomAvatarUrl,
+  getStateEvent,
+} from '../../utils/room';
 import { nameInitials } from '../../utils/common';
 import { useMatrixClient } from '../../hooks/useMatrixClient';
 import { useRoomUnread } from '../../state/hooks/unread';
@@ -37,7 +42,7 @@ import { useRoomTypingMember } from '../../hooks/useRoomTypingMembers';
 import { TypingIndicator } from '../../components/typing-indicator';
 import { stopPropagation } from '../../utils/keyboard';
 import { getMatrixToRoom } from '../../plugins/matrix-to';
-import { getCanonicalAliasOrRoomId, isRoomAlias } from '../../utils/matrix';
+import { getCanonicalAliasOrRoomId, getMxIdLocalPart, isRoomAlias } from '../../utils/matrix';
 import { getViaServers } from '../../plugins/via-servers';
 import { useMediaAuthentication } from '../../hooks/useMediaAuthentication';
 import { useSetting } from '../../state/hooks/settings';
@@ -66,8 +71,15 @@ import { BottomSheet, BottomSheetMenu } from '../../components/bottom-sheet';
 import { useRoomPreview } from '../../hooks/useRoomPreview';
 import { timeShortStamp } from '../../utils/time';
 import { hapticTick } from '../../native/haptics';
-import { RoomRow, RoomRowIconTile } from './RoomRow';
+import { RoomDraftMark, RoomRow, RoomRowIconTile } from './RoomRow';
+import { useRoomDraftPreview } from '../../hooks/useDraftSync';
 import * as touchCss from './touch.css';
+
+const useDraftPreview = (room: Room): string | undefined =>
+  useRoomDraftPreview(
+    room.roomId,
+    (userId) => getMemberDisplayName(room, userId) ?? getMxIdLocalPart(userId) ?? userId
+  );
 
 type RoomNavItemMenuProps = {
   room: Room;
@@ -292,6 +304,7 @@ export function RoomNavItem({
   );
 
   const roomName = useRoomName(room);
+  const draft = useDraftPreview(room);
 
   const handleContextMenu: MouseEventHandler<HTMLElement> = (evt) => {
     evt.preventDefault();
@@ -384,10 +397,12 @@ export function RoomNavItem({
                 />
               )}
             </Avatar>
-            <Box as="span" grow="Yes">
+            <Box as="span" grow="Yes" alignItems="Center" gap="100" style={{ minWidth: 0 }}>
               <Text priority={unread ? '500' : '300'} as="span" size="Inherit" truncate>
                 {roomName}
               </Text>
+              {/* beside the name, where the row's options do not cover it */}
+              {!selected && draft !== undefined && <RoomDraftMark draft={draft} />}
             </Box>
             {!optionsVisible && !unread && !selected && typingMember.length > 0 && (
               <Badge size="300" variant="Secondary" fill="Soft" radii="Pill" outlined>
@@ -497,6 +512,7 @@ export function RoomNavItemTouch({
   );
   const roomName = useRoomName(room);
   const { preview, ts } = useRoomPreview(room, !!direct);
+  const draft = useDraftPreview(room);
   const callSession = useCallSession(room);
   const callMembers = useCallMembers(callSession);
 
@@ -536,6 +552,7 @@ export function RoomNavItemTouch({
         time={ts ? timeShortStamp(ts, hour24Clock) : undefined}
         preview={preview}
         typing={typingMember.length > 0}
+        draft={draft}
         unread={unread && { total: unread.total, highlight: unread.highlight > 0 }}
         notificationIcon={
           notificationMode !== RoomNotificationMode.Unset

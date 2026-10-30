@@ -1,6 +1,6 @@
 import React, { MouseEventHandler, ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { Badge, Icon, IconSrc, Text } from 'folds';
+import { Badge, Icon, IconSrc, Icons, Text } from 'folds';
 import { UnreadBadge } from '../../components/unread-badge';
 import { TypingIndicator } from '../../components/typing-indicator';
 import { useLongPress } from '../../hooks/useLongPress';
@@ -10,6 +10,20 @@ import * as css from './touch.css';
 /** What a room without an avatar shows in a row: its icon on a tile. */
 export function RoomRowIconTile({ children }: { children: ReactNode }) {
   return <span className={css.TouchRowIconTile}>{children}</span>;
+}
+
+/** The pencil a desktop row shows beside the name of a room with a draft; hover reads it. */
+export function RoomDraftMark({ draft }: { draft: string }) {
+  return (
+    <span
+      className={css.RoomDraftMark}
+      role="img"
+      title={`Draft: ${draft}`}
+      aria-label={`Draft: ${draft}`}
+    >
+      <Icon size="50" src={Icons.Pencil} />
+    </span>
+  );
 }
 
 export type RoomRowProps = {
@@ -22,6 +36,8 @@ export type RoomRowProps = {
   preview?: RoomPreview;
   /** Shown in place of the preview while someone is typing. */
   typing?: boolean;
+  /** The room's unsent draft, shown in place of the preview. */
+  draft?: string;
   unread?: { total: number; highlight: boolean };
   /** The bell of a room whose notifications are not the default. */
   notificationIcon?: IconSrc;
@@ -47,6 +63,7 @@ export function RoomRow({
   time,
   preview,
   typing,
+  draft,
   unread,
   notificationIcon,
   notificationLabel,
@@ -104,18 +121,24 @@ export function RoomRow({
         </span>
         <span className={css.TouchRowLine}>
           <span className={css.TouchRowGrow}>
-            {typing ? (
+            {typing && (
               <>
                 <TypingIndicator size="300" className={css.TouchRowTyping} />
                 <Text as="span" size="T300" className={css.TouchRowTyping} truncate>
                   typing…
                 </Text>
               </>
-            ) : (
+            )}
+            {!typing && draft !== undefined && (
+              <Text as="span" size="T300" priority="300" truncate title={`Draft: ${draft}`}>
+                <span className={css.TouchRowDraft}>Draft:</span> {draft}
+              </Text>
+            )}
+            {!typing && draft === undefined && (
               <Text as="span" size="T300" priority={unread ? '400' : '300'} truncate>
                 {preview?.sender && `${preview.sender}: `}
                 {/* a space keeps the row two lines tall when there is nothing to say */}
-                {preview?.text ?? ' '}
+                {preview?.text ?? ' '}
               </Text>
             )}
           </span>

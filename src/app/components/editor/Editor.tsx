@@ -24,7 +24,9 @@ import { CustomElement } from './slate';
 import * as css from './Editor.css';
 import { toggleKeyboardShortcut } from './keyboard';
 
-const initialValue: CustomElement[] = [
+// A new one for every editor: Slate finds a node's path by its object, so two editors that
+// start from the same object break each other when both are on screen.
+const createInitialValue = (): CustomElement[] => [
   {
     type: BlockType.Paragraph,
     children: [{ text: '' }],
@@ -96,6 +98,7 @@ export const CustomEditor = forwardRef<HTMLDivElement, CustomEditorProps>(
     );
 
     const renderLeaf = useCallback((props: RenderLeafProps) => <RenderLeaf {...props} />, []);
+    const [initialValue] = useState(createInitialValue);
 
     const handleKeydown: KeyboardEventHandler = useCallback(
       (evt) => {
