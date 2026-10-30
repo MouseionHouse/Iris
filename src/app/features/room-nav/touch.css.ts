@@ -279,6 +279,17 @@ export const TouchRowTyping = style({
   color: color.Primary.Main,
 });
 
+export const TouchRowDraft = style({
+  color: color.Critical.Main,
+  fontWeight: config.fontWeight.W500,
+});
+
+export const RoomDraftMark = style({
+  display: 'flex',
+  flexShrink: 0,
+  opacity: config.opacity.P300,
+});
+
 export const TouchSectionHeader = style({
   minHeight: TOUCH_TARGET,
   display: 'flex',

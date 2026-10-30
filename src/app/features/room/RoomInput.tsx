@@ -11,7 +11,7 @@ import { useAtom, useAtomValue } from 'jotai';
 import { isKeyHotkey } from 'is-hotkey';
 import { EventType, IContent, MsgType, RelationType, Room } from 'matrix-js-sdk';
 import { ReactEditor } from 'slate-react';
-import { Transforms, Editor } from 'slate';
+import { Editor } from 'slate';
 import {
   Box,
   Dialog,
@@ -60,10 +60,8 @@ import { useTypingStatusUpdater } from '../../hooks/useTypingStatusUpdater';
 import { useFilePicker } from '../../hooks/useFilePicker';
 import { useFilePasteHandler } from '../../hooks/useFilePasteHandler';
 import { useFileDropZone } from '../../hooks/useFileDrop';
-import {
-  roomIdToMsgDraftAtomFamily,
-  roomIdToReplyDraftAtomFamily,
-} from '../../state/room/roomInputDrafts';
+import { roomIdToReplyDraftAtomFamily } from '../../state/room/roomInputDrafts';
+import { useDraftSync } from '../../hooks/useDraftSync';
 import {
   UploadStrip,
   UploadStripHandle,
@@ -114,7 +112,6 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
     const powerLevels = usePowerLevelsContext();
     const creators = useRoomCreators(room);
 
-    const [msgDraft, setMsgDraft] = useAtom(roomIdToMsgDraftAtomFamily(roomId));
     const [replyDraft, setReplyDraft] = useAtom(roomIdToReplyDraftAtomFamily(roomId));
     const replyUserID = replyDraft?.userId;
 
@@ -163,23 +160,8 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
       useCallback((width) => setHideStickerBtn(width < 500), [])
     );
 
-    useEffect(() => {
-      Transforms.insertFragment(editor, msgDraft);
-    }, [editor, msgDraft]);
-
-    useEffect(
-      () => () => {
-        if (!isEmptyEditor(editor)) {
-          const parsedDraft = JSON.parse(JSON.stringify(editor.children));
-          setMsgDraft(parsedDraft);
-        } else {
-          setMsgDraft([]);
-        }
-        resetEditor(editor);
-        resetEditorHistory(editor);
-      },
-      [roomId, editor, setMsgDraft]
-    );
+    // restores the room's draft, keeps it when the room is left, and syncs it to other devices
+    const draftSync = useDraftSync(roomId, editor);
 
     /** Takes the text off the composer (running a command); returns the message to send. */
     const takeTextContent = useCallback((): IContent | undefined => {
@@ -267,6 +249,7 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
     const sendDraft = () => {
       const uploadContents = uploads.takeContents();
       const textContent = takeTextContent();
+      draftSync.flush();
       uploadContents.then((contents) => {
         contents.forEach((content) => mx.sendMessage(roomId, content as any));
         if (textContent) mx.sendMessage(roomId, textContent as any);
@@ -414,6 +397,7 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
           onKeyDown={handleKeyDown}
           onKeyUp={handleKeyUp}
           onPaste={handlePaste}
+          onChange={draftSync.onChange}
           top={
             <>
               {replyDraft && (
