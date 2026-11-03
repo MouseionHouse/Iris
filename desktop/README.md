@@ -15,6 +15,22 @@ taskbar icon; it is sent again when a page loads. `highlight` is kept on the bri
 comes from `src/colorscheme.*` (Qt's colour scheme hint, else the window background's lightness) and is replayed
 to handlers added late. Web side: `src/app/native/desktop.ts`, `useDesktopBridge.ts`.
 
+Notifications (#68): `notify({ id, roomId, eventId?, title, body, icon?, canReply? })` and
+`closeNotifications({ roomId })` go in; `openRoom { roomId, eventId? }` and `reply { roomId, eventId?, text }` come
+out (one-shot events, not replayed to late handlers). `src/notifier.*` makes a `KNotification` of the
+`message` event of component `house.mouseion.iris` (so System Settings → Notifications lists Iris and Do Not
+Disturb applies), with a default action (click: raise the window, emit `openRoom`) and a
+`KNotificationReplyAction` ("Reply to <room>") that is left out where the server has no inline reply. It
+keeps the notifications per room (same `id` replaces, at most 5 stay up per room, `closeNotifications` closes the
+room's). `IrisBridge::notify` checks every field: only the listed keys; Matrix-shaped `roomId` (`!…`) and
+`eventId` (`$…`) up to 255; `title` 1–200 and `body` ≤ 2000 UTF-16 units without control characters (newline and
+tab allowed in the body); `canReply` a boolean; `icon` only a PNG or JPEG data URL, ≤ 256 KiB decoded and
+≤ 1024 px a side (the shell never fetches a URL). The body is HTML-escaped because Plasma reads a subset of
+HTML. A reply is cut at 16000 units. The web side is `src/app/native/desktop.ts` (wrapper),
+`desktopReply.ts` (what a reply sends), `useDesktopNotifications.tsx` (`useDesktopOpenRoom`, which `matrix:`
+links will reuse, plus the click/reply/read-rule handlers) and the delivery switch in
+`src/app/pages/client/ClientNonUIFeatures.tsx`.
+
 ## Build and run (NixOS)
 
 ```sh
@@ -23,7 +39,8 @@ nix-shell desktop/shell.nix --run '
   cmake -S desktop -B $B -G Ninja && cmake --build $B && $B/iris'
 ```
 
-Tests (Qt Test, no display needed):
+Tests (Qt Test, no display needed; `tst_notifier` starts a private session bus with
+`dbus-run-session`, so no notification ever reaches the desktop you are on):
 
 ```sh
 nix-shell desktop/shell.nix --run '
@@ -38,7 +55,10 @@ answers on the allowed origin and is absent elsewhere, external links / `target=
 `window.open` / redirects go to the opener (stubbed, nothing is launched), the offline page appears
 and clears by itself, a second launch is handed to the first, and localStorage and cookies survive a
 restart; that `setUnread` produces the right LauncherEntry signal on the private bus (`dbus-monitor`), including
-`count-visible` false at 0, and a resend after a reload; and that `colorScheme` is delivered. `IRIS_SHELL_TEST_HOOKS` (environment overrides for the URL, origin, opener and starting colour scheme) is a test
+`count-visible` false at 0, and a resend after a reload; and that `colorScheme` is delivered. `tests/e2e/notifications.mjs` (also run by `run.sh`) does the same for notifications against
+`tests/fakenotifyd`, a stand-in for `org.freedesktop.Notifications` on the private bus that records `Notify`
+and `CloseNotification` calls and can emit `ActionInvoked`, `NotificationReplied` and `NotificationClosed`
+(`--no-inline-reply` leaves the capability out). `IRIS_SHELL_TEST_HOOKS` (environment overrides for the URL, origin, opener and starting colour scheme) is a test
 option and must stay off in release builds.
 
 ## Layout
