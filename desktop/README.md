@@ -41,6 +41,25 @@ notification; `Notifier` is per room, with a click and a reply, which this is no
 URI). `src/globalshortcut.*` registers the KGlobalAccel action "Show or hide Iris" with no default key; set it in System
 Settings -> Shortcuts -> Iris. The tray needs a `QApplication` (its menu is a `QMenu`).
 
+`matrix:` links (#69): `house.mouseion.iris.desktop` declares `MimeType=x-scheme-handler/matrix;` and
+`Exec=iris %u`, so `xdg-open 'matrix:r/<alias>'` starts Iris or, if it runs, hands the link to it
+(`KDBusService::activateRequested`). `src/matrixuri.*` parses the Matrix spec's `matrix:` URI scheme and
+nothing else: `roomid/<id>`, `r/<alias>`, `u/<user>`, `/e/<event>` after a room, `?via=` (repeatable, at most 10)
+and `action=join|chat`; it is ASCII only, percent-decoded strictly (valid UTF-8, no control, format or
+separator characters), and refuses authorities, fragments, empty or extra segments, unknown kinds and URIs over
+2048 characters. A link that does not parse is logged ("Dropped matrix: link …") and dropped; the page never
+sees raw text. The event is `openLink { kind: 'room'|'alias'|'user', id, eventId?, via?, action? }` (ids with
+their sigil), a one-shot event like `openRoom`, held by the shell until the page's adapter is up and by the
+adapter until the app listens (so a link on a cold start waits for sign-in), then delivered once. The web side
+(`src/app/native/desktop.ts` `parseDesktopLink` checks it again, `desktopLink.ts` routes, `useDesktopOpenLink`
+navigates) sends a known room through `useDesktopOpenRoom`, a room Iris is not in to the same join page a
+`matrix.to` link clicked in Iris opens, and a user to the direct-message page (the existing DM, or the offer to
+start one). A link shows and raises the window, also when the shell was started hidden.
+
+**Limit:** `matrix.to` links clicked in a browser stay in the browser. Linux gives an app no way to claim
+`https:` links, so only `matrix:` links reach Iris from outside; `matrix.to` links clicked inside Iris already
+open in Iris.
+
 ## Build and run (NixOS)
 
 ```sh
@@ -65,7 +84,7 @@ answers on the allowed origin and is absent elsewhere, external links / `target=
 `window.open` / redirects go to the opener (stubbed, nothing is launched), the offline page appears
 and clears by itself, a second launch is handed to the first, and localStorage and cookies survive a
 restart; that `setUnread` produces the right LauncherEntry signal on the private bus (`dbus-monitor`), including
-`count-visible` false at 0, and a resend after a reload; and that `colorScheme` is delivered. `tests/e2e/notifications.mjs` (also run by `run.sh`) does the same for notifications against
+`count-visible` false at 0, and a resend after a reload; and that `colorScheme` is delivered. `tests/e2e/links.mjs` (also run by `run.sh`) does the same for `matrix:` links: a link on a cold start waits for the page and arrives once, a second launch hands its link over, an invalid link is dropped. `tests/e2e/notifications.mjs` (also run by `run.sh`) does the same for notifications against
 `tests/fakenotifyd`, a stand-in for `org.freedesktop.Notifications` on the private bus that records `Notify`
 and `CloseNotification` calls and can emit `ActionInvoked`, `NotificationReplied` and `NotificationClosed`
 (`--no-inline-reply` leaves the capability out). With a stand-in StatusNotifierWatcher (`tests/fakewatcher.cpp`, Plasma's tray on the private bus) it also checks `--hidden`, the tray item's registration, tooltip and icon following `setUnread`, `Activate` and the menu's Show Iris / Quit, close-to-tray (SIGUSR1 in a test build closes the window), the one-time notice and the KGlobalAccel registration. `IRIS_SHELL_TEST_HOOKS` (environment overrides for the URL, origin, opener and starting colour scheme) is a test
@@ -76,6 +95,7 @@ option and must stay off in release builds.
 - `src/shellconfig.h` — URL, origin, app ID, icon and desktop file name; nothing else hardcodes them.
 - `src/navigationpolicy.*` — which URLs the view may show; what is handed to the browser.
 - `src/irisbridge.*` — `IrisBridge` (the `irisDesktop` object) and `BridgeHost` (publishes it only on the allowed origin).
+- `src/matrixuri.*` — the `matrix:` URI parser (pure; `tests/tst_matrixuri.cpp`).
 - `src/bridge-adapter.js` — builds `window.irisDesktop` (promise methods, `on(event, handler)`); injected with `qwebchannel.js`, guarded by an origin check.
 - `src/qml/Main.qml`, `OfflinePage.qml` — window, view, permissions, offline page.
 - `src/windowstate.*` — size/position in `~/.config/irisrc`.

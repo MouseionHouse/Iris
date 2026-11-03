@@ -7,7 +7,7 @@ set -uo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 export IRIS_BIN="$1/iris"
 status=0
-for script in e2e.mjs notifications.mjs; do
+for script in e2e.mjs notifications.mjs links.mjs; do
   dbus-run-session -- node "$here/$script" || status=1
 done
 exit $status

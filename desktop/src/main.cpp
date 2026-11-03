@@ -207,8 +207,12 @@ int main(int argc, char *argv[])
         const QList<MatrixLink> links = matrixLinksFromArguments(candidates);
         for (const MatrixLink &link : links)
             bridge->openLink(link);
-        if (!links.isEmpty())
+        if (!links.isEmpty()) {
+#ifdef IRIS_SHELL_TEST_HOOKS
+            qInfo("IRIS_STATE links-opened=%d", int(links.size()));
+#endif
             showWindow();
+        }
         return !links.isEmpty();
     };
 
