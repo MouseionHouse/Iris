@@ -1,5 +1,7 @@
 #pragma once
 
+#include "notifier.h"
+
 #include <QHash>
 #include <QObject>
 #include <QString>
@@ -24,9 +26,25 @@ public:
     // { total, highlight }: whole numbers, 0 <= highlight <= total <= maxUnread. Returns false and
     // changes nothing otherwise.
     Q_INVOKABLE bool setUnread(const QVariantMap &counts);
+    // { id, roomId, eventId?, title, body, icon?, canReply? }: see the limits below. Returns false and
+    // shows nothing when anything is off; `icon` must be a PNG or JPEG data URL (nothing is fetched).
+    Q_INVOKABLE bool notify(const QVariantMap &notification);
+    // { roomId }: closes that room's notifications.
+    Q_INVOKABLE bool closeNotifications(const QVariantMap &target);
     // The latest value of each sticky event ({ name: payload }, as JSON), so a handler added after
     // the event was emitted still learns the current state.
     Q_INVOKABLE QString latestEvents() const;
+
+    // Limits for notify(); lengths are in UTF-16 units, sizes in bytes.
+    static constexpr int maxIdLength = 255; // also Matrix's own limit for room and event IDs
+    static constexpr int maxTitleLength = 200;
+    static constexpr int maxBodyLength = 2000;
+    static constexpr int maxReplyLength = 16000; // what a reply typed in a popup can carry to the page
+    static constexpr int maxIconBytes = 256 * 1024; // decoded
+    static constexpr int maxIconPixels = 1024; // either side
+    // Matrix identifiers: "!opaque:server" / "$opaque[:server]" in the shapes Synapse produces.
+    static bool validRoomId(const QString &id);
+    static bool validEventId(const QString &id);
 
     int unreadTotal() const { return m_total; }
     // Kept for the tray (mouseion/iris#67); nothing shows it yet.
@@ -34,6 +52,9 @@ public:
 
     // Native -> web colorScheme { dark }; remembered for latestEvents().
     void setColorScheme(bool dark);
+    // Native -> web, not remembered: a notification was clicked / replied to.
+    void openRoom(const QString &roomId, const QString &eventId);
+    void reply(const QString &roomId, const QString &eventId, const QString &text);
     // The page (re)connected: say the current badge again and replay nothing else (the page asks
     // for latestEvents itself).
     void pageConnected();
@@ -42,6 +63,9 @@ Q_SIGNALS:
     // The badge count to show; also emitted again by pageConnected().
     void unreadChanged(int total, int highlight);
     // Native -> web. Delivered to handlers added with irisDesktop.on(name, handler); payload is JSON.
+    // A checked request from the page; main wires these to the Notifier.
+    void notifyRequested(const NotifyRequest &request);
+    void closeNotificationsRequested(const QString &roomId);
     void eventEmitted(const QString &name, const QString &payload);
 
 private:

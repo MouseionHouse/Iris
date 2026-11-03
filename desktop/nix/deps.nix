@@ -7,6 +7,7 @@
     pkg-config
     kdePackages.extra-cmake-modules
     kdePackages.wrapQtAppsHook
+    dbus # dbus-run-session, for the notifier test and the e2e script
   ];
   buildInputs = with pkgs.kdePackages; [
     qtbase

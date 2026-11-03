@@ -87,7 +87,8 @@ ApplicationWindow {
         onUrlChanged: bridgeHost.pageUrlChanged(url)
 
         onPermissionRequested: permission => {
-            // Iris's own web notifications keep working until the notifications ticket replaces them.
+            // Iris shows its notifications through the shell (irisDesktop.notify); the grant keeps the
+            // page's own notification setting from reading "blocked".
             if (permission.permissionType === WebEnginePermission.PermissionType.Notifications)
                 permission.grant()
             else
