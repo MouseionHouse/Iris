@@ -97,6 +97,7 @@ ApplicationWindow {
         onLoadingChanged: info => {
             if (info.status === WebEngineView.LoadSucceededStatus) {
                 win.offline = false
+                bridgeHost.pageLoaded(webView.url)
             } else if (info.status === WebEngineView.LoadFailedStatus) {
                 // -3 is ERR_ABORTED: a navigation we cancelled or replaced, not a failure.
                 if (info.errorCode === -3)
