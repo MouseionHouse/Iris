@@ -307,7 +307,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build the package and run its tests
         run: |
-          nix-build --print-build-logs --no-out-link --cores 12 --max-jobs 2 \
+          nix-build --no-out-link --cores 12 --max-jobs 2 \
             -E 'with import ./desktop/nix/nixpkgs.nix { }; callPackage ./desktop/nix/package.nix { }'
 
   deploy:
