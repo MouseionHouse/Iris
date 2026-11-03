@@ -5,7 +5,16 @@ var latest = {};
 // Only state (the colour scheme) is replayed to a handler added late; a click or a reply is an
 // occurrence, delivered once to whoever listens at the time.
 var sticky = { colorScheme: true };
+// Links must not be lost: one that arrives while nobody listens (the app is still signing in) is
+// held and handed to the first handler that is added, once.
+var held = { openLink: [] };
+var MAX_HELD = 8;
 function deliver(name, payload) {
+  if (held[name] && !(handlers[name] || []).length) {
+    held[name].push(payload);
+    if (held[name].length > MAX_HELD) held[name].shift();
+    return;
+  }
   (handlers[name] || []).slice().forEach(function (handler) {
     try { handler(payload ? JSON.parse(payload) : undefined); } catch (e) { console.error(e); }
   });
@@ -21,7 +30,11 @@ var ready = new Promise(function (resolve) {
       // Events emitted before this page connected (the colour scheme, on start).
       bridge.latestEvents(function (json) {
         try { Object.assign(latest, JSON.parse(json)); } catch (e) { console.error(e); }
-        resolve(bridge);
+        // Links the shell queued until this page was up (a matrix: URI on the first start).
+        bridge.takePendingLinks(function (links) {
+          (links || []).forEach(function (payload) { deliver('openLink', payload); });
+          resolve(bridge);
+        });
       });
     } else {
       resolve(bridge);
@@ -58,6 +71,10 @@ Object.defineProperty(window, 'irisDesktop', {
     },
     on: function (event, handler) {
       (handlers[event] = handlers[event] || []).push(handler);
+      if (held[event] && held[event].length) {
+        var waiting = held[event]; held[event] = [];
+        Promise.resolve().then(function () { waiting.forEach(function (payload) { deliver(event, payload); }); });
+      }
       // A late subscriber still learns the current value of a state event.
       ready.then(function () {
         if (latest[event] !== undefined && handlers[event].indexOf(handler) !== -1) {

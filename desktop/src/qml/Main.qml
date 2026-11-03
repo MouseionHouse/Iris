@@ -96,7 +96,9 @@ ApplicationWindow {
         }
 
         onLoadingChanged: info => {
-            if (info.status === WebEngineView.LoadSucceededStatus) {
+            if (info.status === WebEngineView.LoadStartedStatus) {
+                bridgeHost.pageLoading()
+            } else if (info.status === WebEngineView.LoadSucceededStatus) {
                 win.offline = false
                 bridgeHost.pageLoaded(webView.url)
             } else if (info.status === WebEngineView.LoadFailedStatus) {

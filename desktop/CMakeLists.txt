@@ -21,6 +21,7 @@ qt_add_library(irisshell STATIC
     src/colorscheme.cpp
     src/globalshortcut.cpp
     src/irisbridge.cpp
+    src/matrixuri.cpp
     src/navigationpolicy.cpp
     src/networkwatch.cpp
     src/notifier.cpp

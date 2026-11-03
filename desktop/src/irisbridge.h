@@ -1,5 +1,6 @@
 #pragma once
 
+#include "matrixuri.h"
 #include "notifier.h"
 
 #include <QHash>
@@ -55,6 +56,16 @@ public:
     // Native -> web, not remembered: a notification was clicked / replied to.
     void openRoom(const QString &roomId, const QString &eventId);
     void reply(const QString &roomId, const QString &eventId, const QString &text);
+    // Native -> web, a matrix: link (mouseion/iris#69), event `openLink`. A link is an occurrence
+    // that must not be lost: it is queued until the page's adapter has asked for the pending links
+    // (takePendingLinks), then emitted at once. At most maxPendingLinks wait; the oldest go.
+    static constexpr int maxPendingLinks = 8;
+    void openLink(const MatrixLink &link);
+    // The adapter is up: hands over the queued links (JSON payloads, oldest first) and from now on
+    // links are emitted as events.
+    Q_INVOKABLE QStringList takePendingLinks();
+    // A page is loading (possibly a reload): its adapter is not up until it asks again.
+    void pageLoading();
     // The page (re)connected: say the current badge again and replay nothing else (the page asks
     // for latestEvents itself).
     void pageConnected();
@@ -72,6 +83,8 @@ private:
     int m_total = 0;
     int m_highlight = 0;
     QHash<QString, QString> m_latest;
+    QStringList m_pendingLinks;
+    bool m_linksLive = false;
 };
 
 // Owns the QWebChannel and the bridge, and publishes the bridge only while the view is on the
@@ -96,6 +109,8 @@ public:
 
     // Called with every URL the view is about to show or has shown.
     Q_INVOKABLE void pageUrlChanged(const QUrl &url);
+    // Called when the view starts loading a page (including a reload).
+    Q_INVOKABLE void pageLoading();
     // Called when a page finished loading; if it is on the allowed origin the badge is sent again.
     Q_INVOKABLE void pageLoaded(const QUrl &url);
 

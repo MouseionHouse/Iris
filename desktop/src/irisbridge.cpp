@@ -13,6 +13,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <utility>
 
 #ifndef IRIS_SHELL_VERSION
 #define IRIS_SHELL_VERSION "0.0.0"
@@ -215,6 +216,29 @@ void IrisBridge::setColorScheme(bool dark)
     Q_EMIT eventEmitted(QStringLiteral("colorScheme"), payload);
 }
 
+void IrisBridge::openLink(const MatrixLink &link)
+{
+    const QString payload = link.toJson();
+    if (m_linksLive) {
+        Q_EMIT eventEmitted(QStringLiteral("openLink"), payload);
+        return;
+    }
+    m_pendingLinks.append(payload);
+    while (m_pendingLinks.size() > maxPendingLinks)
+        m_pendingLinks.removeFirst();
+}
+
+QStringList IrisBridge::takePendingLinks()
+{
+    m_linksLive = true;
+    return std::exchange(m_pendingLinks, {});
+}
+
+void IrisBridge::pageLoading()
+{
+    m_linksLive = false;
+}
+
 void IrisBridge::pageConnected()
 {
     Q_EMIT unreadChanged(m_total, m_highlight);
@@ -250,6 +274,11 @@ void BridgeHost::pageUrlChanged(const QUrl &url)
     else
         m_channel->deregisterObject(m_bridge);
     m_registered = offer;
+}
+
+void BridgeHost::pageLoading()
+{
+    m_bridge->pageLoading();
 }
 
 void BridgeHost::pageLoaded(const QUrl &url)
