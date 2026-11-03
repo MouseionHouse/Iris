@@ -107,7 +107,8 @@ option and must stay off in release builds.
 off, runs the Qt Test suites in `checkPhase` (offscreen; the e2e script is not part of it), and
 installs the binary (Qt-wrapped), `house.mouseion.iris.desktop`, `house.mouseion.iris.notifyrc`
 (`share/knotifications6`, one event, `message`; KNotification's component name must be
-`house.mouseion.iris`) and the icons (hicolor PNGs from 16 to 512 plus the scalable SVG). The PNGs
+`house.mouseion.iris`) and the icons (hicolor PNGs from 16 to 512 plus the scalable SVG,
+`branding/iris-mark-on-dark.svg`: the lone mark on a clear ground, as the PWA uses). The PNGs
 in `icons/` are cut by `scripts/iris-icons.py` from `branding/`; rerun it after changing the artwork.
 `nix/deps.nix` lists the inputs; `shell.nix` uses it too, so the shell and the package cannot drift.
 
