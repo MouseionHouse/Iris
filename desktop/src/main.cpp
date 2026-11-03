@@ -1,3 +1,5 @@
+#include "badge.h"
+#include "colorscheme.h"
 #include "irisbridge.h"
 #include "navigationpolicy.h"
 #include "networkwatch.h"
@@ -100,6 +102,17 @@ int main(int argc, char *argv[])
 #endif
     BridgeHost bridgeHost(&policy);
     NetworkWatch networkWatch;
+
+    QObject::connect(bridgeHost.bridge(), &IrisBridge::unreadChanged, &app, [](int total, int) { Badge::send(total); });
+    ColorSchemeWatcher colorScheme;
+    bool dark = colorScheme.dark();
+#ifdef IRIS_SHELL_TEST_HOOKS
+    // Test builds only: pretend Plasma is on a given scheme at start.
+    if (qEnvironmentVariableIsSet("IRIS_SHELL_COLOR_SCHEME"))
+        dark = qEnvironmentVariable("IRIS_SHELL_COLOR_SCHEME") == QLatin1String("dark");
+#endif
+    bridgeHost.bridge()->setColorScheme(dark);
+    QObject::connect(&colorScheme, &ColorSchemeWatcher::darkChanged, bridgeHost.bridge(), &IrisBridge::setColorScheme);
 
     ShellInfo info;
     info.startUrl = startUrl;

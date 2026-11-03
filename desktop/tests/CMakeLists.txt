@@ -7,3 +7,4 @@ endfunction()
 
 iris_test(tst_navigationpolicy)
 iris_test(tst_irisbridge)
+iris_test(tst_badge)

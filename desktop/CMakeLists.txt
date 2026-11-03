@@ -10,12 +10,14 @@ include(KDECompilerSettings NO_POLICY_SCOPE)
 
 option(IRIS_SHELL_TEST_HOOKS "Let environment variables point the shell at a test server (never for release builds)" OFF)
 
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Network Qml Quick QuickControls2 WebChannel WebEngineQuick Test)
+find_package(Qt6 REQUIRED COMPONENTS Core DBus Gui Network Qml Quick QuickControls2 WebChannel WebEngineQuick Test)
 find_package(KF6 REQUIRED COMPONENTS Config CoreAddons DBusAddons)
 
 qt_policy(SET QTP0001 NEW)
 
 qt_add_library(irisshell STATIC
+    src/badge.cpp
+    src/colorscheme.cpp
     src/irisbridge.cpp
     src/navigationpolicy.cpp
     src/networkwatch.cpp
@@ -23,7 +25,7 @@ qt_add_library(irisshell STATIC
 )
 target_include_directories(irisshell PUBLIC src)
 target_compile_definitions(irisshell PUBLIC IRIS_SHELL_VERSION="${PROJECT_VERSION}")
-target_link_libraries(irisshell PUBLIC Qt6::Core Qt6::Gui Qt6::Network Qt6::WebChannel KF6::ConfigCore KF6::ConfigGui)
+target_link_libraries(irisshell PUBLIC Qt6::Core Qt6::DBus Qt6::Gui Qt6::Network Qt6::WebChannel KF6::ConfigCore KF6::ConfigGui)
 set_source_files_properties(../branding/iris-app-icon.svg PROPERTIES QT_RESOURCE_ALIAS icon.svg)
 set_source_files_properties(src/bridge-adapter.js PROPERTIES QT_RESOURCE_ALIAS bridge-adapter.js)
 qt_add_resources(irisshell iris_assets PREFIX /iris FILES src/bridge-adapter.js ../branding/iris-app-icon.svg)

@@ -27,7 +27,7 @@ import {
  * messages: like a mention, a DM is addressed to the member, and the hub turns
  * its cue red for either.
  */
-const computeUnreadSummary = (
+export const computeUnreadSummary = (
   roomToUnread: RoomToUnread,
   directs: Set<string>
 ): { rooms: number; messages: number; highlights: number; direct: number } => {

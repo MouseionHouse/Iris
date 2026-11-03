@@ -15,6 +15,8 @@ let lastError; const until = async (fn, ms = 20000) => { const t = Date.now(); w
 
 function serve(port, body) {
   const server = http.createServer((req, res) => {
+    // A page of a signed-out Iris: reports no unread as soon as it loads.
+    if (req.url === '/signedout') { res.writeHead(200, { 'content-type': 'text/html' }); return res.end('<title>Signed out</title><script>window.irisDesktop.setUnread({ total: 0, highlight: 0 })</script>'); }
     if (req.url === '/redirect') { res.writeHead(302, { location: `http://127.0.0.1:${B}/landed` }); return res.end(); }
     res.writeHead(200, { 'content-type': 'text/html' }); res.end(body);
   });
@@ -28,11 +30,11 @@ const srvB = serve(B, '<title>Other page</title><p>other</p>');
 
 let out = '';
 const apps = new Set();
-function launch(startUrl) {
+function launch(startUrl, scheme = 'dark') {
   const p = spawn(process.env.IRIS_BIN, [], {
     env: { ...process.env, QT_QPA_PLATFORM: 'offscreen', QT_FORCE_STDERR_LOGGING: '1', QTWEBENGINE_REMOTE_DEBUGGING: String(CDP), QTWEBENGINE_CHROMIUM_FLAGS: '--no-sandbox',
       XDG_DATA_HOME: join(tmp, 'data'), XDG_CACHE_HOME: join(tmp, 'cache'), XDG_CONFIG_HOME: join(tmp, 'config'),
-      IRIS_SHELL_ALLOWED_ORIGIN: `http://127.0.0.1:${A}`, IRIS_SHELL_START_URL: startUrl, IRIS_SHELL_OPEN_LOG: openLog, IRIS_SHELL_RETRY_MS: '1000' },
+      IRIS_SHELL_ALLOWED_ORIGIN: `http://127.0.0.1:${A}`, IRIS_SHELL_START_URL: startUrl, IRIS_SHELL_OPEN_LOG: openLog, IRIS_SHELL_RETRY_MS: '1000', IRIS_SHELL_COLOR_SCHEME: scheme },
   });
   p.stdout.on('data', (d) => { out += d; }); p.stderr.on('data', (d) => { out += d; });
   apps.add(p);
@@ -61,6 +63,11 @@ async function connect(match) {
   };
   return { page, browser: { close: async () => ws.close() } };
 }
+// The launcher entry signals on the private bus, as Plasma would see them.
+const monitor = spawn('dbus-monitor', ['--session', "type='signal',interface='com.canonical.Unity.LauncherEntry'"]);
+let bus = '';
+monitor.stdout.on('data', (d) => { bus += d; });
+const signals = () => bus.split(/(?=^signal )/m).filter((s) => s.startsWith('signal'));
 const opened = () => readFileSync(openLog, 'utf8').split('\n').filter(Boolean);
 
 try {
@@ -69,7 +76,46 @@ try {
   let { browser, page } = await connect(`http://127.0.0.1:${A}/`);
   check('app loads the start page', !!page);
   check('irisDesktop.version() resolves on the allowed origin', await until(async () => (await page.evaluate(() => window.irisDesktop.version())) === '0.1.0'));
-  check('irisDesktop is frozen and has only version/on', await page.evaluate(() => JSON.stringify(Object.keys(window.irisDesktop).sort()) === '["on","version"]' && Object.isFrozen(window.irisDesktop)));
+  check('irisDesktop is frozen and has only on/setUnread/version', await page.evaluate(() => JSON.stringify(Object.keys(window.irisDesktop).sort()) === '["on","setUnread","version"]' && Object.isFrozen(window.irisDesktop)));
+
+  // The colour scheme arrives although the handler is added after the shell emitted it.
+  const schemes = await page.evaluate(() => { window.__schemes = []; window.irisDesktop.on('colorScheme', (v) => window.__schemes.push(v)); return true; });
+  check('colorScheme { dark } is delivered on start', !!(await until(async () => JSON.stringify(await page.evaluate(() => window.__schemes)) === '[{"dark":true}]')), JSON.stringify(await page.evaluate(() => window.__schemes)));
+
+  // 1b. setUnread -> the LauncherEntry signal.
+  const sentTo = (n, visible) => signals().some((s) => /destination=\(null destination\)/.test(s) && s.includes('path=/house/mouseion/iris; interface=com.canonical.Unity.LauncherEntry; member=Update')
+    && s.includes('string "application://house.mouseion.iris.desktop"') && new RegExp(`string "count"\\s+variant\\s+int64 ${n}\\b`).test(s) && new RegExp(`string "count-visible"\\s+variant\\s+boolean ${visible}\\b`).test(s));
+  await sleep(500);
+  check('setUnread resolves', (await page.evaluate(() => window.irisDesktop.setUnread({ total: 3, highlight: 1 }).then(() => 'ok'))) === 'ok');
+  check('Update signal with count 3, visible', !!(await until(() => sentTo(3, 'true'))));
+  await page.evaluate(() => window.irisDesktop.setUnread({ total: 0, highlight: 0 }));
+  check('Update signal with count 0, count-visible false', !!(await until(() => sentTo(0, 'false'))));
+  const before = signals().length;
+  const rejected = await page.evaluate(() => window.irisDesktop.setUnread({ total: -1, highlight: 0 }).then(() => 'accepted', () => 'rejected'));
+  const rejected2 = await page.evaluate(() => window.irisDesktop.setUnread('3').then(() => 'accepted', () => 'rejected'));
+  await sleep(500);
+  check('bad setUnread arguments are rejected and send nothing', rejected === 'rejected' && rejected2 === 'rejected' && signals().length === before);
+  await page.evaluate(() => window.irisDesktop.setUnread({ total: 7, highlight: 2 }));
+  check('count 7 is shown', !!(await until(() => sentTo(7, 'true'))));
+  // A reload reconnects the page; the shell says the badge again.
+  const n7 = signals().filter((s) => /int64 7\b/.test(s)).length;
+  page.evaluate(() => location.reload()).catch(() => {});
+  check('badge is sent again when the page reloads', !!(await until(() => signals().filter((s) => /int64 7\b/.test(s)).length > n7)));
+  await sleep(500);
+  check('colorScheme is replayed to a handler added after the reload', !!(await until(async () => {
+    await page.evaluate(() => { window.__s2 = []; window.irisDesktop.on('colorScheme', (v) => window.__s2.push(v)); });
+    return JSON.stringify(await page.evaluate(() => window.__s2)) === '[{"dark":true}]';
+  })));
+
+  // Signed out: the shell re-sends 7 on load, the sign-in page reports 0, and the badge ends hidden.
+  const n7b = signals().filter((s) => /int64 7\b/.test(s)).length;
+  const total = signals().length;
+  page.evaluate(() => { location.href = '/signedout'; }).catch(() => {});
+  check('signed-out page load: the badge is resent, then cleared', !!(await until(() => signals().slice(total).some((s) => /int64 0\b/.test(s)))));
+  const last = signals().slice(-1)[0] || '';
+  check('the last signal after the signed-out page is count 0, count-visible false', /int64 0\b/.test(last) && /boolean false\b/.test(last) && signals().filter((s) => /int64 7\b/.test(s)).length >= n7b);
+  page.evaluate(() => { location.href = '/'; }).catch(() => {});
+  await sleep(1000);
 
   await page.click('#ext');
   check('clicked external link opens in the browser', !!(await until(() => opened().includes(`http://127.0.0.1:${B}/ext`))), JSON.stringify(opened()));
@@ -123,6 +169,7 @@ try {
   results.push(false);
 } finally {
   for (const p of apps) p.kill();
+  monitor.kill();
   await srvA.stop(); await srvB.stop();
 }
 if (process.env.E2E_VERBOSE) console.log(out);
