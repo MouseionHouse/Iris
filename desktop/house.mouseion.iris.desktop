@@ -2,7 +2,6 @@
 Type=Application
 Name=Iris
 GenericName=Matrix client
-Comment=The house Matrix client
 Exec=iris %u
 Icon=house.mouseion.iris
 Terminal=false

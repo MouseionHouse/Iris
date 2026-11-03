@@ -73,7 +73,7 @@ int main(int argc, char *argv[])
     app.setWindowIcon(QIcon::fromTheme(ShellConfig::iconName, QIcon(QStringLiteral(":/iris/icon.svg"))));
 
     QCommandLineParser parser;
-    parser.setApplicationDescription(QStringLiteral("Iris, the house Matrix client"));
+    parser.setApplicationDescription(QStringLiteral("Iris, a Matrix client"));
     parser.addHelpOption();
     parser.addVersionOption();
     parser.addOption({QStringLiteral("hidden"), QStringLiteral("Start in the tray without showing the window.")});

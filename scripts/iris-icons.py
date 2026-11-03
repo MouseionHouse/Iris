@@ -26,7 +26,7 @@ DESKTOP = ROOT / "desktop/icons/hicolor"
 CHROME = os.environ.get("CHROME") or str(
     Path.home() / ".cache/ms-playwright/chromium_headless_shell-1217/chrome-headless-shell-linux64/chrome-headless-shell")
 DEEP = (0x30, 0x22, 0x46, 255)   # the app icon's ground
-NIGHT = (0x15, 0x16, 0x1A, 255)  # the house's dark ground, behind the splash
+NIGHT = (0x15, 0x16, 0x1A, 255)  # the app's dark ground, behind the splash
 MASTER = 1024
 
 
@@ -98,15 +98,16 @@ def main():
         size = int(re.search(r"(\d+)x", f.name).group(1))
         on(DEEP, dark, size, .684).convert("RGB").save(f)  # iOS rounds the corners itself and wants no clear pixels
 
-    # The Linux desktop shell (desktop/): the app icon at the sizes of the hicolor theme. The
-    # scalable one is branding/iris-app-icon.svg itself, which the package installs as it is.
+    # The Linux desktop shell (desktop/) matches the PWA: the lone mark in its night colours on a
+    # clear ground, at the sizes of the hicolor theme. The scalable one is
+    # branding/iris-mark-on-dark.svg itself, which the package installs as it is.
     for size in (16, 22, 24, 32, 48, 64, 128, 256, 512):
         out = DESKTOP / f"{size}x{size}/apps"
         out.mkdir(parents=True, exist_ok=True)
-        fit(icon, size).save(out / "house.mouseion.iris.png", optimize=True)
-    # The tray icon while something mentions you: the same icon with the highlight dot.
+        fit(dark, size).save(out / "house.mouseion.iris.png", optimize=True)
+    # The tray icon while something mentions you: the same mark with the highlight dot.
     for size in (16, 22, 24, 32, 48, 64):
-        badge(fit(icon, size), (200, 16, 16, 255)).save(
+        badge(fit(dark, size), (200, 16, 16, 255)).save(
             DESKTOP / f"{size}x{size}/apps/house.mouseion.iris-highlight.png", optimize=True)
 
     # Android. An adaptive icon's layers are 108 dp with the picture inside the middle 66 dp.

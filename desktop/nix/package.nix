@@ -46,7 +46,7 @@ stdenv.mkDerivation {
   '';
 
   meta = {
-    description = "Iris, the house Matrix client, as a KDE app";
+    description = "Iris Matrix client for KDE Plasma";
     mainProgram = "iris";
     platforms = lib.platforms.linux;
   };
