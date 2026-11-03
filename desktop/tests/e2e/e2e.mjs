@@ -1,8 +1,8 @@
 import http from 'node:http';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { mkdtempSync, existsSync, readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
 
 const A = 18101, B = 18102, CDP = 19333;
 const tmp = mkdtempSync(join(tmpdir(), 'iris-e2e-'));
@@ -30,8 +30,8 @@ const srvB = serve(B, '<title>Other page</title><p>other</p>');
 
 let out = '';
 const apps = new Set();
-function launch(startUrl, scheme = 'dark') {
-  const p = spawn(process.env.IRIS_BIN, [], {
+function launch(startUrl, scheme = 'dark', args = []) {
+  const p = spawn(process.env.IRIS_BIN, args, {
     env: { ...process.env, QT_QPA_PLATFORM: 'offscreen', QT_FORCE_STDERR_LOGGING: '1', QTWEBENGINE_REMOTE_DEBUGGING: String(CDP), QTWEBENGINE_CHROMIUM_FLAGS: '--no-sandbox',
       XDG_DATA_HOME: join(tmp, 'data'), XDG_CACHE_HOME: join(tmp, 'cache'), XDG_CONFIG_HOME: join(tmp, 'config'),
       IRIS_SHELL_ALLOWED_ORIGIN: `http://127.0.0.1:${A}`, IRIS_SHELL_START_URL: startUrl, IRIS_SHELL_OPEN_LOG: openLog, IRIS_SHELL_RETRY_MS: '1000', IRIS_SHELL_COLOR_SCHEME: scheme },
@@ -163,7 +163,89 @@ try {
   await sleep(1500);
   const probe = await page.evaluate(() => [typeof window.irisDesktop, typeof window.QWebChannel]);
   check('irisDesktop and QWebChannel are undefined on another origin', probe[0] === 'undefined' && probe[1] === 'undefined', JSON.stringify(probe));
-  await browser.close().catch(() => {}); app.kill(); await exited(app);
+  await browser.close().catch(() => {}); app.kill(); await exited(app); await sleep(1000);
+
+  // 7. Tray, close-to-tray, --hidden (a stand-in StatusNotifierWatcher plays Plasma's tray).
+  const watcher = spawn(join(dirname(process.env.IRIS_BIN), 'tests', 'iris-fake-watcher'));
+  apps.add(watcher);
+  let wout = ''; watcher.stdout.on('data', (d) => { wout += d; });
+  check('stand-in StatusNotifierWatcher is up', !!(await until(() => wout.includes('ready'))));
+  // Notifications and KGlobalAccel calls on the private bus (nobody answers them; the calls are what we look at).
+  const mon2 = spawn('dbus-monitor', ['--session', "type='method_call',interface='org.freedesktop.Notifications'", "destination='org.kde.kglobalaccel'"]);
+  let calls = ''; mon2.stdout.on('data', (d) => { calls += d; });
+  await sleep(500);
+  const busctl = (...a) => spawnSync('busctl', ['--user', ...a], { encoding: 'utf8' }).stdout || '';
+  const mark = out.length;
+  const visible = () => { const m = [...out.slice(mark).matchAll(/IRIS_STATE visible=(true|false)/g)]; return m.length ? m.at(-1)[1] === 'true' : null; };
+  const notices = () => calls.split(/(?=^method call )/m).filter((c) => /member=Notify/.test(c) && c.includes('Iris is still running in the tray')).length;
+
+  app = launch(`http://127.0.0.1:${A}/`, 'dark', ['--hidden']);
+  ({ browser, page } = await connect(`http://127.0.0.1:${A}/`));
+  check('--hidden: the page loads in the background', !!(page && await until(() => page.evaluate(() => window.irisDesktop.version()))));
+  await sleep(1500);
+  check('--hidden: no window is shown', visible() !== true, String(visible()));
+  const svc = await until(() => /registered (\S+)/.exec(wout)?.[1]);
+  check('the tray item registered with the watcher', !!svc, String(svc));
+  const item = (prop) => busctl('get-property', svc, '/StatusNotifierItem', 'org.kde.StatusNotifierItem', prop).trim();
+  check('tray item id and icon', /^s "[^"]*house\.mouseion\.iris"$/.test(item('Id')) && item('IconName') === 's "house.mouseion.iris"', item('Id') + ' ' + item('IconName'));
+  check('tray tooltip starts as plain Iris', /"Iris" ""$/.test(item('ToolTip')), item('ToolTip'));
+  await page.evaluate(() => window.irisDesktop.setUnread({ total: 3, highlight: 0 }));
+  check('tooltip says "Iris: 3 unread", icon unchanged', !!(await until(() => /"Iris: 3 unread" ""$/.test(item('ToolTip')))) && item('IconName') === 's "house.mouseion.iris"', item('ToolTip'));
+  await page.evaluate(() => window.irisDesktop.setUnread({ total: 5, highlight: 2 }));
+  check('a highlight switches the icon (tray and tooltip)', !!(await until(() => item('IconName') === 's "house.mouseion.iris-highlight"')) && /"Iris: 5 unread" ""$/.test(item('ToolTip')), item('IconName') + ' ' + item('ToolTip'));
+  await page.evaluate(() => window.irisDesktop.setUnread({ total: 0, highlight: 0 }));
+  check('reading everything restores icon and tooltip', !!(await until(() => item('IconName') === 's "house.mouseion.iris"' && /"Iris" ""$/.test(item('ToolTip')))));
+
+  const activate = () => busctl('call', svc, '/StatusNotifierItem', 'org.kde.StatusNotifierItem', 'Activate', 'ii', '0', '0');
+  activate();
+  check('Activate on the tray item shows the window', !!(await until(() => visible() === true)));
+  activate();
+  check('Activate again hides it', !!(await until(() => visible() === false)));
+
+  // The tray menu: Show Iris and Quit.
+  const layout = busctl('call', svc, '/MenuBar', 'com.canonical.dbusmenu', 'GetLayout', 'iias', '--', '0', '-1', '0');
+  check('menu has Show Iris and Quit', /"label" s "Show Iris"/.test(layout) && /"label" s "Quit"/.test(layout), layout.slice(0, 400));
+  const click = (id) => busctl('call', svc, '/MenuBar', 'com.canonical.dbusmenu', 'Event', 'isvu', String(id), 'clicked', 's', '', '0');
+  const ids = [...layout.matchAll(/\(ia\{sv\}av\) (\d+) \d+ "label" s "([^"]+)"/g)];
+  const idShow = ids.find((m) => m[2] === 'Show Iris')?.[1], idQuit = ids.find((m) => m[2] === 'Quit')?.[1];
+  if (idShow) click(idShow);
+  check('Show Iris in the menu shows the window', !!(await until(() => visible() === true)));
+
+  // Close hides rather than quits; the first time, one notice; the app keeps syncing.
+  const alive = () => app.exitCode === null;
+  app.kill('SIGUSR1');
+  check('closing the window hides it and the app keeps running', !!(await until(() => visible() === false)) && alive());
+  check('the first hide says "Iris is still running in the tray" through the notification service', !!(await until(() => notices() === 1)), String(notices()));
+  const n9 = signals().length;
+  await page.evaluate(() => window.irisDesktop.setUnread({ total: 9, highlight: 1 }));
+  check('while hidden, a new unread still reaches the badge and the tray', !!(await until(() => signals().slice(n9).some((x) => /int64 9\b/.test(x)))) && !!(await until(() => item('IconName') === 's "house.mouseion.iris-highlight"')));
+  activate(); await until(() => visible() === true);
+  app.kill('SIGUSR1');
+  check('a second close hides again, and the notice is not repeated', !!(await until(() => visible() === false)) && alive());
+  await sleep(500);
+  check('the notice was sent exactly once', notices() === 1, String(notices()));
+  check('the global shortcut "Show or hide Iris" is registered with KGlobalAccel', calls.includes('member=doRegister') && calls.includes('house.mouseion.iris') && calls.includes('show-or-hide') && calls.includes('Show or hide Iris'), calls.split('\n').filter((l) => l.includes('kglobalaccel')).length + ' calls');
+
+  // Restart: the notice is remembered across runs, so a close on the new run sends none.
+  app.kill(); await exited(app); await sleep(1000);
+  const noticesBefore = notices();
+  const mark2 = out.length;
+  app = launch(`http://127.0.0.1:${A}/`, 'dark', ['--hidden']);
+  await until(() => (wout.match(/registered/g) || []).length >= 2);
+  let svc2; for (const m of wout.matchAll(/registered (\S+)/g)) svc2 = m[1];
+  busctl('call', svc2, '/StatusNotifierItem', 'org.kde.StatusNotifierItem', 'Activate', 'ii', '0', '0');
+  await until(() => out.slice(mark2).includes('IRIS_STATE visible=true'));
+  app.kill('SIGUSR1');
+  await until(() => out.slice(mark2).includes('IRIS_STATE visible=false'));
+  await sleep(500);
+  check('the notice is remembered across restarts', notices() === noticesBefore, `${noticesBefore} -> ${notices()}`);
+
+  // Quit in the tray menu exits.
+  if (idQuit) busctl('call', svc2, '/MenuBar', 'com.canonical.dbusmenu', 'Event', 'isvu', String(idQuit), 'clicked', 's', '', '0');
+  const quitCode = await Promise.race([exited(app), sleep(15000).then(() => 'timeout')]);
+  check('Quit in the tray menu exits the app', quitCode === 0, `exit ${quitCode}`);
+  await browser.close().catch(() => {});
+  mon2.kill();
 } catch (e) {
   console.log('FAIL  e2e crashed', e);
   results.push(false);
