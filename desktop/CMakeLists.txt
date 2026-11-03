@@ -31,9 +31,9 @@ qt_add_library(irisshell STATIC
 target_include_directories(irisshell PUBLIC src)
 target_compile_definitions(irisshell PUBLIC IRIS_SHELL_VERSION="${PROJECT_VERSION}")
 target_link_libraries(irisshell PUBLIC Qt6::Core Qt6::DBus Qt6::Gui Qt6::Network Qt6::WebChannel Qt6::Widgets KF6::ConfigCore KF6::ConfigGui KF6::GlobalAccel KF6::Notifications KF6::StatusNotifierItem)
-set_source_files_properties(../branding/iris-app-icon.svg PROPERTIES QT_RESOURCE_ALIAS icon.svg)
+set_source_files_properties(../branding/iris-mark-on-dark.svg PROPERTIES QT_RESOURCE_ALIAS icon.svg)
 set_source_files_properties(src/bridge-adapter.js PROPERTIES QT_RESOURCE_ALIAS bridge-adapter.js)
-qt_add_resources(irisshell iris_assets PREFIX /iris FILES src/bridge-adapter.js ../branding/iris-app-icon.svg)
+qt_add_resources(irisshell iris_assets PREFIX /iris FILES src/bridge-adapter.js ../branding/iris-mark-on-dark.svg)
 
 qt_add_executable(iris src/main.cpp)
 qt_add_qml_module(iris
@@ -51,7 +51,7 @@ install(PROGRAMS house.mouseion.iris.desktop DESTINATION ${KDE_INSTALL_APPDIR})
 # KF6 reads knotifications6; KDE_INSTALL_KNOTIFYRCDIR is still the KF5 knotifications5 here.
 install(FILES house.mouseion.iris.notifyrc DESTINATION ${KDE_INSTALL_DATADIR}/knotifications6)
 install(DIRECTORY icons/hicolor DESTINATION ${KDE_INSTALL_ICONDIR})
-install(FILES ../branding/iris-app-icon.svg DESTINATION ${KDE_INSTALL_ICONDIR}/hicolor/scalable/apps RENAME house.mouseion.iris.svg)
+install(FILES ../branding/iris-mark-on-dark.svg DESTINATION ${KDE_INSTALL_ICONDIR}/hicolor/scalable/apps RENAME house.mouseion.iris.svg)
 
 enable_testing()
 add_subdirectory(tests)
