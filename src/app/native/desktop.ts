@@ -23,6 +23,19 @@ export type DesktopNotification = {
   canReply?: boolean;
 };
 export type DesktopOpenRoom = { roomId: string; eventId?: string };
+/**
+ * A `matrix:` link (Matrix spec, "Matrix URI scheme"), parsed and checked by the shell. `id` carries
+ * its sigil: `!room:server` (kind 'room'), `#alias:server` ('alias') or `@user:server` ('user').
+ */
+export type DesktopLink = {
+  kind: 'room' | 'alias' | 'user';
+  id: string;
+  /** `$event`; rooms and aliases only. */
+  eventId?: string;
+  /** Servers to try to join through, from `via=`. */
+  via?: string[];
+  action?: 'join' | 'chat';
+};
 export type DesktopReply = { roomId: string; eventId?: string; text: string };
 
 type DesktopBridge = {
@@ -100,11 +113,65 @@ const isRoomTarget = (p: unknown): p is { roomId: string; eventId?: unknown } =>
 const optionalString = (v: unknown): string | undefined =>
   typeof v === 'string' && v ? v : undefined;
 
-/** A notification was clicked (and, later, a `matrix:` link): show this room. */
+/** A notification was clicked: show this room. */
 export const onDesktopOpenRoom = (handler: (target: DesktopOpenRoom) => void): (() => void) =>
   bridge()?.on('openRoom', (payload) => {
     if (isRoomTarget(payload))
       handler({ roomId: payload.roomId, eventId: optionalString(payload.eventId) });
+  }) ?? noop;
+
+const SIGILS = { room: '!', alias: '#', user: '@' } as const;
+const MAX_ID_LENGTH = 255;
+const MAX_VIA = 10;
+
+/**
+ * The shell has already checked a link; this is the page's own check of what arrived, so a bridge
+ * that misbehaves cannot make the app navigate anywhere odd. Returns undefined for anything that is
+ * not exactly the shape of `DesktopLink`.
+ */
+export const parseDesktopLink = (payload: unknown): DesktopLink | undefined => {
+  if (typeof payload !== 'object' || payload === null) return undefined;
+  const p = payload as Record<string, unknown>;
+  if (Object.keys(p).some((k) => !['kind', 'id', 'eventId', 'via', 'action'].includes(k)))
+    return undefined;
+  const { kind, id, eventId, via, action } = p;
+  if (kind !== 'room' && kind !== 'alias' && kind !== 'user') return undefined;
+  const validId = (v: unknown, sigil: string): v is string =>
+    typeof v === 'string' && v.length > 1 && v.length <= MAX_ID_LENGTH && v.startsWith(sigil);
+  if (!validId(id, SIGILS[kind])) return undefined;
+  const link: DesktopLink = { kind, id };
+  if (eventId !== undefined) {
+    if (kind === 'user' || !validId(eventId, '$')) return undefined;
+    link.eventId = eventId;
+  }
+  if (via !== undefined) {
+    if (
+      kind === 'user' ||
+      !Array.isArray(via) ||
+      via.length > MAX_VIA ||
+      !via.every((v) => typeof v === 'string' && v.length > 0 && v.length <= MAX_ID_LENGTH)
+    )
+      return undefined;
+    if (via.length > 0) link.via = via as string[];
+  }
+  if (action !== undefined) {
+    if (action !== 'join' && action !== 'chat') return undefined;
+    if (kind === 'user' && action !== 'chat') return undefined;
+    link.action = action;
+  }
+  return link;
+};
+
+/**
+ * A `matrix:` link was opened (`xdg-open matrix:…`, on the command line or from a second launch).
+ * The shell holds a link that arrives before the page is ready, and the bridge hands it to the
+ * first handler added, once.
+ */
+export const onDesktopOpenLink = (handler: (link: DesktopLink) => void): (() => void) =>
+  bridge()?.on('openLink', (payload) => {
+    const link = parseDesktopLink(payload);
+    if (link) handler(link);
+    else console.warn('Ignored a malformed matrix: link from the desktop shell');
   }) ?? noop;
 
 /** The user typed a reply in a notification. */
