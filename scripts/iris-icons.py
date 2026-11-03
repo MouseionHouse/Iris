@@ -104,6 +104,10 @@ def main():
         out = DESKTOP / f"{size}x{size}/apps"
         out.mkdir(parents=True, exist_ok=True)
         fit(icon, size).save(out / "house.mouseion.iris.png", optimize=True)
+    # The tray icon while something mentions you: the same icon with the highlight dot.
+    for size in (16, 22, 24, 32, 48, 64):
+        badge(fit(icon, size), (200, 16, 16, 255)).save(
+            DESKTOP / f"{size}x{size}/apps/house.mouseion.iris-highlight.png", optimize=True)
 
     # Android. An adaptive icon's layers are 108 dp with the picture inside the middle 66 dp.
     for name, dp in (("mdpi", 1), ("hdpi", 1.5), ("xhdpi", 2), ("xxhdpi", 3), ("xxxhdpi", 4)):

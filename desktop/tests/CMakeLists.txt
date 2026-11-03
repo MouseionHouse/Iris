@@ -1,6 +1,6 @@
 function(iris_test name)
     add_executable(${name} ${name}.cpp)
-    target_link_libraries(${name} PRIVATE irisshell Qt6::Test)
+    target_link_libraries(${name} PRIVATE irisshell Qt6::Test Qt6::Widgets)
     add_test(NAME ${name} COMMAND ${name})
     set_tests_properties(${name} PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 endfunction()
@@ -30,3 +30,13 @@ target_link_libraries(fakenotifyd PRIVATE Qt6::Core Qt6::DBus)
 # server is a second run of the same test.
 add_test(NAME tst_notifier_plain_server COMMAND ${IRIS_TEST_BUS} -- $<TARGET_FILE:tst_notifier> replyActionOnlyWhenTheServerCanDoIt)
 set_tests_properties(tst_notifier_plain_server PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;IRIS_TEST_SERVER_WITHOUT_INLINE_REPLY=1")
+
+# KStatusNotifierItem and KGlobalAccel talk to a session bus: give the test one of its own.
+add_executable(tst_tray tst_tray.cpp)
+target_link_libraries(tst_tray PRIVATE irisshell Qt6::Test Qt6::Widgets)
+add_test(NAME tst_tray COMMAND ${IRIS_TEST_BUS} -- $<TARGET_FILE:tst_tray>)
+set_tests_properties(tst_tray PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+# Not a test: a stand-in StatusNotifierWatcher for e2e/run.sh.
+add_executable(iris-fake-watcher fakewatcher.cpp)
+target_link_libraries(iris-fake-watcher PRIVATE Qt6::Core Qt6::DBus)

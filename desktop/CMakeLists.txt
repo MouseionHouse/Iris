@@ -10,23 +10,26 @@ include(KDECompilerSettings NO_POLICY_SCOPE)
 
 option(IRIS_SHELL_TEST_HOOKS "Let environment variables point the shell at a test server (never for release builds)" OFF)
 
-find_package(Qt6 REQUIRED COMPONENTS Core DBus Gui Network Qml Quick QuickControls2 WebChannel WebEngineQuick Test)
-find_package(KF6 REQUIRED COMPONENTS Config CoreAddons DBusAddons Notifications)
+find_package(Qt6 REQUIRED COMPONENTS Core DBus Gui Network Qml Quick QuickControls2 WebChannel Widgets WebEngineQuick Test)
+find_package(KF6 REQUIRED COMPONENTS Config CoreAddons DBusAddons GlobalAccel Notifications StatusNotifierItem)
 
 qt_policy(SET QTP0001 NEW)
 
 qt_add_library(irisshell STATIC
     src/badge.cpp
+    src/closetotray.cpp
     src/colorscheme.cpp
+    src/globalshortcut.cpp
     src/irisbridge.cpp
     src/navigationpolicy.cpp
     src/networkwatch.cpp
     src/notifier.cpp
+    src/tray.cpp
     src/windowstate.cpp
 )
 target_include_directories(irisshell PUBLIC src)
 target_compile_definitions(irisshell PUBLIC IRIS_SHELL_VERSION="${PROJECT_VERSION}")
-target_link_libraries(irisshell PUBLIC Qt6::Core Qt6::DBus Qt6::Gui Qt6::Network Qt6::WebChannel KF6::ConfigCore KF6::ConfigGui KF6::Notifications)
+target_link_libraries(irisshell PUBLIC Qt6::Core Qt6::DBus Qt6::Gui Qt6::Network Qt6::WebChannel Qt6::Widgets KF6::ConfigCore KF6::ConfigGui KF6::GlobalAccel KF6::Notifications KF6::StatusNotifierItem)
 set_source_files_properties(../branding/iris-app-icon.svg PROPERTIES QT_RESOURCE_ALIAS icon.svg)
 set_source_files_properties(src/bridge-adapter.js PROPERTIES QT_RESOURCE_ALIAS bridge-adapter.js)
 qt_add_resources(irisshell iris_assets PREFIX /iris FILES src/bridge-adapter.js ../branding/iris-app-icon.svg)
