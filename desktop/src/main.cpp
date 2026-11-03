@@ -1,19 +1,23 @@
 #include "badge.h"
+#include "closetotray.h"
 #include "colorscheme.h"
+#include "globalshortcut.h"
 #include "irisbridge.h"
 #include "navigationpolicy.h"
 #include "networkwatch.h"
 #include "notifier.h"
 #include "shellconfig.h"
+#include "tray.h"
 #include "windowstate.h"
 
 #include <KDBusService>
 #include <KSignalHandler>
 
+#include <QAction>
+#include <QApplication>
 #include <QCommandLineParser>
 #include <QDir>
 #include <QFile>
-#include <QGuiApplication>
 #include <QIcon>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
@@ -56,7 +60,10 @@ public:
 int main(int argc, char *argv[])
 {
     QtWebEngineQuick::initialize();
-    QGuiApplication app(argc, argv);
+    // QApplication, not QGuiApplication: the tray menu is a QMenu.
+    QApplication app(argc, argv);
+    // Closing the window hides it (CloseToTray); only Quit ends the app.
+    app.setQuitOnLastWindowClosed(false);
     app.setOrganizationDomain(ShellConfig::organizationDomain);
     app.setApplicationName(ShellConfig::applicationName);
     app.setApplicationDisplayName(ShellConfig::displayName);
@@ -68,6 +75,7 @@ int main(int argc, char *argv[])
     parser.setApplicationDescription(QStringLiteral("Iris, the house Matrix client"));
     parser.addHelpOption();
     parser.addVersionOption();
+    parser.addOption({QStringLiteral("hidden"), QStringLiteral("Start in the tray without showing the window.")});
     parser.addPositionalArgument(QStringLiteral("uri"), QStringLiteral("A matrix: link to open (handled by a later release)."), QStringLiteral("[uri]"));
     parser.process(app);
 
@@ -76,7 +84,25 @@ int main(int argc, char *argv[])
     // Quit cleanly on SIGTERM/SIGINT so WebEngine flushes the profile (login, storage) to disk.
     KSignalHandler::self()->watchSignal(SIGTERM);
     KSignalHandler::self()->watchSignal(SIGINT);
-    QObject::connect(KSignalHandler::self(), &KSignalHandler::signalReceived, &app, &QCoreApplication::quit);
+    // Quitting has to get past close-to-tray, so every way out goes through quitShell.
+    CloseToTray *closeToTray = nullptr;
+    auto quitShell = [&closeToTray] {
+        if (closeToTray)
+            closeToTray->allowClose();
+        QCoreApplication::quit();
+    };
+    QObject::connect(KSignalHandler::self(), &KSignalHandler::signalReceived, &app, [quitShell](int sig) {
+#ifdef IRIS_SHELL_TEST_HOOKS
+        if (sig == SIGUSR1)
+            return; // handled below
+#endif
+        Q_UNUSED(sig)
+        quitShell();
+    });
+#ifdef IRIS_SHELL_TEST_HOOKS
+    // Test builds only: SIGUSR1 closes the window as the window manager's close button would.
+    KSignalHandler::self()->watchSignal(SIGUSR1);
+#endif
 
     QString origin = ShellConfig::origin;
     QUrl startUrl{QString(ShellConfig::url)};
@@ -147,6 +173,27 @@ int main(int argc, char *argv[])
     auto *state = new WindowState(window);
     state->restore();
 
+    // Tray, close-to-tray and the global shortcut (mouseion/iris#67).
+    closeToTray = new CloseToTray(window);
+    auto *tray = new Tray(window, window);
+    QObject::connect(tray, &Tray::quitRequested, &app, quitShell);
+    QObject::connect(&app, &QGuiApplication::commitDataRequest, &app, [closeToTray] { closeToTray->allowClose(); });
+    QObject::connect(closeToTray, &CloseToTray::hiddenToTray, tray, [tray](bool first) {
+        if (first)
+            tray->showStillRunningNotice();
+    });
+    QObject::connect(bridgeHost.bridge(), &IrisBridge::unreadChanged, tray, &Tray::setUnread);
+    tray->setUnread(bridgeHost.bridge()->unreadTotal(), bridgeHost.bridge()->unreadHighlight());
+    QAction *showHide = ShowHideShortcut::createShowHide(window);
+    QObject::connect(showHide, &QAction::triggered, window, [window] { Tray::toggleWindow(window); });
+#ifdef IRIS_SHELL_TEST_HOOKS
+    QObject::connect(window, &QWindow::visibleChanged, &app, [](bool visible) { qInfo("IRIS_STATE visible=%s", visible ? "true" : "false"); });
+    QObject::connect(KSignalHandler::self(), &KSignalHandler::signalReceived, window, [window](int sig) {
+        if (sig == SIGUSR1)
+            window->close();
+    });
+#endif
+
     // A second launch lands here in the first process. Raise the window; the arguments are the
     // hook for matrix: links (mouseion/iris#69).
     QObject::connect(&service, &KDBusService::activateRequested, window, [window](const QStringList &arguments, const QString &) {
@@ -174,7 +221,8 @@ int main(int argc, char *argv[])
     if (!parser.positionalArguments().isEmpty()) {
         // matrix: URIs are parsed by a later ticket.
     }
-    window->show();
+    if (!parser.isSet(QStringLiteral("hidden")))
+        window->show();
     return app.exec();
 }
 

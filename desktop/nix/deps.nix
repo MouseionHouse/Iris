@@ -19,5 +19,7 @@
     kcoreaddons
     kdbusaddons
     knotifications
+    kglobalaccel
+    kstatusnotifieritem
   ];
 }
