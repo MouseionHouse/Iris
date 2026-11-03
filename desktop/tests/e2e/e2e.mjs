@@ -15,6 +15,8 @@ let lastError; const until = async (fn, ms = 20000) => { const t = Date.now(); w
 
 function serve(port, body) {
   const server = http.createServer((req, res) => {
+    // A page of a signed-out Iris: reports no unread as soon as it loads.
+    if (req.url === '/signedout') { res.writeHead(200, { 'content-type': 'text/html' }); return res.end('<title>Signed out</title><script>window.irisDesktop.setUnread({ total: 0, highlight: 0 })</script>'); }
     if (req.url === '/redirect') { res.writeHead(302, { location: `http://127.0.0.1:${B}/landed` }); return res.end(); }
     res.writeHead(200, { 'content-type': 'text/html' }); res.end(body);
   });
@@ -104,7 +106,16 @@ try {
     await page.evaluate(() => { window.__s2 = []; window.irisDesktop.on('colorScheme', (v) => window.__s2.push(v)); });
     return JSON.stringify(await page.evaluate(() => window.__s2)) === '[{"dark":true}]';
   })));
-  await page.evaluate(() => window.irisDesktop.setUnread({ total: 0, highlight: 0 }));
+
+  // Signed out: the shell re-sends 7 on load, the sign-in page reports 0, and the badge ends hidden.
+  const n7b = signals().filter((s) => /int64 7\b/.test(s)).length;
+  const total = signals().length;
+  page.evaluate(() => { location.href = '/signedout'; }).catch(() => {});
+  check('signed-out page load: the badge is resent, then cleared', !!(await until(() => signals().slice(total).some((s) => /int64 0\b/.test(s)))));
+  const last = signals().slice(-1)[0] || '';
+  check('the last signal after the signed-out page is count 0, count-visible false', /int64 0\b/.test(last) && /boolean false\b/.test(last) && signals().filter((s) => /int64 7\b/.test(s)).length >= n7b);
+  page.evaluate(() => { location.href = '/'; }).catch(() => {});
+  await sleep(1000);
 
   await page.click('#ext');
   check('clicked external link opens in the browser', !!(await until(() => opened().includes(`http://127.0.0.1:${B}/ext`))), JSON.stringify(opened()));

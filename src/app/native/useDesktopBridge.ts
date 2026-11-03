@@ -6,6 +6,7 @@ import { computeUnreadSummary } from '../hub/useHubBridge';
 import { desktopDarkAtom } from '../hooks/useTheme';
 import {
   createUnreadSender,
+  desktopClearUnread,
   desktopSetUnread,
   isDesktopShell,
   onDesktopColorScheme,
@@ -21,6 +22,17 @@ export const useDesktopColorScheme = (): void => {
     if (!isDesktopShell()) return undefined;
     return onDesktopColorScheme(({ dark }) => setDesktopDark(dark));
   }, [setDesktopDark]);
+};
+
+/**
+ * Mounted wherever the app shows it is signed out (the sign-in pages): clears the badge. The shell
+ * re-sends the last count when a page loads, and a sign-out reloads the page, so without this a
+ * signed-out Iris would keep showing the old count.
+ */
+export const useDesktopSignedOut = (): void => {
+  useEffect(() => {
+    desktopClearUnread();
+  }, []);
 };
 
 /**
@@ -50,7 +62,7 @@ export const useDesktopBridge = (): void => {
     () => () => {
       if (!sender) return;
       sender.cancel();
-      desktopSetUnread({ total: 0, highlight: 0 });
+      desktopClearUnread();
     },
     [sender]
   );

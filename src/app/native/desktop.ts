@@ -32,6 +32,9 @@ export const desktopSetUnread = (counts: DesktopUnread): void => {
   bridge()?.setUnread(counts).catch(noop);
 };
 
+/** Signed out: no unread, so no badge. Safe to call as often as needed. */
+export const desktopClearUnread = (): void => desktopSetUnread({ total: 0, highlight: 0 });
+
 const isColorScheme = (payload: unknown): payload is DesktopColorScheme =>
   typeof payload === 'object' &&
   payload !== null &&

@@ -39,6 +39,7 @@ import { AuthMetadataProvider } from '../../hooks/useAuthMetadata';
 import { getFallbackSession } from '../../state/sessions';
 import { AutoDiscovery } from './AutoDiscovery';
 import { useHubBridge } from '../../hub/useHubBridge';
+import { desktopClearUnread } from '../../native/desktop';
 import { useDesktopBridge } from '../../native/useDesktopBridge';
 import { notifyHubSignedOut } from '../../hub/hubBridge';
 
@@ -135,6 +136,7 @@ const useLogoutListener = (mx?: MatrixClient) => {
       await mx?.clearStores();
       window.localStorage.clear();
       notifyHubSignedOut();
+      desktopClearUnread();
       window.location.reload();
     };
 

@@ -3,6 +3,7 @@ import { afterEach, describe, it, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   createUnreadSender,
+  desktopClearUnread,
   desktopSetUnread,
   isDesktopShell,
   onDesktopColorScheme,
@@ -21,6 +22,11 @@ describe('outside the desktop shell', () => {
     desktopSetUnread({ total: 3, highlight: 1 });
     const off = onDesktopColorScheme(() => assert.fail('no scheme without the shell'));
     off();
+  });
+
+  it('clearing the badge does nothing without the shell', () => {
+    g.window = {};
+    desktopClearUnread();
   });
 
   it('does nothing without a window at all', () => {
@@ -55,6 +61,16 @@ describe('inside the desktop shell', () => {
     assert.equal(isDesktopShell(), true);
     desktopSetUnread({ total: 5, highlight: 2 });
     assert.deepEqual(calls, [{ total: 5, highlight: 2 }]);
+  });
+
+  it('signing out clears the badge', () => {
+    const { calls } = fakeBridge();
+    desktopSetUnread({ total: 3, highlight: 1 });
+    desktopClearUnread();
+    assert.deepEqual(calls, [
+      { total: 3, highlight: 1 },
+      { total: 0, highlight: 0 },
+    ]);
   });
 
   it('ignores a refused setUnread', async () => {
