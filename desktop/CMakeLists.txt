@@ -41,6 +41,9 @@ endif()
 
 install(TARGETS iris ${KDE_INSTALL_TARGETS_DEFAULT_ARGS})
 install(PROGRAMS house.mouseion.iris.desktop DESTINATION ${KDE_INSTALL_APPDIR})
+# KF6 reads knotifications6; KDE_INSTALL_KNOTIFYRCDIR is still the KF5 knotifications5 here.
+install(FILES house.mouseion.iris.notifyrc DESTINATION ${KDE_INSTALL_DATADIR}/knotifications6)
+install(DIRECTORY icons/hicolor DESTINATION ${KDE_INSTALL_ICONDIR})
 install(FILES ../branding/iris-app-icon.svg DESTINATION ${KDE_INSTALL_ICONDIR}/hicolor/scalable/apps RENAME house.mouseion.iris.svg)
 
 enable_testing()
