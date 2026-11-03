@@ -41,3 +41,41 @@ option and must stay off in release builds.
 - `src/qml/Main.qml`, `OfflinePage.qml` — window, view, permissions, offline page.
 - `src/windowstate.*` — size/position in `~/.config/irisrc`.
 - Profile: `~/.local/share/iris/webengine`; downloads: `~/Downloads`.
+
+## Nix package
+
+`nix/package.nix` is `callPackage`-style, no flake. It builds the shell with `IRIS_SHELL_TEST_HOOKS`
+off, runs the Qt Test suites in `checkPhase` (offscreen; the e2e script is not part of it), and
+installs the binary (Qt-wrapped), `house.mouseion.iris.desktop`, `house.mouseion.iris.notifyrc`
+(`share/knotifications6`, one event, `message`; KNotification's component name must be
+`house.mouseion.iris`) and the icons (hicolor PNGs from 16 to 512 plus the scalable SVG). The PNGs
+in `icons/` are cut by `scripts/iris-icons.py` from `branding/`; rerun it after changing the artwork.
+`nix/deps.nix` lists the inputs; `shell.nix` uses it too, so the shell and the package cannot drift.
+
+```sh
+nix-build -E 'with import <nixpkgs> { }; callPackage ./desktop/nix/package.nix { }'
+nix-build -E 'with import ./desktop/nix/nixpkgs.nix { }; callPackage ./desktop/nix/package.nix { }'  # Builder's pinned nixpkgs
+```
+
+### For nix-config (household/nix-config#159)
+
+```nix
+# flake.nix inputs
+iris = {
+  url = "git+ssh://git@forgejo.example.org:2222/mouseion/iris?ref=dev";
+  flake = false;
+};
+
+# in a module: no arguments; `source` defaults to the input (desktop/ and branding/)
+pkgs.callPackage (inputs.iris + "/desktop/nix/package.nix") { }
+```
+
+Put the result in `environment.systemPackages` or `home.packages`; the desktop file, icons and
+notifyrc land under `share/`, which Plasma reads from the profile.
+
+### CI
+
+`.forgejo/workflows/build.yml` has a `desktop` job (check only, nothing published) on the
+`builder-nix` runner label, the lane with the host's Nix. It runs when `desktop/`, `branding/`,
+`scripts/iris-icons.py` or the workflow change, and builds the package against the nixpkgs revision
+pinned in `nix/nixpkgs.nix` (copy of nix-config's `flake.lock`; bump it when that moves).

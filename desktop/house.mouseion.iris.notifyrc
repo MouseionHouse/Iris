@@ -1,0 +1,9 @@
+[Global]
+IconName=house.mouseion.iris
+Comment=Iris
+DesktopEntry=house.mouseion.iris
+
+[Event/message]
+Name=New message
+Comment=A message in a room
+Action=Popup

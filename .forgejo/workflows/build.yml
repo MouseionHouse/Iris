@@ -2,6 +2,7 @@
 #
 #   plan ── bundle ──┬── deploy                  (dev: the web client on server, iris.example.org)
 #                    └── apk ── publish-fdroid   (dev: the Android app, fdroid.example.org)
+#   plan ── desktop                              (check only: the Nix package of the Linux desktop shell)
 #
 # `bundle` runs the one `npm ci` and `vite build` of a push, inside the Docker image that serves
 # the web client, and exports what the Android project needs from them as an artifact: the same
@@ -84,6 +85,9 @@ on:
         'docker-nginx.conf',
         'scripts/mobile-bundle.js',
         'mobile/**',
+        'desktop/**',
+        'branding/**',
+        'scripts/iris-icons.py',
         '.forgejo/workflows/build.yml',
       ]
   # Turns the house merge queue on for dev. Takes `branches:` only, no `paths:`.
@@ -117,6 +121,7 @@ jobs:
       build: ${{ steps.what.outputs.build }}
       deploy: ${{ steps.what.outputs.deploy }}
       android: ${{ steps.what.outputs.android }}
+      desktop: ${{ steps.what.outputs.desktop }}
       publish: ${{ steps.what.outputs.publish }}
       name: ${{ steps.ver.outputs.name }}
       code: ${{ steps.ver.outputs.code }}
@@ -148,9 +153,12 @@ jobs:
           # What Gradle compiles or packages besides the web build.
           native='^(mobile/android/|capacitor\.config\.ts$|package\.json$|package-lock\.json$|scripts/mobile-bundle\.js$|\.forgejo/workflows/build\.yml$)'
 
-          # `build` is false only for a train that changes none of these paths. A push or "Run
-          # workflow" always builds: `push.paths` already left out the pushes that change none.
-          build=true; deploy=false; android=false; publish=false
+          # The Linux desktop shell: its Nix package and the artwork it embeds.
+          desktop='^(desktop/|branding/|scripts/iris-icons\.py$|\.forgejo/workflows/build\.yml$)'
+
+          # `build` is false when the change touches no web or app path (a desktop-only push or
+          # train). "Run workflow" always builds.
+          build=true; deploy=false; android=false; publish=false; desktop=false
           if [[ "$GITHUB_EVENT_NAME" == "merge_group" ]]; then
             # A train: what it brings in since the commit of RELEASE_BRANCH it was built on.
             # Without that commit, everything counts. Never a deploy or a release.
@@ -159,6 +167,7 @@ jobs:
             fi
             if ! grep -qE "$web|$app" <<< "$changed"; then build=false; fi
             if grep -qE "$native" <<< "$changed"; then android=true; fi
+            if grep -qE "$desktop" <<< "$changed"; then desktop=true; fi
           elif [[ "$GITHUB_REF" == "refs/heads/$RELEASE_BRANCH" ]]; then
             if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
               deploy=true
@@ -169,14 +178,20 @@ jobs:
               fi
               if grep -qE "$web" <<< "$changed"; then deploy=true; fi
               if grep -qE "$app" <<< "$changed"; then android=true; publish=true; fi
+              if grep -qE "$desktop" <<< "$changed"; then desktop=true; fi
+              if ! grep -qE "$web|$app" <<< "$changed"; then build=false; fi
             fi
           elif [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
             git fetch --quiet origin "$RELEASE_BRANCH"
             changed="$(git diff --name-only "origin/$RELEASE_BRANCH...HEAD")"
             if grep -qE "$native" <<< "$changed"; then android=true; fi
+            if grep -qE "$desktop" <<< "$changed"; then desktop=true; fi
+            if ! grep -qE "$web|$app" <<< "$changed"; then build=false; fi
+          elif [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            desktop=true
           fi
-          echo "build=$build deploy=$deploy android=$android publish=$publish"
-          { echo "build=$build"; echo "deploy=$deploy"; echo "android=$android"; echo "publish=$publish"; } >> "$GITHUB_OUTPUT"
+          echo "build=$build deploy=$deploy android=$android publish=$publish desktop=$desktop"
+          { echo "build=$build"; echo "deploy=$deploy"; echo "android=$android"; echo "publish=$publish"; echo "desktop=$desktop"; } >> "$GITHUB_OUTPUT"
 
       - name: Version — the next semantic release, or a build-only marker
         id: ver
@@ -278,6 +293,22 @@ jobs:
           docker tag "$IMAGE:${GITHUB_SHA:0:7}" "$IMAGE:latest"
           docker push "$IMAGE:${GITHUB_SHA:0:7}"
           docker push "$IMAGE:latest"
+
+  # The Linux desktop shell (desktop/, mouseion/iris#65): a check only, nothing is published. It
+  # builds the Nix package and runs its Qt Test suites, on builder's Nix lane (the host's Nix),
+  # against the nixpkgs revision nix-config pins (desktop/nix/nixpkgs.nix). The install on Builder
+  # is household/nix-config's.
+  desktop:
+    runs-on: builder-nix
+    needs: [plan]
+    if: needs.plan.outputs.desktop == 'true'
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the package and run its tests
+        run: |
+          nix-build -L --no-out-link --cores 12 --max-jobs 2 \
+            -E 'with import ./desktop/nix/nixpkgs.nix { }; callPackage ./desktop/nix/package.nix { }'
 
   deploy:
     needs: [plan, bundle]

@@ -22,6 +22,7 @@ from PIL import Image, ImageDraw
 ROOT = Path(__file__).resolve().parents[1]
 BRAND = ROOT / "branding"
 RES = ROOT / "mobile/android/app/src/main/res"
+DESKTOP = ROOT / "desktop/icons/hicolor"
 CHROME = os.environ.get("CHROME") or str(
     Path.home() / ".cache/ms-playwright/chromium_headless_shell-1217/chrome-headless-shell-linux64/chrome-headless-shell")
 DEEP = (0x30, 0x22, 0x46, 255)   # the app icon's ground
@@ -96,6 +97,13 @@ def main():
     for f in sorted((pub / "res/apple").glob("apple-touch-icon-*.png")):
         size = int(re.search(r"(\d+)x", f.name).group(1))
         on(DEEP, dark, size, .684).convert("RGB").save(f)  # iOS rounds the corners itself and wants no clear pixels
+
+    # The Linux desktop shell (desktop/): the app icon at the sizes of the hicolor theme. The
+    # scalable one is branding/iris-app-icon.svg itself, which the package installs as it is.
+    for size in (16, 22, 24, 32, 48, 64, 128, 256, 512):
+        out = DESKTOP / f"{size}x{size}/apps"
+        out.mkdir(parents=True, exist_ok=True)
+        fit(icon, size).save(out / "house.mouseion.iris.png", optimize=True)
 
     # Android. An adaptive icon's layers are 108 dp with the picture inside the middle 66 dp.
     for name, dp in (("mdpi", 1), ("hdpi", 1.5), ("xhdpi", 2), ("xxhdpi", 3), ("xxxhdpi", 4)):

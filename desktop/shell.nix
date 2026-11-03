@@ -1,24 +1,11 @@
 # Dev shell for the Iris desktop shell:  nix-shell desktop/shell.nix
-# (the Nix package arrives with mouseion/iris#65)
+# (the same inputs as the Nix package, nix/deps.nix)
 { pkgs ? import <nixpkgs> { } }:
+let
+  deps = import ./nix/deps.nix { inherit pkgs; };
+in
 pkgs.mkShell rec {
-  nativeBuildInputs = with pkgs; [
-    cmake
-    ninja
-    pkg-config
-    kdePackages.extra-cmake-modules
-    kdePackages.wrapQtAppsHook
-  ];
-  buildInputs = with pkgs.kdePackages; [
-    qtbase
-    qtdeclarative
-    qtwebengine
-    qtwebchannel
-    qtwayland
-    kconfig
-    kcoreaddons
-    kdbusaddons
-  ];
+  inherit (deps) nativeBuildInputs buildInputs;
   # No wrapper runs in a dev shell, so Qt finds its plugins and QML modules through these.
   shellHook = ''
     export QT_PLUGIN_PATH=${pkgs.lib.makeSearchPath "lib/qt-6/plugins" buildInputs}
