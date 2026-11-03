@@ -34,11 +34,11 @@ private Q_SLOTS:
         QCOMPARE(Tray::toolTipFor(0), QString("Iris"));
     }
 
-    void iconHasTheDotOnlyForHighlights()
+    void overlayOnlyForHighlights()
     {
-        QCOMPARE(Tray::iconNameFor(0), QString("house.mouseion.iris"));
-        QCOMPARE(Tray::iconNameFor(1), QString("house.mouseion.iris-highlight"));
-        QCOMPARE(Tray::iconNameFor(40), QString("house.mouseion.iris-highlight"));
+        QCOMPARE(Tray::overlayIconNameFor(0), QString());
+        QCOMPARE(Tray::overlayIconNameFor(1), QString("emblem-important"));
+        QCOMPARE(Tray::overlayIconNameFor(40), QString("emblem-important"));
     }
 
     void itemFollowsTheUnreadState()
@@ -46,15 +46,25 @@ private Q_SLOTS:
         QWindow window;
         Tray tray(&window);
         QCOMPARE(tray.item()->iconName(), QString("house.mouseion.iris"));
+        QCOMPARE(tray.item()->attentionIconName(), QString("house.mouseion.iris"));
+        QCOMPARE(tray.item()->status(), KStatusNotifierItem::Active);
+        QCOMPARE(tray.item()->overlayIconName(), QString());
         QCOMPARE(tray.item()->toolTipTitle(), QString("Iris"));
         tray.setUnread(5, 0);
-        QCOMPARE(tray.item()->iconName(), QString("house.mouseion.iris"));
+        QCOMPARE(tray.item()->status(), KStatusNotifierItem::Active);
+        QCOMPARE(tray.item()->overlayIconName(), QString());
         QCOMPARE(tray.item()->toolTipTitle(), QString("Iris: 5 unread"));
+        // A mention: the same icon, marked the KDE way.
         tray.setUnread(5, 2);
-        QCOMPARE(tray.item()->iconName(), QString("house.mouseion.iris-highlight"));
+        QCOMPARE(tray.item()->iconName(), QString("house.mouseion.iris"));
+        QCOMPARE(tray.item()->status(), KStatusNotifierItem::NeedsAttention);
+        QCOMPARE(tray.item()->overlayIconName(), QString("emblem-important"));
+        QCOMPARE(tray.item()->toolTipIconName(), QString("house.mouseion.iris"));
         QCOMPARE(tray.item()->toolTipTitle(), QString("Iris: 5 unread"));
         tray.setUnread(0, 0);
         QCOMPARE(tray.item()->iconName(), QString("house.mouseion.iris"));
+        QCOMPARE(tray.item()->status(), KStatusNotifierItem::Active);
+        QCOMPARE(tray.item()->overlayIconName(), QString());
         QCOMPARE(tray.item()->toolTipTitle(), QString("Iris"));
     }
 

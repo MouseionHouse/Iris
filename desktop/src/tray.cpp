@@ -21,6 +21,10 @@ Tray::Tray(QWindow *window, QObject *parent)
     m_item->setTitle(QString(ShellConfig::displayName));
     m_item->setStandardActionsEnabled(false);
     m_item->setStatus(KStatusNotifierItem::Active);
+    m_item->setIconByName(QString(ShellConfig::iconName));
+    // Plasma shows the attention icon while the item needs attention. It is the app icon too, so
+    // the emblem is the mark, and a host that blinks on NeedsAttention has no blank frame.
+    m_item->setAttentionIconByName(QString(ShellConfig::iconName));
 
     auto *menu = new QMenu;
     auto *show = menu->addAction(QIcon::fromTheme(QStringLiteral("window-new")), QStringLiteral("Show Iris"));
@@ -48,9 +52,9 @@ QString Tray::toolTipFor(int total)
     return QStringLiteral("%1: %2 unread").arg(ShellConfig::displayName).arg(total);
 }
 
-QString Tray::iconNameFor(int highlight)
+QString Tray::overlayIconNameFor(int highlight)
 {
-    return QString(highlight > 0 ? ShellConfig::highlightIconName : ShellConfig::iconName);
+    return highlight > 0 ? QString(ShellConfig::mentionOverlayIconName) : QString();
 }
 
 void Tray::showWindow(QWindow *window)
@@ -72,8 +76,10 @@ void Tray::toggleWindow(QWindow *window)
 
 void Tray::setUnread(int total, int highlight)
 {
-    m_item->setIconByName(iconNameFor(highlight));
-    m_item->setToolTip(iconNameFor(highlight), toolTipFor(total), QString());
+    // Active, not Passive, when nothing mentions you: Passive would hide Iris in the tray.
+    m_item->setStatus(highlight > 0 ? KStatusNotifierItem::NeedsAttention : KStatusNotifierItem::Active);
+    m_item->setOverlayIconByName(overlayIconNameFor(highlight));
+    m_item->setToolTip(QString(ShellConfig::iconName), toolTipFor(total), QString());
 }
 
 void Tray::showStillRunningNotice()

@@ -190,11 +190,18 @@ try {
   check('tray item id and icon', /^s "[^"]*house\.mouseion\.iris"$/.test(item('Id')) && item('IconName') === 's "house.mouseion.iris"', item('Id') + ' ' + item('IconName'));
   check('tray tooltip starts as plain Iris', /"Iris" ""$/.test(item('ToolTip')), item('ToolTip'));
   await page.evaluate(() => window.irisDesktop.setUnread({ total: 3, highlight: 0 }));
+  // A mention is marked the KDE way (#83): Status NeedsAttention and a theme emblem as the overlay,
+  // over the unchanged app icon, which is also the attention icon.
+  const unmarked = () => item('Status') === 's "Active"' && item('OverlayIconName') === 's ""' && item('IconName') === 's "house.mouseion.iris"';
+  const marked = () => item('Status') === 's "NeedsAttention"' && item('OverlayIconName') === 's "emblem-important"' && item('IconName') === 's "house.mouseion.iris"';
+  const marks = () => ['Status', 'OverlayIconName', 'IconName', 'AttentionIconName'].map(item).join(' ');
+  check('tray item starts Active with no overlay; the attention icon is the app icon', unmarked() && item('AttentionIconName') === 's "house.mouseion.iris"', marks());
   check('tooltip says "Iris: 3 unread", icon unchanged', !!(await until(() => /"Iris: 3 unread" ""$/.test(item('ToolTip')))) && item('IconName') === 's "house.mouseion.iris"', item('ToolTip'));
+  check('unread without a highlight leaves the item unmarked', unmarked(), marks());
   await page.evaluate(() => window.irisDesktop.setUnread({ total: 5, highlight: 2 }));
-  check('a highlight switches the icon (tray and tooltip)', !!(await until(() => item('IconName') === 's "house.mouseion.iris-highlight"')) && /"Iris: 5 unread" ""$/.test(item('ToolTip')), item('IconName') + ' ' + item('ToolTip'));
+  check('a highlight sets NeedsAttention and the emblem-important overlay; icon and tooltip icon stay the app icon', !!(await until(marked)) && /^\S+ "house\.mouseion\.iris" .*"Iris: 5 unread" ""$/.test(item('ToolTip')), marks() + ' ' + item('ToolTip'));
   await page.evaluate(() => window.irisDesktop.setUnread({ total: 0, highlight: 0 }));
-  check('reading everything restores icon and tooltip', !!(await until(() => item('IconName') === 's "house.mouseion.iris"' && /"Iris" ""$/.test(item('ToolTip')))));
+  check('reading everything clears the mark (Active, no overlay) and restores the tooltip', !!(await until(() => unmarked() && /"Iris" ""$/.test(item('ToolTip')))), marks() + ' ' + item('ToolTip'));
 
   const activate = () => busctl('call', svc, '/StatusNotifierItem', 'org.kde.StatusNotifierItem', 'Activate', 'ii', '0', '0');
   activate();
@@ -218,7 +225,7 @@ try {
   check('the first hide says "Iris is still running in the tray" through the notification service', !!(await until(() => notices() === 1)), String(notices()));
   const n9 = signals().length;
   await page.evaluate(() => window.irisDesktop.setUnread({ total: 9, highlight: 1 }));
-  check('while hidden, a new unread still reaches the badge and the tray', !!(await until(() => signals().slice(n9).some((x) => /int64 9\b/.test(x)))) && !!(await until(() => item('IconName') === 's "house.mouseion.iris-highlight"')));
+  check('while hidden, a new unread still reaches the badge and the tray', !!(await until(() => signals().slice(n9).some((x) => /int64 9\b/.test(x)))) && !!(await until(marked)), marks());
   activate(); await until(() => visible() === true);
   app.kill('SIGUSR1');
   check('a second close hides again, and the notice is not repeated', !!(await until(() => visible() === false)) && alive());
