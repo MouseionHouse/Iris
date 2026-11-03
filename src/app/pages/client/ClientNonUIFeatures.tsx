@@ -1,7 +1,7 @@
 import { useAtomValue } from 'jotai';
 import React, { ReactNode, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { RoomEvent, RoomEventHandlerMap } from 'matrix-js-sdk';
+import { MatrixEvent, RoomEvent, RoomEventHandlerMap } from 'matrix-js-sdk';
 import { roomToUnreadAtom, unreadEqual, unreadInfoToUnread } from '../../state/room/roomToUnread';
 import LogoSVG from '../../../../public/res/iris-logo.png';
 import LogoUnreadSVG from '../../../../public/res/iris-logo-unread.png';
@@ -31,6 +31,8 @@ import { NativePushFeature } from '../../native/push';
 import { desktopNotify, isDesktopShell } from '../../native/desktop';
 import { DesktopNotificationsFeature } from '../../native/useDesktopNotifications';
 import { loadDesktopNotificationIcon } from '../../native/desktopIcon';
+import { desktopNotificationText } from '../../native/notificationText';
+import { mDirectAtom } from '../../state/mDirectList';
 
 // In the desktop shell the shell is the notification system and has the permission; elsewhere the
 // browser's grant decides, as before.
@@ -157,6 +159,7 @@ function InviteNotifications() {
 function MessageNotifications() {
   const audioRef = useRef<HTMLAudioElement>(null);
   const notifRef = useRef<Notification>();
+  const mDirects = useAtomValue(mDirectAtom);
   const unreadCacheRef = useRef<Map<string, UnreadInfo>>(new Map());
   const mx = useMatrixClient();
   const useAuthentication = useMediaAuthentication();
@@ -174,23 +177,33 @@ function MessageNotifications() {
       username,
       roomId,
       eventId,
+      mEvent,
     }: {
       roomName: string;
       roomAvatar?: string;
       username: string;
       roomId: string;
       eventId: string;
+      mEvent: MatrixEvent;
     }) => {
       if (isDesktopShell()) {
-        // KDE shows it: clicking opens the room, and it can be answered from the popup.
+        // KDE shows it: clicking opens the room, and it can be answered from the popup, so it says
+        // what the message is (the Android wording, notificationText.ts).
+        const text = desktopNotificationText({
+          roomName,
+          senderName: username,
+          isDirect: mDirects.has(roomId),
+          type: mEvent.getType(),
+          content: mEvent.getContent(),
+        });
         (async () => {
           const icon = roomAvatar ? await loadDesktopNotificationIcon(roomAvatar) : undefined;
           await desktopNotify({
             id: eventId,
             roomId,
             eventId,
-            title: roomName,
-            body: `New inbox notification from ${username}`,
+            title: text.title,
+            body: text.body,
             icon,
           });
         })();
@@ -212,7 +225,7 @@ function MessageNotifications() {
       notifRef.current?.close();
       notifRef.current = noti;
     },
-    [navigate]
+    [navigate, mDirects]
   );
 
   const playSound = useCallback(() => {
@@ -266,6 +279,7 @@ function MessageNotifications() {
           username: getMemberDisplayName(room, sender) ?? getMxIdLocalPart(sender) ?? sender,
           roomId: room.roomId,
           eventId,
+          mEvent,
         });
       }
 
