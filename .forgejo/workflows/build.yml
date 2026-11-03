@@ -154,7 +154,7 @@ jobs:
           native='^(mobile/android/|capacitor\.config\.ts$|package\.json$|package-lock\.json$|scripts/mobile-bundle\.js$|\.forgejo/workflows/build\.yml$)'
 
           # The Linux desktop shell: its Nix package and the artwork it embeds.
-          desktop='^(desktop/|branding/|scripts/iris-icons\.py$|\.forgejo/workflows/build\.yml$)'
+          desktop_paths='^(desktop/|branding/|scripts/iris-icons\.py$|\.forgejo/workflows/build\.yml$)'
 
           # `build` is false when the change touches no web or app path (a desktop-only push or
           # train). "Run workflow" always builds.
@@ -167,7 +167,7 @@ jobs:
             fi
             if ! grep -qE "$web|$app" <<< "$changed"; then build=false; fi
             if grep -qE "$native" <<< "$changed"; then android=true; fi
-            if grep -qE "$desktop" <<< "$changed"; then desktop=true; fi
+            if grep -qE "$desktop_paths" <<< "$changed"; then desktop=true; fi
           elif [[ "$GITHUB_REF" == "refs/heads/$RELEASE_BRANCH" ]]; then
             if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
               deploy=true
@@ -178,14 +178,14 @@ jobs:
               fi
               if grep -qE "$web" <<< "$changed"; then deploy=true; fi
               if grep -qE "$app" <<< "$changed"; then android=true; publish=true; fi
-              if grep -qE "$desktop" <<< "$changed"; then desktop=true; fi
+              if grep -qE "$desktop_paths" <<< "$changed"; then desktop=true; fi
               if ! grep -qE "$web|$app" <<< "$changed"; then build=false; fi
             fi
           elif [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
             git fetch --quiet origin "$RELEASE_BRANCH"
             changed="$(git diff --name-only "origin/$RELEASE_BRANCH...HEAD")"
             if grep -qE "$native" <<< "$changed"; then android=true; fi
-            if grep -qE "$desktop" <<< "$changed"; then desktop=true; fi
+            if grep -qE "$desktop_paths" <<< "$changed"; then desktop=true; fi
             if ! grep -qE "$web|$app" <<< "$changed"; then build=false; fi
           elif [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
             desktop=true
