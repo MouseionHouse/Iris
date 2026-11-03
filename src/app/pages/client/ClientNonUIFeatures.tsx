@@ -28,6 +28,13 @@ import { useInboxNotificationsSelected } from '../../hooks/router/useInbox';
 import { useMediaAuthentication } from '../../hooks/useMediaAuthentication';
 import { SharedContentConsumer } from './SharedContentConsumer';
 import { NativePushFeature } from '../../native/push';
+import { desktopNotify, isDesktopShell } from '../../native/desktop';
+import { DesktopNotificationsFeature } from '../../native/useDesktopNotifications';
+import { loadDesktopNotificationIcon } from '../../native/desktopIcon';
+
+// In the desktop shell the shell is the notification system and has the permission; elsewhere the
+// browser's grant decides, as before.
+const canNotify = () => isDesktopShell() || notificationPermission('granted');
 
 function SystemEmojiFeature() {
   const [twitterEmoji] = useSetting(settingsAtom, 'twitterEmoji');
@@ -82,6 +89,7 @@ function InviteNotifications() {
   const audioRef = useRef<HTMLAudioElement>(null);
   const invites = useAtomValue(allInvitesAtom);
   const perviousInviteLen = usePreviousValue(invites.length, 0);
+  const previousInvitesRef = useRef<string[]>([]);
   const mx = useMatrixClient();
 
   const navigate = useNavigate();
@@ -89,7 +97,18 @@ function InviteNotifications() {
   const [notificationSound] = useSetting(settingsAtom, 'isNotificationSounds');
 
   const notify = useCallback(
-    (count: number) => {
+    (count: number, roomId?: string) => {
+      if (isDesktopShell() && roomId) {
+        // The popup opens the invitations (see useDesktopOpenRoom) and takes no reply.
+        desktopNotify({
+          id: `invite:${roomId}`,
+          roomId,
+          title: 'Invitation',
+          body: `You have ${count} new invitation request.`,
+          canReply: false,
+        });
+        return;
+      }
       const noti = new window.Notification('Invitation', {
         icon: LogoSVG,
         badge: LogoSVG,
@@ -112,14 +131,19 @@ function InviteNotifications() {
 
   useEffect(() => {
     if (invites.length > perviousInviteLen && mx.getSyncState() === 'SYNCING') {
-      if (showNotifications && notificationPermission('granted')) {
-        notify(invites.length - perviousInviteLen);
+      if (showNotifications && canNotify()) {
+        const previous = new Set(previousInvitesRef.current);
+        notify(
+          invites.length - perviousInviteLen,
+          invites.find((id) => !previous.has(id))
+        );
       }
 
       if (notificationSound) {
         playSound();
       }
     }
+    previousInvitesRef.current = invites;
   }, [mx, invites, perviousInviteLen, showNotifications, notificationSound, notify, playSound]);
 
   return (
@@ -148,6 +172,8 @@ function MessageNotifications() {
       roomName,
       roomAvatar,
       username,
+      roomId,
+      eventId,
     }: {
       roomName: string;
       roomAvatar?: string;
@@ -155,6 +181,21 @@ function MessageNotifications() {
       roomId: string;
       eventId: string;
     }) => {
+      if (isDesktopShell()) {
+        // KDE shows it: clicking opens the room, and it can be answered from the popup.
+        (async () => {
+          const icon = roomAvatar ? await loadDesktopNotificationIcon(roomAvatar) : undefined;
+          await desktopNotify({
+            id: eventId,
+            roomId,
+            eventId,
+            title: roomName,
+            body: `New inbox notification from ${username}`,
+            icon,
+          });
+        })();
+        return;
+      }
       const noti = new window.Notification(roomName, {
         icon: roomAvatar,
         badge: roomAvatar,
@@ -214,7 +255,7 @@ function MessageNotifications() {
         return;
       }
 
-      if (showNotifications && notificationPermission('granted')) {
+      if (showNotifications && canNotify()) {
         const avatarMxc =
           room.getAvatarFallbackMember()?.getMxcAvatarUrl() ?? room.getMxcAvatarUrl();
         notify({
@@ -269,6 +310,7 @@ export function ClientNonUIFeatures({ children }: ClientNonUIFeaturesProps) {
       <MessageNotifications />
       <SharedContentConsumer />
       <NativePushFeature />
+      <DesktopNotificationsFeature />
       {children}
     </>
   );

@@ -17,5 +17,6 @@
     kconfig
     kcoreaddons
     kdbusaddons
+    knotifications
   ];
 }

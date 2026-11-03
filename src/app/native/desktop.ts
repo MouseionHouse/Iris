@@ -10,9 +10,26 @@
 export type DesktopUnread = { total: number; highlight: number };
 export type DesktopColorScheme = { dark: boolean };
 
+export type DesktopNotification = {
+  /** Notifying again with the same id replaces that notification. */
+  id: string;
+  roomId: string;
+  eventId?: string;
+  title: string;
+  body: string;
+  /** A `data:image/png;base64,…` (or jpeg) the page has already loaded; the shell fetches nothing. */
+  icon?: string;
+  /** False where a reply makes no sense (an invitation): no inline reply is offered. Default true. */
+  canReply?: boolean;
+};
+export type DesktopOpenRoom = { roomId: string; eventId?: string };
+export type DesktopReply = { roomId: string; eventId?: string; text: string };
+
 type DesktopBridge = {
   version(): Promise<string>;
   setUnread(counts: DesktopUnread): Promise<void>;
+  notify(notification: DesktopNotification): Promise<void>;
+  closeNotifications(target: { roomId: string }): Promise<void>;
   on(event: string, handler: (payload: unknown) => void): () => void;
 };
 
@@ -49,6 +66,67 @@ export const onDesktopColorScheme = (handler: (scheme: DesktopColorScheme) => vo
   bridge()?.on('colorScheme', (payload) => {
     if (isColorScheme(payload)) handler({ dark: payload.dark });
   }) ?? noop;
+
+// Rooms the shell has been asked to notify about and not yet been told to close.
+const notifiedRooms = new Set<string>();
+
+/** The rooms that have a desktop notification which was not closed from here. */
+export const desktopNotifiedRooms = (): string[] => [...notifiedRooms];
+
+/**
+ * Show a notification through KDE (replacing the web `Notification`). Resolves true when the shell
+ * took it; false outside the shell or when the shell refused the arguments.
+ */
+export const desktopNotify = async (notification: DesktopNotification): Promise<boolean> => {
+  const b = bridge();
+  if (!b) return false;
+  try {
+    await b.notify(notification);
+    notifiedRooms.add(notification.roomId);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+/** The room was read (here or on another device): close its notifications. */
+export const desktopCloseNotifications = (roomId: string): void => {
+  notifiedRooms.delete(roomId);
+  bridge()?.closeNotifications({ roomId }).catch(noop);
+};
+
+const isRoomTarget = (p: unknown): p is { roomId: string; eventId?: unknown } =>
+  typeof p === 'object' && p !== null && typeof (p as { roomId?: unknown }).roomId === 'string';
+const optionalString = (v: unknown): string | undefined =>
+  typeof v === 'string' && v ? v : undefined;
+
+/** A notification was clicked (and, later, a `matrix:` link): show this room. */
+export const onDesktopOpenRoom = (handler: (target: DesktopOpenRoom) => void): (() => void) =>
+  bridge()?.on('openRoom', (payload) => {
+    if (isRoomTarget(payload))
+      handler({ roomId: payload.roomId, eventId: optionalString(payload.eventId) });
+  }) ?? noop;
+
+/** The user typed a reply in a notification. */
+export const onDesktopReply = (handler: (reply: DesktopReply) => void): (() => void) =>
+  bridge()?.on('reply', (payload) => {
+    if (!isRoomTarget(payload)) return;
+    const { roomId, eventId, text } = payload as {
+      roomId: string;
+      eventId?: unknown;
+      text?: unknown;
+    };
+    if (typeof text === 'string') handler({ roomId, eventId: optionalString(eventId), text });
+  }) ?? noop;
+
+/**
+ * The rooms whose desktop notification should close: shown ones that are no longer unread. Same
+ * rule as the Android app (`PushHistory.read`: shown minus unread).
+ */
+export const roomsToClose = (shown: Iterable<string>, unread: Iterable<string>): string[] => {
+  const still = new Set(unread);
+  return [...shown].filter((roomId) => !still.has(roomId));
+};
 
 /** The most often the badge is updated: at most one call per interval while counts churn. */
 export const UNREAD_SEND_INTERVAL_MS = 300;
