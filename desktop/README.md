@@ -31,6 +31,16 @@ HTML. A reply is cut at 16000 units. The web side is `src/app/native/desktop.ts`
 links will reuse, plus the click/reply/read-rule handlers) and the delivery switch in
 `src/app/pages/client/ClientNonUIFeatures.tsx`.
 
+The tray (#67): `src/tray.*` is a `KStatusNotifierItem` (click toggles the window; menu Show Iris / Quit; tooltip
+"Iris: N unread"; the icon becomes `house.mouseion.iris-highlight`, the app icon with a red dot cut by
+`scripts/iris-icons.py`, while `highlight > 0`). `src/closetotray.*` turns a close into a hide, so Iris keeps syncing;
+only Quit (tray menu or Ctrl+Q), SIGTERM/SIGINT or the end of the session really close it. The first hide shows
+"Iris is still running in the tray" once, through `KStatusNotifierItem::showMessage` (a plain freedesktop
+notification; `Notifier` is per room, with a click and a reply, which this is not), remembered in `~/.config/irisrc`
+(`[Tray] StillRunningNoticeShown`). `--hidden` starts without showing the window (a plain flag; it can sit beside a
+URI). `src/globalshortcut.*` registers the KGlobalAccel action "Show or hide Iris" with no default key; set it in System
+Settings -> Shortcuts -> Iris. The tray needs a `QApplication` (its menu is a `QMenu`).
+
 ## Build and run (NixOS)
 
 ```sh
@@ -58,7 +68,7 @@ restart; that `setUnread` produces the right LauncherEntry signal on the private
 `count-visible` false at 0, and a resend after a reload; and that `colorScheme` is delivered. `tests/e2e/notifications.mjs` (also run by `run.sh`) does the same for notifications against
 `tests/fakenotifyd`, a stand-in for `org.freedesktop.Notifications` on the private bus that records `Notify`
 and `CloseNotification` calls and can emit `ActionInvoked`, `NotificationReplied` and `NotificationClosed`
-(`--no-inline-reply` leaves the capability out). `IRIS_SHELL_TEST_HOOKS` (environment overrides for the URL, origin, opener and starting colour scheme) is a test
+(`--no-inline-reply` leaves the capability out). With a stand-in StatusNotifierWatcher (`tests/fakewatcher.cpp`, Plasma's tray on the private bus) it also checks `--hidden`, the tray item's registration, tooltip and icon following `setUnread`, `Activate` and the menu's Show Iris / Quit, close-to-tray (SIGUSR1 in a test build closes the window), the one-time notice and the KGlobalAccel registration. `IRIS_SHELL_TEST_HOOKS` (environment overrides for the URL, origin, opener and starting colour scheme) is a test
 option and must stay off in release builds.
 
 ## Layout
