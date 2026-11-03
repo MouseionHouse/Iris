@@ -114,7 +114,7 @@ env:
 
 jobs:
   plan:
-    runs-on: house-docker
+    runs-on: mouseion-docker
     defaults:
       run:
         shell: bash
@@ -239,7 +239,7 @@ jobs:
   bundle:
     needs: [plan]
     if: needs.plan.outputs.build == 'true'
-    runs-on: house-build
+    runs-on: mouseion-build
     steps:
       - uses: actions/checkout@v4
 
@@ -308,7 +308,7 @@ jobs:
   # under /dev/shm, never in the workspace, removed at the end even when a step fails, and ssh that
   # trusts only the host key in .forgejo/known_hosts.
   desktop:
-    runs-on: house-nix
+    runs-on: mouseion-nix
     needs: [plan]
     if: needs.plan.outputs.desktop == 'true'
     timeout-minutes: 60
@@ -359,7 +359,7 @@ jobs:
     needs: [plan, bundle]
     # `plan` never says deploy for a train; said again here because this job changes what is live.
     if: needs.plan.outputs.deploy == 'true' && github.event_name != 'merge_group'
-    runs-on: house-deploy
+    runs-on: mouseion-deploy
     env:
       COMPOSE_FILE: /home/user/homeserver/docker-compose.yml
     steps:
@@ -418,7 +418,7 @@ jobs:
   apk:
     needs: [plan, bundle]
     if: needs.plan.outputs.android == 'true'
-    runs-on: house-docker
+    runs-on: mouseion-docker
     container:
       # Hardcoded: the DOMAIN/REGISTRY_USER Actions variables exist on the forge repo, not here.
       # Node 22, Android SDK 36, and JDK 21 beside the default 17 (server:
@@ -523,7 +523,7 @@ jobs:
     needs: [plan, apk]
     # As for `deploy`: `plan` never says publish for a train.
     if: needs.plan.outputs.publish == 'true' && github.event_name != 'merge_group'
-    runs-on: house-deploy
+    runs-on: mouseion-deploy
     steps:
       - uses: actions/download-artifact@v3
         with:
