@@ -122,6 +122,51 @@ try {
   await sleep(2500);
   check('cold start with an invalid link: logged, nothing sent to the page', count('Dropped matrix: link') === dropsBefore + 1 && (await links(page)).length === 0);
   page.close(); app.kill(); await exited(app);
+  // 6. --hidden (autostart) with a link on the same command line: the link shows the window, once.
+  const visibleSince = (mark) => { const m = [...out.slice(mark).matchAll(/IRIS_STATE visible=(true|false)/g)]; return m.length ? m.at(-1)[1] === 'true' : null; };
+  let mark = out.length;
+  app = launch(['--hidden'], '/?now');
+  page = await connect();
+  await sleep(2500);
+  check('--hidden alone stays in the tray: the window is not shown', visibleSince(mark) !== true, String(visibleSince(mark)));
+  app.kill(); await exited(app); await sleep(1000);
+
+  mark = out.length;
+  app = launch(['--hidden', 'matrix:u/sam:example.org'], '/?now');
+  page = await connect();
+  check('--hidden plus a link: the window is shown', !!(await until(() => visibleSince(mark) === true)), String(visibleSince(mark)));
+  const hiddenGot = await until(async () => (await links(page)).length > 0 && (await links(page)));
+  await sleep(1500);
+  check('--hidden plus a link: the link is delivered once', isDeepStrictEqual(hiddenGot, [{ kind: 'user', id: '@sam:example.org' }]) && (await links(page)).length === 1, JSON.stringify(await links(page)));
+  page.close(); app.kill(); await exited(app); await sleep(1000);
+
+  // 7. Running hidden in the tray: a second launch with a link shows the window and delivers it.
+  mark = out.length;
+  app = launch(['--hidden'], '/?now');
+  page = await connect();
+  await until(() => page.evaluate(() => typeof window.irisDesktop?.on === 'function'));
+  await sleep(1500);
+  check('running hidden: the window is not shown', visibleSince(mark) !== true, String(visibleSince(mark)));
+  const viaTray = launch([roomLink]);
+  check('second launch with a link exits at once', (await Promise.race([exited(viaTray), sleep(15000).then(() => 'timeout')])) === 0);
+  check('running hidden: the link shows the window', !!(await until(() => visibleSince(mark) === true)), String(visibleSince(mark)));
+  const trayGot = await until(async () => (await links(page)).length > 0 && (await links(page)));
+  await sleep(1000);
+  check('running hidden: the link is delivered once', isDeepStrictEqual(trayGot, [roomPayload]) && (await links(page)).length === 1, JSON.stringify(await links(page)));
+  // Closed to the tray from a shown window (SIGUSR1 stands in for the close button): same again.
+  app.kill('SIGUSR1');
+  check('the window closes to the tray', !!(await until(() => visibleSince(mark) === false)));
+  const again = launch(['matrix:u/kim:example.org']);
+  await Promise.race([exited(again), sleep(15000)]);
+  check('closed to the tray: a link shows the window again and is delivered', !!(await until(() => visibleSince(mark) === true)) && !!(await until(async () => (await links(page)).length === 2)) && (await links(page))[1].id === '@kim:example.org', JSON.stringify(await links(page)));
+  // A second launch without a link, or with an invalid one, while hidden: invalid sends nothing.
+  app.kill('SIGUSR1');
+  await until(() => visibleSince(mark) === false);
+  const bad = launch(['--', 'matrix://evil.example/u/sam:example.org']);
+  await Promise.race([exited(bad), sleep(15000)]);
+  await sleep(1000);
+  check('an invalid link sends nothing to the page', (await links(page)).length === 2);
+  page.close(); app.kill(); await exited(app);
 } catch (e) {
   console.log('FAIL  e2e crashed', e);
   results.push(false);

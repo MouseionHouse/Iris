@@ -30,6 +30,10 @@ class NotifierTest : public QObject
     // KNotification asks a new server for its capabilities, and learns the ids of its notifications,
     // asynchronously; give both a moment.
     static void settle() { QTest::qWait(300); }
+    // The fake server has seen the Notify call, but KNotification only connects an ID to its
+    // notification when the reply arrives, a moment later; a signal for the ID sent before that is
+    // lost. On a busy machine that moment is long, so give it plenty before signalling.
+    static void untilKNotificationKnowsTheId() { QTest::qWait(1000); }
 
 private Q_SLOTS:
     void initTestCase()
@@ -106,12 +110,14 @@ private Q_SLOTS:
         notifier.notify(request(QStringLiteral("e1"), QStringLiteral("!k:x")));
         QTRY_COMPARE(server.calls.size(), 1);
         const uint id = server.calls.constFirst().id;
+        untilKNotificationKnowsTheId();
         Q_EMIT server.ActionInvoked(id, QStringLiteral("default"));
         QTRY_COMPARE(opened.count(), 1);
         QCOMPARE(opened.constFirst(), (QVariantList{"!k:x", "$e1"}));
 
         notifier.notify(request(QStringLiteral("e2"), QStringLiteral("!k:x")));
         QTRY_COMPARE(server.calls.size(), 2);
+        untilKNotificationKnowsTheId();
         Q_EMIT server.NotificationReplied(server.calls.constLast().id, QStringLiteral("on my way"));
         QTRY_COMPARE(replied.count(), 1);
         QCOMPARE(replied.constFirst(), (QVariantList{"!k:x", "$e2", "on my way"}));
@@ -150,6 +156,7 @@ private Q_SLOTS:
         Notifier notifier;
         notifier.notify(request(QStringLiteral("a1"), QStringLiteral("!a:x")));
         QTRY_COMPARE(server.calls.size(), 1);
+        untilKNotificationKnowsTheId();
         Q_EMIT server.NotificationClosed(server.calls.constFirst().id, 2); // dismissed
         QTRY_COMPARE(notifier.openCount("!a:x"), 0);
     }
