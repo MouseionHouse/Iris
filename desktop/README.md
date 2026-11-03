@@ -113,8 +113,12 @@ in `icons/` are cut by `scripts/iris-icons.py` from `branding/`; rerun it after 
 
 ```sh
 nix-build -E 'with import <nixpkgs> { }; callPackage ./desktop/nix/package.nix { }'
-nix-build -E 'with import ./desktop/nix/nixpkgs.nix { }; callPackage ./desktop/nix/package.nix { }'  # Builder's pinned nixpkgs
+nix-build desktop/nix/ci.nix -A package --arg lock /path/to/nix-config/flake.lock  # what CI builds
 ```
+
+Local builds and `shell.nix` use `<nixpkgs>`, whatever your machine has. CI builds through
+`nix/ci.nix` against nix-config `main`'s nixpkgs (below); the second command does the same with a
+nix-config checkout's lock.
 
 ### For nix-config (household/nix-config#159)
 
@@ -136,5 +140,17 @@ notifyrc land under `share/`, which Plasma reads from the profile.
 
 `.forgejo/workflows/build.yml` has a `desktop` job (check only, nothing published) on the
 `builder-nix` runner label, the lane with the host's Nix. It runs when `desktop/`, `branding/`,
-`scripts/iris-icons.py` or the workflow change, and builds the package against the nixpkgs revision
-pinned in `nix/nixpkgs.nix` (copy of nix-config's `flake.lock`; bump it when that moves).
+`scripts/iris-icons.py`, `.forgejo/known_hosts` or the workflow change. Iris's CI owns the build and
+the packaging; nix-config only installs the result.
+
+It builds the package and its tests against the nixpkgs household/nix-config's `main` locks:
+each run fetches `main`'s `flake.lock` and `nix/ci.nix` follows `root` → `inputs.nixpkgs` to its node
+(found by that link, never by name: it is `nixpkgs_2` today) and fetches that node's `locked`
+source with `builtins.fetchTree`, verified by its narHash. There is no copy of the pin here to bump;
+the check follows `main`, not what Builder last switched to. If Builder runs an older nixpkgs, Builder
+needs to switch. The log names nix-config's commit and the nixpkgs rev and narHash it used.
+
+nix-config is private: the job reads it with the repo secret `NIX_CONFIG_READ_KEY`, the private half
+of a read-only deploy key on nix-config (deploy key 7), kept in `/dev/shm` for the job and removed
+at its end, over ssh that trusts only the host key in `.forgejo/known_hosts`. Without the secret the
+job fails and says so.

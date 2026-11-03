@@ -88,6 +88,7 @@ on:
         'desktop/**',
         'branding/**',
         'scripts/iris-icons.py',
+        '.forgejo/known_hosts',
         '.forgejo/workflows/build.yml',
       ]
   # Turns the house merge queue on for dev. Takes `branches:` only, no `paths:`.
@@ -154,7 +155,7 @@ jobs:
           native='^(mobile/android/|capacitor\.config\.ts$|package\.json$|package-lock\.json$|scripts/mobile-bundle\.js$|\.forgejo/workflows/build\.yml$)'
 
           # The Linux desktop shell: its Nix package and the artwork it embeds.
-          desktop_paths='^(desktop/|branding/|scripts/iris-icons\.py$|\.forgejo/workflows/build\.yml$)'
+          desktop_paths='^(desktop/|branding/|scripts/iris-icons\.py$|\.forgejo/known_hosts$|\.forgejo/workflows/build\.yml$)'
 
           # `build` is false when the change touches no web or app path (a desktop-only push or
           # train). "Run workflow" always builds.
@@ -296,8 +297,16 @@ jobs:
 
   # The Linux desktop shell (desktop/, mouseion/iris#65): a check only, nothing is published. It
   # builds the Nix package and runs its Qt Test suites, on builder's Nix lane (the host's Nix),
-  # against the nixpkgs revision nix-config pins (desktop/nix/nixpkgs.nix). The install on Builder
-  # is household/nix-config's.
+  # against the nixpkgs that household/nix-config's `main` locks for its root input, read from
+  # that branch's flake.lock on every run (desktop/nix/ci.nix, mouseion/iris#79). Nothing in this
+  # repo copies the pin, and the check follows `main`, not whatever Builder last switched to: if
+  # Builder runs an older nixpkgs, Builder needs to switch. Iris's CI owns the build and the
+  # packaging; nix-config only installs the result.
+  #
+  # nix-config is private. NIX_CONFIG_READ_KEY is the private half of a read-only deploy key on it
+  # (deploy key 7), used the way nix-config's own workflows use TV_BOX_INPUTS_KEY: a 0600 file
+  # under /dev/shm, never in the workspace, removed at the end even when a step fails, and ssh that
+  # trusts only the host key in .forgejo/known_hosts.
   desktop:
     runs-on: builder-nix
     needs: [plan]
@@ -305,10 +314,46 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+
+      - name: Key
+        env:
+          READ_KEY: ${{ secrets.NIX_CONFIG_READ_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "$READ_KEY" ]; then
+            echo "the secret NIX_CONFIG_READ_KEY is not set: the desktop check cannot read household/nix-config's flake.lock" >&2
+            exit 1
+          fi
+          keys=$(mktemp -d -p /dev/shm iris-desktop.XXXXXX)
+          (umask 077; printf '%s\n' "$READ_KEY" >"$keys/nix-config")
+          ssh_options="-o IdentitiesOnly=yes -o IdentityAgent=none -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$PWD/.forgejo/known_hosts"
+          {
+            echo "KEYS=$keys"
+            echo "GIT_SSH_COMMAND=ssh -i $keys/nix-config $ssh_options"
+          } >>"$GITHUB_ENV"
+
+      - name: nix-config main's nixpkgs
+        run: |
+          set -euo pipefail
+          # Outside the workspace; only flake.lock is kept from the fetch.
+          lock=$(mktemp -d)
+          echo "LOCK=$lock" >>"$GITHUB_ENV"
+          git -C "$lock" init -q
+          git -C "$lock" fetch -q --depth 1 ssh://git@forgejo.example.org:2222/household/nix-config main
+          git -C "$lock" show FETCH_HEAD:flake.lock >"$lock/flake.lock"
+          echo "nix-config: main at $(git -C "$lock" rev-parse FETCH_HEAD)"
+          echo "nixpkgs: $(nix eval --raw -f desktop/nix/ci.nix --arg lock "$lock/flake.lock" nixpkgs)"
+
       - name: Build the package and run its tests
         run: |
-          nix-build --no-out-link --cores 12 --max-jobs 2 \
-            -E 'with import ./desktop/nix/nixpkgs.nix { }; callPackage ./desktop/nix/package.nix { }'
+          nix-build --no-out-link --cores 12 --max-jobs 2 desktop/nix/ci.nix -A package \
+            --arg lock "$LOCK/flake.lock"
+
+      - name: Remove the key
+        if: always()
+        run: |
+          if [ -n "${KEYS-}" ]; then rm -rf "$KEYS"; fi
+          if [ -n "${LOCK-}" ]; then rm -rf "$LOCK"; fi
 
   deploy:
     needs: [plan, bundle]
