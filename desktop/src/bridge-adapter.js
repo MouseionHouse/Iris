@@ -2,6 +2,9 @@
 // Methods return promises; on(event, handler) returns a function that removes the handler.
 var handlers = {};
 var latest = {};
+// Only state (the colour scheme) is replayed to a handler added late; a click or a reply is an
+// occurrence, delivered once to whoever listens at the time.
+var sticky = { colorScheme: true };
 function deliver(name, payload) {
   (handlers[name] || []).slice().forEach(function (handler) {
     try { handler(payload ? JSON.parse(payload) : undefined); } catch (e) { console.error(e); }
@@ -12,7 +15,7 @@ var ready = new Promise(function (resolve) {
     var bridge = channel.objects.irisDesktop;
     if (bridge) {
       bridge.eventEmitted.connect(function (name, payload) {
-        latest[name] = payload;
+        if (sticky[name]) latest[name] = payload;
         deliver(name, payload);
       });
       // Events emitted before this page connected (the colour scheme, on start).
@@ -40,6 +43,17 @@ Object.defineProperty(window, 'irisDesktop', {
     setUnread: function (counts) {
       return call('setUnread', [counts]).then(function (ok) {
         if (!ok) throw new Error('setUnread: invalid arguments');
+      });
+    },
+    // Shows a KDE notification; rejects if the shell refused the arguments.
+    notify: function (notification) {
+      return call('notify', [notification]).then(function (ok) {
+        if (!ok) throw new Error('notify: invalid arguments');
+      });
+    },
+    closeNotifications: function (target) {
+      return call('closeNotifications', [target]).then(function (ok) {
+        if (!ok) throw new Error('closeNotifications: invalid arguments');
       });
     },
     on: function (event, handler) {

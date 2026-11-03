@@ -3,6 +3,7 @@
 #include "irisbridge.h"
 #include "navigationpolicy.h"
 #include "networkwatch.h"
+#include "notifier.h"
 #include "shellconfig.h"
 #include "windowstate.h"
 
@@ -104,6 +105,10 @@ int main(int argc, char *argv[])
     NetworkWatch networkWatch;
 
     QObject::connect(bridgeHost.bridge(), &IrisBridge::unreadChanged, &app, [](int total, int) { Badge::send(total); });
+    Notifier notifier;
+    QObject::connect(bridgeHost.bridge(), &IrisBridge::notifyRequested, &notifier, &Notifier::notify);
+    QObject::connect(bridgeHost.bridge(), &IrisBridge::closeNotificationsRequested, &notifier, &Notifier::closeRoom);
+    QObject::connect(&notifier, &Notifier::replyRequested, bridgeHost.bridge(), &IrisBridge::reply);
     ColorSchemeWatcher colorScheme;
     bool dark = colorScheme.dark();
 #ifdef IRIS_SHELL_TEST_HOOKS
@@ -154,6 +159,17 @@ int main(int argc, char *argv[])
         window->requestActivate();
     });
     QObject::connect(&service, &KDBusService::activateActionRequested, window, [](const QString &, const QVariant &) {});
+
+    // A click on a notification: bring the window forward and have the page show the room.
+    QObject::connect(&notifier, &Notifier::openRoomRequested, window, [window, bridge = bridgeHost.bridge()](const QString &roomId, const QString &eventId) {
+#ifdef IRIS_SHELL_TEST_HOOKS
+        qInfo("IRIS_STATE notification-activated");
+#endif
+        window->show();
+        window->raise();
+        window->requestActivate();
+        bridge->openRoom(roomId, eventId);
+    });
 
     if (!parser.positionalArguments().isEmpty()) {
         // matrix: URIs are parsed by a later ticket.

@@ -30,9 +30,13 @@ stdenv.mkDerivation {
 
   # The test option stays off: it lets environment variables repoint the shell, which a shipped
   # binary must not allow.
-  cmakeFlags = [ (lib.cmakeBool "IRIS_SHELL_TEST_HOOKS" false) ];
+  cmakeFlags = [
+    (lib.cmakeBool "IRIS_SHELL_TEST_HOOKS" false)
+    # The notifier test runs on a bus of its own; the sandbox has no /etc/dbus-1.
+    (lib.cmakeFeature "IRIS_DBUS_SESSION_CONFIG" "${pkgs.dbus}/share/dbus-1/session.conf")
+  ];
 
-  # The Qt Test suites need a platform plugin but no display.
+  # The Qt Test suites need a platform plugin but no display (and, for the notifier, a private bus).
   doCheck = true;
   checkPhase = ''
     runHook preCheck

@@ -76,7 +76,7 @@ try {
   let { browser, page } = await connect(`http://127.0.0.1:${A}/`);
   check('app loads the start page', !!page);
   check('irisDesktop.version() resolves on the allowed origin', await until(async () => (await page.evaluate(() => window.irisDesktop.version())) === '0.1.0'));
-  check('irisDesktop is frozen and has only on/setUnread/version', await page.evaluate(() => JSON.stringify(Object.keys(window.irisDesktop).sort()) === '["on","setUnread","version"]' && Object.isFrozen(window.irisDesktop)));
+  check('irisDesktop is frozen and has only the bridge methods', await page.evaluate(() => JSON.stringify(Object.keys(window.irisDesktop).sort()) === '["closeNotifications","notify","on","setUnread","version"]' && Object.isFrozen(window.irisDesktop)));
 
   // The colour scheme arrives although the handler is added after the shell emitted it.
   const schemes = await page.evaluate(() => { window.__schemes = []; window.irisDesktop.on('colorScheme', (v) => window.__schemes.push(v)); return true; });

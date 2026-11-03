@@ -1,7 +1,7 @@
 import { useAtomValue } from 'jotai';
 import React, { ReactNode, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { RoomEvent, RoomEventHandlerMap } from 'matrix-js-sdk';
+import { MatrixEvent, RoomEvent, RoomEventHandlerMap } from 'matrix-js-sdk';
 import { roomToUnreadAtom, unreadEqual, unreadInfoToUnread } from '../../state/room/roomToUnread';
 import LogoSVG from '../../../../public/res/iris-logo.png';
 import LogoUnreadSVG from '../../../../public/res/iris-logo-unread.png';
@@ -28,6 +28,15 @@ import { useInboxNotificationsSelected } from '../../hooks/router/useInbox';
 import { useMediaAuthentication } from '../../hooks/useMediaAuthentication';
 import { SharedContentConsumer } from './SharedContentConsumer';
 import { NativePushFeature } from '../../native/push';
+import { desktopNotify, isDesktopShell } from '../../native/desktop';
+import { DesktopNotificationsFeature } from '../../native/useDesktopNotifications';
+import { loadDesktopNotificationIcon } from '../../native/desktopIcon';
+import { desktopNotificationText } from '../../native/notificationText';
+import { mDirectAtom } from '../../state/mDirectList';
+
+// In the desktop shell the shell is the notification system and has the permission; elsewhere the
+// browser's grant decides, as before.
+const canNotify = () => isDesktopShell() || notificationPermission('granted');
 
 function SystemEmojiFeature() {
   const [twitterEmoji] = useSetting(settingsAtom, 'twitterEmoji');
@@ -82,6 +91,7 @@ function InviteNotifications() {
   const audioRef = useRef<HTMLAudioElement>(null);
   const invites = useAtomValue(allInvitesAtom);
   const perviousInviteLen = usePreviousValue(invites.length, 0);
+  const previousInvitesRef = useRef<string[]>([]);
   const mx = useMatrixClient();
 
   const navigate = useNavigate();
@@ -89,7 +99,18 @@ function InviteNotifications() {
   const [notificationSound] = useSetting(settingsAtom, 'isNotificationSounds');
 
   const notify = useCallback(
-    (count: number) => {
+    (count: number, roomId?: string) => {
+      if (isDesktopShell() && roomId) {
+        // The popup opens the invitations (see useDesktopOpenRoom) and takes no reply.
+        desktopNotify({
+          id: `invite:${roomId}`,
+          roomId,
+          title: 'Invitation',
+          body: `You have ${count} new invitation request.`,
+          canReply: false,
+        });
+        return;
+      }
       const noti = new window.Notification('Invitation', {
         icon: LogoSVG,
         badge: LogoSVG,
@@ -112,14 +133,19 @@ function InviteNotifications() {
 
   useEffect(() => {
     if (invites.length > perviousInviteLen && mx.getSyncState() === 'SYNCING') {
-      if (showNotifications && notificationPermission('granted')) {
-        notify(invites.length - perviousInviteLen);
+      if (showNotifications && canNotify()) {
+        const previous = new Set(previousInvitesRef.current);
+        notify(
+          invites.length - perviousInviteLen,
+          invites.find((id) => !previous.has(id))
+        );
       }
 
       if (notificationSound) {
         playSound();
       }
     }
+    previousInvitesRef.current = invites;
   }, [mx, invites, perviousInviteLen, showNotifications, notificationSound, notify, playSound]);
 
   return (
@@ -133,6 +159,7 @@ function InviteNotifications() {
 function MessageNotifications() {
   const audioRef = useRef<HTMLAudioElement>(null);
   const notifRef = useRef<Notification>();
+  const mDirects = useAtomValue(mDirectAtom);
   const unreadCacheRef = useRef<Map<string, UnreadInfo>>(new Map());
   const mx = useMatrixClient();
   const useAuthentication = useMediaAuthentication();
@@ -148,13 +175,40 @@ function MessageNotifications() {
       roomName,
       roomAvatar,
       username,
+      roomId,
+      eventId,
+      mEvent,
     }: {
       roomName: string;
       roomAvatar?: string;
       username: string;
       roomId: string;
       eventId: string;
+      mEvent: MatrixEvent;
     }) => {
+      if (isDesktopShell()) {
+        // KDE shows it: clicking opens the room, and it can be answered from the popup, so it says
+        // what the message is (the Android wording, notificationText.ts).
+        const text = desktopNotificationText({
+          roomName,
+          senderName: username,
+          isDirect: mDirects.has(roomId),
+          type: mEvent.getType(),
+          content: mEvent.getContent(),
+        });
+        (async () => {
+          const icon = roomAvatar ? await loadDesktopNotificationIcon(roomAvatar) : undefined;
+          await desktopNotify({
+            id: eventId,
+            roomId,
+            eventId,
+            title: text.title,
+            body: text.body,
+            icon,
+          });
+        })();
+        return;
+      }
       const noti = new window.Notification(roomName, {
         icon: roomAvatar,
         badge: roomAvatar,
@@ -171,7 +225,7 @@ function MessageNotifications() {
       notifRef.current?.close();
       notifRef.current = noti;
     },
-    [navigate]
+    [navigate, mDirects]
   );
 
   const playSound = useCallback(() => {
@@ -214,7 +268,7 @@ function MessageNotifications() {
         return;
       }
 
-      if (showNotifications && notificationPermission('granted')) {
+      if (showNotifications && canNotify()) {
         const avatarMxc =
           room.getAvatarFallbackMember()?.getMxcAvatarUrl() ?? room.getMxcAvatarUrl();
         notify({
@@ -225,6 +279,7 @@ function MessageNotifications() {
           username: getMemberDisplayName(room, sender) ?? getMxIdLocalPart(sender) ?? sender,
           roomId: room.roomId,
           eventId,
+          mEvent,
         });
       }
 
@@ -269,6 +324,7 @@ export function ClientNonUIFeatures({ children }: ClientNonUIFeaturesProps) {
       <MessageNotifications />
       <SharedContentConsumer />
       <NativePushFeature />
+      <DesktopNotificationsFeature />
       {children}
     </>
   );
