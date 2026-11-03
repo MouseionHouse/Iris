@@ -39,6 +39,7 @@ import { AuthMetadataProvider } from '../../hooks/useAuthMetadata';
 import { getFallbackSession } from '../../state/sessions';
 import { AutoDiscovery } from './AutoDiscovery';
 import { useHubBridge } from '../../hub/useHubBridge';
+import { useDesktopBridge } from '../../native/useDesktopBridge';
 import { notifyHubSignedOut } from '../../hub/hubBridge';
 
 function ClientRootLoading() {
@@ -167,6 +168,7 @@ export function ClientRoot({ children }: ClientRootProps) {
 
   useLogoutListener(mx);
   useHubBridge(mx, loading);
+  useDesktopBridge();
 
   useEffect(() => {
     if (loadState.status === AsyncStatus.Idle) {

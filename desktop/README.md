@@ -5,7 +5,15 @@ product; this holds only what a browser cannot do on Plasma. Design: mouseion/ir
 
 This skeleton (#64) opens Iris in a locked-down view: one instance, a persistent profile, other
 origins open in the default browser, camera/microphone/screen/location refused, an offline page with
-Retry, and the `window.irisDesktop` bridge (`version()` only, offered on the Iris origin only).
+Retry, and the `window.irisDesktop` bridge (offered on the Iris origin only).
+
+The bridge so far (#66): `version()`, `setUnread({ total, highlight })` and the `colorScheme { dark }` event.
+`setUnread` validates its arguments (whole numbers, `0 <= highlight <= total <= 1000000`; rejects otherwise)
+and `src/badge.*` broadcasts the `com.canonical.Unity.LauncherEntry.Update` signal for
+`application://house.mouseion.iris.desktop` (`count`, `count-visible` false at 0), which Plasma draws on the
+taskbar icon; it is sent again when a page loads. `highlight` is kept on the bridge for the tray. `colorScheme`
+comes from `src/colorscheme.*` (Qt's colour scheme hint, else the window background's lightness) and is replayed
+to handlers added late. Web side: `src/app/native/desktop.ts`, `useDesktopBridge.ts`.
 
 ## Build and run (NixOS)
 
@@ -29,7 +37,8 @@ two local servers and drives it over the Chrome DevTools Protocol (Node 22+). It
 answers on the allowed origin and is absent elsewhere, external links / `target=_blank` /
 `window.open` / redirects go to the opener (stubbed, nothing is launched), the offline page appears
 and clears by itself, a second launch is handed to the first, and localStorage and cookies survive a
-restart. `IRIS_SHELL_TEST_HOOKS` (environment overrides for the URL, origin and opener) is a test
+restart; that `setUnread` produces the right LauncherEntry signal on the private bus (`dbus-monitor`), including
+`count-visible` false at 0, and a resend after a reload; and that `colorScheme` is delivered. `IRIS_SHELL_TEST_HOOKS` (environment overrides for the URL, origin, opener and starting colour scheme) is a test
 option and must stay off in release builds.
 
 ## Layout

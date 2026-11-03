@@ -12,10 +12,13 @@ import {
   useSystemThemeKind,
 } from '../hooks/useTheme';
 import { applyThemeChrome } from '../native/systemChrome';
+import { useDesktopColorScheme } from '../native/useDesktopBridge';
 import { useSetting } from '../state/hooks/settings';
 import { settingsAtom } from '../state/settings';
 
 export function UnAuthRouteThemeManager() {
+  // The sign-in screen follows Plasma too inside the desktop shell.
+  useDesktopColorScheme();
   const systemThemeKind = useSystemThemeKind();
   // Framed inside the hub, the login screen matches the hub's theme instead
   // of the browser's `prefers-color-scheme` (see `hubThemeAtom`'s doc comment

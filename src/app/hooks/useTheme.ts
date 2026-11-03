@@ -13,6 +13,7 @@ import {
 import { settingsAtom } from '../state/settings';
 import { useSetting } from '../state/hooks/settings';
 import { isFramed } from '../hub/hubBridge';
+import { pickTheme, systemIsDark } from './themeChoice';
 
 export enum ThemeKind {
   Light = 'light',
@@ -78,6 +79,12 @@ export const MouseionTheme: Theme = {
  */
 export const hubThemeAtom = atom<Theme | null>(isFramed() ? MouseionTheme : null);
 
+/**
+ * The Plasma colour scheme, set by the desktop shell (`useDesktopBridge`); `null` everywhere else.
+ * It stands in for the browser's `prefers-color-scheme`, so only "follow the system" follows it.
+ */
+export const desktopDarkAtom = atom<boolean | null>(null);
+
 export const useThemes = (): Theme[] => {
   const themes: Theme[] = useMemo(
     () => [
@@ -110,6 +117,7 @@ export const useThemeNames = (): Record<string, string> =>
   );
 
 export const useSystemThemeKind = (): ThemeKind => {
+  const desktopDark = useAtomValue(desktopDarkAtom);
   const darkModeQueryList = useMemo(() => window.matchMedia('(prefers-color-scheme: dark)'), []);
   const [themeKind, setThemeKind] = useState<ThemeKind>(
     darkModeQueryList.matches ? ThemeKind.Dark : ThemeKind.Light
@@ -126,7 +134,7 @@ export const useSystemThemeKind = (): ThemeKind => {
     };
   }, [darkModeQueryList, setThemeKind]);
 
-  return themeKind;
+  return systemIsDark(desktopDark, themeKind === ThemeKind.Dark) ? ThemeKind.Dark : ThemeKind.Light;
 };
 
 export const useActiveTheme = (): Theme => {
@@ -140,22 +148,17 @@ export const useActiveTheme = (): Theme => {
 
   // A hub-driven override (only ever set when framed) wins over the member's
   // own choice, so the client matches the hub's light/dark mode.
-  if (hubTheme) {
-    return hubTheme;
-  }
-
-  if (!systemTheme) {
-    const selectedTheme = themes.find((theme) => theme.id === themeId) ?? IrisLightTheme;
-
-    return selectedTheme;
-  }
-
-  const selectedTheme =
-    systemThemeKind === ThemeKind.Dark
-      ? themes.find((theme) => theme.id === darkThemeId) ?? IrisDarkTheme
-      : themes.find((theme) => theme.id === lightThemeId) ?? IrisLightTheme;
-
-  return selectedTheme;
+  return pickTheme({
+    hubTheme,
+    useSystemTheme: systemTheme,
+    systemDark: systemThemeKind === ThemeKind.Dark,
+    themes,
+    themeId,
+    lightThemeId,
+    darkThemeId,
+    defaultLight: IrisLightTheme,
+    defaultDark: IrisDarkTheme,
+  });
 };
 
 const ThemeContext = createContext<Theme | null>(null);
