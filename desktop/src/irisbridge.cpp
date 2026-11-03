@@ -35,6 +35,18 @@ BridgeHost::BridgeHost(NavigationPolicy *policy, QObject *parent)
 {
 }
 
+void BridgeHost::useChannel(QObject *channel)
+{
+    auto *next = qobject_cast<QWebChannel *>(channel);
+    if (!next || next == m_channel)
+        return;
+    if (m_registered)
+        m_channel->deregisterObject(m_bridge);
+    m_channel = next;
+    if (m_registered)
+        m_channel->registerObject(QString::fromLatin1(objectName_), m_bridge);
+}
+
 void BridgeHost::pageUrlChanged(const QUrl &url)
 {
     const bool offer = m_policy->bridgeOffered(url);

@@ -16,6 +16,8 @@ ApplicationWindow {
     property bool offline: false
     property string errorText: ""
 
+    onOfflineChanged: if (shell.testHooks) console.log("IRIS_STATE offline=" + offline)
+
     function retry() {
         if (webView.url.toString() === "")
             webView.url = shell.startUrl
@@ -23,39 +25,48 @@ ApplicationWindow {
             webView.reload()
     }
 
-    WebEngineProfile {
-        id: profile
+    // Named and on disk: login, localStorage, IndexedDB and the service worker survive restarts.
+    WebEngineProfilePrototype {
+        id: profilePrototype
         storageName: shell.profileName
-        offTheRecord: false
         persistentStoragePath: shell.dataPath
         cachePath: shell.cachePath
         persistentCookiesPolicy: WebEngineProfile.ForcePersistentCookies
-        downloadPath: shell.downloadPath
-        onDownloadRequested: download => {
+    }
+
+    Connections {
+        target: webView.profile
+        function onDownloadRequested(download) {
             download.downloadDirectory = shell.downloadPath
             download.accept()
         }
+    }
+
+    WebChannel {
+        id: channel
+        Component.onCompleted: bridgeHost.useChannel(channel)
     }
 
     WebEngineView {
         id: webView
         objectName: "webView"
         anchors.fill: parent
-        profile: profile
-        webChannel: bridgeChannel
-        url: shell.startUrl
+        webChannel: channel
         settings.errorPageEnabled: false
         settings.javascriptCanOpenWindows: true
 
-        userScripts: [
-            WebEngineScript {
-                name: "irisDesktopBridge"
-                sourceCode: shell.bridgeScript
-                injectionPoint: WebEngineScript.DocumentCreation
-                worldId: WebEngineScript.MainWorld
-                runsOnSubFrames: false
-            }
-        ]
+        Component.onCompleted: {
+            // Set here, before the first load: as a binding it crashes inside setProfile.
+            profile = profilePrototype.instance()
+            var script = WebEngine.script()
+            script.name = "irisDesktopBridge"
+            script.sourceCode = shell.bridgeScript
+            script.injectionPoint = WebEngineScript.DocumentCreation
+            script.worldId = WebEngineScript.MainWorld
+            script.runsOnSubFrames = false
+            userScripts.collection = [script]
+            url = shell.startUrl
+        }
 
         onNavigationRequested: request => {
             if (!request.isMainFrame)

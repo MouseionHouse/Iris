@@ -5,6 +5,7 @@
 #include "windowstate.h"
 
 #include <KDBusService>
+#include <KSignalHandler>
 
 #include <QCommandLineParser>
 #include <QDir>
@@ -16,6 +17,8 @@
 #include <QQuickWindow>
 #include <QStandardPaths>
 #include <QtWebEngineQuick>
+
+#include <csignal>
 
 #ifndef IRIS_SHELL_VERSION
 #define IRIS_SHELL_VERSION "0.0.0"
@@ -33,6 +36,7 @@ class ShellInfo : public QObject
     Q_PROPERTY(QString downloadPath MEMBER downloadPath CONSTANT)
     Q_PROPERTY(QString bridgeScript MEMBER bridgeScript CONSTANT)
     Q_PROPERTY(int retryIntervalMs MEMBER retryIntervalMs CONSTANT)
+    Q_PROPERTY(bool testHooks MEMBER testHooks CONSTANT)
 public:
     using QObject::QObject;
     QUrl startUrl;
@@ -43,6 +47,7 @@ public:
     QString downloadPath;
     QString bridgeScript;
     int retryIntervalMs = 15000;
+    bool testHooks = false;
 };
 
 int main(int argc, char *argv[])
@@ -64,6 +69,11 @@ int main(int argc, char *argv[])
     parser.process(app);
 
     KDBusService service(KDBusService::Unique);
+
+    // Quit cleanly on SIGTERM/SIGINT so WebEngine flushes the profile (login, storage) to disk.
+    KSignalHandler::self()->watchSignal(SIGTERM);
+    KSignalHandler::self()->watchSignal(SIGINT);
+    QObject::connect(KSignalHandler::self(), &KSignalHandler::signalReceived, &app, &QCoreApplication::quit);
 
     QString origin = ShellConfig::origin;
     QUrl startUrl{QString(ShellConfig::url)};
@@ -99,6 +109,7 @@ int main(int argc, char *argv[])
     info.downloadPath = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation);
     info.bridgeScript = bridgeHost.injectedScript();
 #ifdef IRIS_SHELL_TEST_HOOKS
+    info.testHooks = true;
     if (qEnvironmentVariableIsSet("IRIS_SHELL_RETRY_MS"))
         info.retryIntervalMs = qEnvironmentVariableIntValue("IRIS_SHELL_RETRY_MS");
 #endif
@@ -109,7 +120,6 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("shell"), &info);
     engine.rootContext()->setContextProperty(QStringLiteral("navPolicy"), &policy);
     engine.rootContext()->setContextProperty(QStringLiteral("bridgeHost"), &bridgeHost);
-    engine.rootContext()->setContextProperty(QStringLiteral("bridgeChannel"), bridgeHost.channel());
     engine.rootContext()->setContextProperty(QStringLiteral("networkWatch"), &networkWatch);
     engine.loadFromModule("House.Iris", "Main");
     if (engine.rootObjects().isEmpty())
@@ -123,6 +133,9 @@ int main(int argc, char *argv[])
     // hook for matrix: links (mouseion/iris#69).
     QObject::connect(&service, &KDBusService::activateRequested, window, [window](const QStringList &arguments, const QString &) {
         Q_UNUSED(arguments)
+#ifdef IRIS_SHELL_TEST_HOOKS
+        qInfo("IRIS_STATE activate-requested");
+#endif
         window->show();
         window->raise();
         window->requestActivate();

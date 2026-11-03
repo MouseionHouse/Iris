@@ -33,6 +33,8 @@ public:
     BridgeHost(NavigationPolicy *policy, QObject *parent = nullptr);
 
     QWebChannel *channel() const { return m_channel; }
+    // Adopts the channel the view was given (QML creates its own); carries the bridge over.
+    Q_INVOKABLE void useChannel(QObject *channel);
     IrisBridge *bridge() const { return m_bridge; }
     bool bridgeRegistered() const { return m_registered; }
 
