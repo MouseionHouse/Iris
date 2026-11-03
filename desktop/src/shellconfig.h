@@ -10,8 +10,8 @@ inline constexpr QLatin1StringView origin{"https://iris.example.org"};
 inline constexpr QLatin1StringView appId{"house.mouseion.iris"};
 inline constexpr QLatin1StringView displayName{"Iris"};
 inline constexpr QLatin1StringView iconName{"house.mouseion.iris"};
-// The tray icon while something mentions you: the app icon with a red dot (scripts/iris-icons.py).
-inline constexpr QLatin1StringView highlightIconName{"house.mouseion.iris-highlight"};
+// The theme emblem the tray draws over the icon while something mentions you (#83).
+inline constexpr QLatin1StringView mentionOverlayIconName{"emblem-important"};
 inline constexpr QLatin1StringView desktopFileName{"house.mouseion.iris"};
 // QCoreApplication name and domain: KDBusService derives its D-Bus name from them
 // ("house.mouseion" + "." + "iris" == appId), and Qt derives the data directory from the name.

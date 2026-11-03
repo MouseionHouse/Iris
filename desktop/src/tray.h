@@ -9,7 +9,8 @@ class QMenu;
 class QWindow;
 
 // The tray icon (a StatusNotifierItem): click shows or hides the window, the menu has Show Iris
-// and Quit, the icon and tooltip follow the unread state the bridge reports.
+// and Quit, the tooltip follows the unread state the bridge reports. A mention marks the item as
+// Konversation does, with NeedsAttention, plus a theme emblem over the app icon (#83).
 class Tray : public QObject
 {
     Q_OBJECT
@@ -18,8 +19,9 @@ public:
 
     // "Iris: 3 unread"; just "Iris" when there is nothing unread.
     static QString toolTipFor(int total);
-    // The normal icon, or the one with the dot when something mentions you (highlight > 0).
-    static QString iconNameFor(int highlight);
+    // Nothing, or the theme emblem the tray draws over the icon when something mentions you
+    // (highlight > 0).
+    static QString overlayIconNameFor(int highlight);
 
     // Show the window, raised and focused (a minimised one is restored).
     static void showWindow(QWindow *window);

@@ -32,8 +32,10 @@ links will reuse, plus the click/reply/read-rule handlers) and the delivery swit
 `src/app/pages/client/ClientNonUIFeatures.tsx`.
 
 The tray (#67): `src/tray.*` is a `KStatusNotifierItem` (click toggles the window; menu Show Iris / Quit; tooltip
-"Iris: N unread"; the icon becomes `house.mouseion.iris-highlight`, the app icon with a red dot cut by
-`scripts/iris-icons.py`, while `highlight > 0`). `src/closetotray.*` turns a close into a hide, so Iris keeps syncing;
+"Iris: N unread"; the icon is always the app icon). While `highlight > 0` the item is marked as Konversation
+marks one (#83): status `NeedsAttention`, which Plasma pulses and keeps out of the hidden-items popup, and the
+theme's `emblem-important` (Breeze: an orange square with a "!") as the overlay; the attention icon is the app icon
+itself. NeoChat marks nothing in its tray. `src/closetotray.*` turns a close into a hide, so Iris keeps syncing;
 only Quit (tray menu or Ctrl+Q), SIGTERM/SIGINT or the end of the session really close it. The first hide shows
 "Iris is still running in the tray" once, through `KStatusNotifierItem::showMessage` (a plain freedesktop
 notification; `Notifier` is per room, with a click and a reply, which this is not), remembered in `~/.config/irisrc`
