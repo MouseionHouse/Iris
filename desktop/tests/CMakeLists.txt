@@ -8,6 +8,7 @@ endfunction()
 iris_test(tst_navigationpolicy)
 iris_test(tst_irisbridge)
 iris_test(tst_badge)
+iris_test(tst_matrixuri)
 
 # Talks to a fake org.freedesktop.Notifications, so it runs on a session bus of its own.
 find_program(IRIS_DBUS_RUN_SESSION dbus-run-session REQUIRED)

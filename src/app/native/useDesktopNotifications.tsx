@@ -5,18 +5,28 @@ import { useNavigate } from 'react-router-dom';
 import { useMatrixClient } from '../hooks/useMatrixClient';
 import { useRoomNavigate } from '../hooks/useRoomNavigate';
 import { useSyncState } from '../hooks/useSyncState';
-import { getInboxInvitesPath } from '../pages/pathUtils';
+import {
+  getDirectCreatePath,
+  getHomeRoomPath,
+  getInboxInvitesPath,
+  withSearchParam,
+} from '../pages/pathUtils';
+import { DirectCreateSearchParams, _RoomSearchParams } from '../pages/paths';
+import { getCanonicalAliasRoomId, isRoomAlias } from '../utils/matrix';
 import { allInvitesAtom } from '../state/room-list/inviteList';
 import { roomToUnreadAtom } from '../state/room/roomToUnread';
 import {
   DesktopOpenRoom,
   desktopCloseNotifications,
   desktopNotifiedRooms,
+  DesktopLink,
   isDesktopShell,
+  onDesktopOpenLink,
   onDesktopOpenRoom,
   onDesktopReply,
   roomsToClose,
 } from './desktop';
+import { routeDesktopLink } from './desktopLink';
 import { sendDesktopReply } from './desktopReply';
 
 /**
@@ -38,6 +48,49 @@ export const useDesktopOpenRoom = (): ((target: DesktopOpenRoom) => void) => {
 };
 
 /**
+ * Opens a `matrix:` link (mouseion/iris#69) where a `matrix.to` link clicked in Iris would go; see
+ * `routeDesktopLink`. A known room goes through `useDesktopOpenRoom`, the one handler shared with
+ * notification clicks.
+ */
+export const useDesktopOpenLink = (): ((link: DesktopLink) => void) => {
+  const mx = useMatrixClient();
+  const navigate = useNavigate();
+  const { navigateSpace } = useRoomNavigate();
+  const openRoom = useDesktopOpenRoom();
+  return useCallback(
+    (link: DesktopLink) => {
+      const route = routeDesktopLink(link, (idOrAlias) => {
+        const roomId = isRoomAlias(idOrAlias) ? getCanonicalAliasRoomId(mx, idOrAlias) : idOrAlias;
+        const room = roomId ? mx.getRoom(roomId) : null;
+        return room ? { roomId: room.roomId, isSpace: room.isSpaceRoom() } : undefined;
+      });
+      switch (route.to) {
+        case 'room':
+          openRoom({ roomId: route.roomId, eventId: route.eventId });
+          break;
+        case 'space':
+          navigateSpace(route.roomId);
+          break;
+        case 'join': {
+          const path = getHomeRoomPath(route.roomIdOrAlias, route.eventId);
+          navigate(
+            route.viaServers
+              ? withSearchParam<_RoomSearchParams>(path, { viaServers: route.viaServers.join(',') })
+              : path
+          );
+          break;
+        }
+        default: {
+          const params: DirectCreateSearchParams = { userId: route.userId };
+          navigate(withSearchParam(getDirectCreatePath(), params));
+        }
+      }
+    },
+    [mx, navigate, navigateSpace, openRoom]
+  );
+};
+
+/**
  * The desktop shell's notifications, as far as the page is concerned: a click opens the room, a
  * reply typed in the popup is sent, and a room that has been read (here or on another device)
  * loses its notifications. Delivery itself is in `ClientNonUIFeatures`. A no-op outside the shell.
@@ -45,6 +98,7 @@ export const useDesktopOpenRoom = (): ((target: DesktopOpenRoom) => void) => {
 export function DesktopNotificationsFeature() {
   const mx = useMatrixClient();
   const openRoom = useDesktopOpenRoom();
+  const openLink = useDesktopOpenLink();
   const roomToUnread = useAtomValue(roomToUnreadAtom);
   const invites = useAtomValue(allInvitesAtom);
   const [inSync, setInSync] = useState(false);
@@ -55,6 +109,7 @@ export function DesktopNotificationsFeature() {
   );
 
   useEffect(() => (isDesktopShell() ? onDesktopOpenRoom(openRoom) : undefined), [openRoom]);
+  useEffect(() => (isDesktopShell() ? onDesktopOpenLink(openLink) : undefined), [openLink]);
 
   useEffect(() => {
     if (!isDesktopShell()) return undefined;

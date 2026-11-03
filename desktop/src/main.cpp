@@ -3,6 +3,7 @@
 #include "colorscheme.h"
 #include "globalshortcut.h"
 #include "irisbridge.h"
+#include "matrixuri.h"
 #include "navigationpolicy.h"
 #include "networkwatch.h"
 #include "notifier.h"
@@ -76,7 +77,7 @@ int main(int argc, char *argv[])
     parser.addHelpOption();
     parser.addVersionOption();
     parser.addOption({QStringLiteral("hidden"), QStringLiteral("Start in the tray without showing the window.")});
-    parser.addPositionalArgument(QStringLiteral("uri"), QStringLiteral("A matrix: link to open (handled by a later release)."), QStringLiteral("[uri]"));
+    parser.addPositionalArgument(QStringLiteral("uri"), QStringLiteral("A matrix: link to open in Iris."), QStringLiteral("[uri]"));
     parser.process(app);
 
     KDBusService service(KDBusService::Unique);
@@ -194,16 +195,37 @@ int main(int argc, char *argv[])
     });
 #endif
 
-    // A second launch lands here in the first process. Raise the window; the arguments are the
-    // hook for matrix: links (mouseion/iris#69).
-    QObject::connect(&service, &KDBusService::activateRequested, window, [window](const QStringList &arguments, const QString &) {
-        Q_UNUSED(arguments)
+    // matrix: links (mouseion/iris#69), from the command line and from a second launch: parsed here,
+    // dropped (and logged) if they do not parse, otherwise shown by the page. A link shows the window
+    // even when it was started hidden. The bridge queues them until the page is up.
+    auto showWindow = [window] {
+        window->show();
+        window->raise();
+        window->requestActivate();
+    };
+    auto openLinks = [bridge = bridgeHost.bridge(), showWindow](const QStringList &candidates) {
+        const QList<MatrixLink> links = matrixLinksFromArguments(candidates);
+        for (const MatrixLink &link : links)
+            bridge->openLink(link);
+        if (!links.isEmpty()) {
+#ifdef IRIS_SHELL_TEST_HOOKS
+            qInfo("IRIS_STATE links-opened=%d", int(links.size()));
+#endif
+            showWindow();
+        }
+        return !links.isEmpty();
+    };
+
+    // A second launch lands here in the first process: raise the window and open its links.
+    QObject::connect(&service, &KDBusService::activateRequested, window, [window, openLinks](const QStringList &arguments, const QString &) {
 #ifdef IRIS_SHELL_TEST_HOOKS
         qInfo("IRIS_STATE activate-requested");
 #endif
         window->show();
         window->raise();
         window->requestActivate();
+        // The first argument is the program name.
+        openLinks(arguments.mid(1));
     });
     QObject::connect(&service, &KDBusService::activateActionRequested, window, [](const QString &, const QVariant &) {});
 
@@ -218,9 +240,8 @@ int main(int argc, char *argv[])
         bridge->openRoom(roomId, eventId);
     });
 
-    if (!parser.positionalArguments().isEmpty()) {
-        // matrix: URIs are parsed by a later ticket.
-    }
+    // A link shows the window, even when the shell was started hidden; --hidden alone stays in the tray.
+    openLinks(parser.positionalArguments());
     if (!parser.isSet(QStringLiteral("hidden")))
         window->show();
     return app.exec();

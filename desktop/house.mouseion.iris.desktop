@@ -9,3 +9,4 @@ Terminal=false
 Categories=Network;Chat;InstantMessaging;
 StartupWMClass=house.mouseion.iris
 StartupNotify=true
+MimeType=x-scheme-handler/matrix;
