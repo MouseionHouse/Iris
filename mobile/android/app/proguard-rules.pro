@@ -23,5 +23,5 @@
 # Capacitor reads @CapacitorPlugin (and the @Permission entries in it) by reflection at run time.
 # Its own rules keep the plugins but not these annotation types, and R8 then treats the plugin's
 # annotation as always null: a permission request finds no permission strings and returns without
-# settling the call. MouseionPush.enable() hung on a spinner that way (WORKTRACK 2026-10-12).
+# settling the call. MouseionPush.enable() hung on a spinner that way (2026-10-12).
 -keep @interface com.getcapacitor.annotation.** { *; }
