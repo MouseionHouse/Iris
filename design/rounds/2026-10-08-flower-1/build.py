@@ -42,7 +42,7 @@ COLOURWAYS = [
     way("C12", "Sea", "Teal and woad, with a pale signal", ("#8FD0C0", "#5FB5A2"), ("#7FAFC2", "#5B9EB8"), ("#4C9FA8", "#2F8590"), ("#4C9FA8", "#2F8590"), ("#F0E3A8", "#E8D27A"), ("#7FAF8F", "#5F9A74")),
     way("C13", "One colour", "Every part in ink, to test the shape alone", ("#F4F4F1", "#15161A"), ("#C9CAC9", "#3A3C42"), ("#DEDEDC", "#26282D"), ("#DEDEDC", "#26282D"), ("#15161A", "#F4F4F1"), ("#A2A5AD", "#5B5E66")),
 ]
-# The purples John and Andromache asked for on 2026-10-08, balanced the way Copper, Rose gold and Sea are:
+# The purples the household asked for on 2026-10-08, balanced the way Copper, Rose gold and Sea are:
 # neighbouring hues, pale standards over deeper falls, a soft signal, and a stem toned to match.
 PURPLES = [
     way("P1", "Wisteria", "Blue-leaning lilacs with a pale lilac signal and a slate stem", ("#C9B8E8", "#B39DDB"), ("#B3A0DC", "#9C86CF"), ("#8E7CC8", "#7663B8"), ("#8E7CC8", "#7663B8"), ("#F0E3F5", "#E3D2EE"), ("#9FA8B8", "#8591A6")),

@@ -7,3 +7,4 @@ devAssets
 .DS_Store
 .idea
 /nginx.conf
+__pycache__

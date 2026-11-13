@@ -33,7 +33,7 @@ import org.json.JSONObject;
  *
  * The UnifiedPush connector binds the push service only while it hands over one event, so the
  * work runs on this process-wide single thread, never tied to the service's lifetime (the Compose
- * app lost registrations and notifications that way, WORKTRACK 2026-09-16).
+ * app lost registrations and notifications that way, 2026-09-16).
  */
 final class PushNotifier {
 

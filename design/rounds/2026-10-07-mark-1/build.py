@@ -16,13 +16,13 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 
-# The house's values, copied from ~/design/tokens.json so the sheet stands alone.
+# The house's values, copied from mouseion/design's tokens.json so the sheet stands alone.
 GROUND = {"dark": "#15161A", "light": "#F4F4F1"}
 INK = {"dark": "#F4F4F1", "light": "#15161A"}
 MUSE = {
     "dark": dict(calliope="#FE9EAD", terpsichore="#F9A779", clio="#DABA61", thalia="#A5CD7C", euterpe="#67D6B2",
                  polyhymnia="#50D2E6", urania="#83C3FF", melpomene="#BCB1FF", erato="#E8A2E1"),
-    # On Chalk these are Iris's own, lighter than the house's Chalk set, which John found too dark (2026-10-08).
+    # On Chalk these are Iris's own, lighter than the house's Chalk set, which the household found too dark (2026-10-08).
     "light": dict(calliope="#D5929F", terpsichore="#D78F60", clio="#DDB43C", thalia="#8DC04E", euterpe="#4FC9A8",
                   polyhymnia="#45BFD6", urania="#76AADA", melpomene="#B1A8DD", erato="#C693C1"),
 }

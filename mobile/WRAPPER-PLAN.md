@@ -41,7 +41,7 @@ mobile/
       PushPlugin.kt            Capacitor plugin "MouseionPush" (the bridge below)
       PushSummary.kt           event → notification text (moved from shared, pure Kotlin)
   capacitor.config.ts appId house.mouseion.chat, webDir ../dist-mobile, androidScheme https
-  WORKTRACK.md, WRAPPER-PLAN.md
+  WRAPPER-PLAN.md
 scripts/mobile-bundle.js: dist → dist-mobile with config.mobile.json as its config.json
 ```
 
@@ -93,7 +93,7 @@ Other Capacitor plugins: `@capacitor/app` (back button → `history.back()`, res
 for external links. File and camera pickers come from the WebView's `<input type=file>` (Capacitor
 implements the file chooser, including `capture`).
 
-Text sharing (done 2026-09-23, see WORKTRACK): `MouseionShare` plugin (Java,
+Text sharing (done 2026-09-23): `MouseionShare` plugin (Java,
 `mobile/android/app/src/main/java/house/mouseion/chat/`). Two entry points: the app itself
 (`ACTION_SEND`/`text/*` filter on MainActivity) and per-chat Direct Share targets (Sharing
 Shortcuts API: `res/xml/shortcuts.xml` declares a `<share-target>`; `setShareTargets`
@@ -109,8 +109,9 @@ whenever the app is backgrounded, and removed on sign out.
 
 ### Phase 1 — shell (`mobile-v0.4.0-rc1`)
 1. Tag `mobile-compose-final` on the current `mobile/phase-2` HEAD. Remove `mobile/shared`,
-   `mobile/androidApp`, `mobile/spike-jvm`, Gradle wrapper files; keep `mobile/tools/cinny-geom`,
-   WORKTRACK, this plan. (Compose push code is moved in Phase 2, from the tag.)
+   `mobile/androidApp`, `mobile/spike-jvm`, Gradle wrapper files; keep the work log
+   (now `mobile/WORKTRACK.md` in the private repo mouseion/iris-notes) and this plan. (Compose
+   push code is moved in Phase 2, from the tag.)
 2. Web: `--mode mobile` build with `config.mobile.json`, hash router, `base './'`; hide the server
    picker and Register/Reset links when custom homeservers are off (check what Cinny already hides).
 3. `npm i @capacitor/core @capacitor/cli @capacitor/android`; `npx cap init`; `npx cap add android`
@@ -122,10 +123,10 @@ whenever the app is backgrounded, and removed on sign out.
    `npx cap sync android` → `./gradlew assembleRelease` in `mobile/android` with the same signing
    secrets; drop the Skiko/jvmTest steps. The android-build image has Node 22.20.
 6. Exit: login persists across restarts, rooms/timeline/composer work, images and video play, back
-   button behaves, edge-to-edge is right. Owner installs rc1 from F-Droid on the Fold.
+   button behaves, edge-to-edge is right. Owner installs rc1 from F-Droid on a phone.
 
 ### Phase 2 — OS bridges (`rc2`–`rcN`)
-- **Done (2026-09-28):** items 1–2 (push) — see WORKTRACK. Java, not Kotlin (the wrapper has no
+- **Done (2026-09-28):** items 1–2 (push). Java, not Kotlin (the wrapper has no
   Kotlin toolchain); the token uses an Android Keystore AES-GCM key instead of the deprecated
   EncryptedSharedPreferences; the pusher is set at every start rather than only when missing.
 1. `MouseionPush` plugin + moved `MouseionPushService`/`PushSummary` on OkHttp/ktor with the stored
@@ -136,7 +137,7 @@ whenever the app is backgrounded, and removed on sign out.
    tiles, shown only when `Capacitor.isNativePlatform()`.
 3. Download/share/open-in-app for attachments (Cinny uses FileSaver → intercept with the Filesystem
    plugin on native), matrix.to deep links, external links in the system browser.
-4. Exit: a push arrives with the app killed and tapping it opens the room; hands-on on the Fold
+4. Exit: a push arrives with the app killed and tapping it opens the room; hands-on on a phone
    (owner enters the ntfy password themselves).
 
 ### Phase 3 — mobile polish in the web code (both platforms)
@@ -144,22 +145,21 @@ whenever the app is backgrounded, and removed on sign out.
   `index.html`, `SystemBars: { insetsHandling: 'css', initialViewportFitValueHint: 'cover' }` in
   `capacitor.config.ts`, `#root` padded by `var(--safe-area-inset-*, env(safe-area-inset-*, 0px))`
   in `src/index.css`, and `src/app/native/systemChrome.ts` painting the page background /
-  `theme-color` / status-bar style per theme. See the STATUS entry above.
-- Remaining (whatever the Fold hands-on shows): touch targets, the composer on a soft
+  `theme-color` / status-bar style per theme.
+- Remaining (whatever the hands-on on a phone shows): touch targets, the composer on a soft
   keyboard, the sidebar sections at phone width, long-press menus. Each fix is a `web:` commit.
 
 ### Phase 4 — retire the rest
-- Delete leftovers, update WORKTRACK's exclusions (everything Cinny does is now included except
+- Delete leftovers, update the work log's exclusions (everything Cinny does is now included except
   E2EE/calls/spaces by owner choice), memory, and the F-Droid metadata if it names the old app.
 
 ## Testing
 
-- Playwright at 412×892 against `vite preview` of the mobile build, signed in as spike
-  (`mobile/tools/cinny-geom` already drives chat.example.org this way). The WebView is Chromium, so
-  this is representative; the Compose ScreenTour is retired with the Compose app.
+- Playwright at 412×892 against `vite preview` of the mobile build, signed in as a test account.
+  The WebView is Chromium, so this is representative; the Compose ScreenTour is retired with the Compose app.
 - `npm run typecheck` + `npm run lint` in CI.
-- Push and device behaviour: owner hands-on on the Fold (emulator automation stays paused).
-- Spike live checks: reuse the existing rules (spike room only, never write outside it).
+- Push and device behaviour: owner hands-on on a phone (emulator automation stays paused).
+- Live checks with the test account: in its own test room only, never writing outside it.
 
 ## Risks / open points
 
