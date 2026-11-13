@@ -61,7 +61,7 @@ const hub = createMemoryDraftHub(Number(params.get('echo') ?? 300));
 window.__hub = hub;
 
 const ROOM_ID = '!lounge:example.org';
-const NAMES: Record<string, string> = { '@ada:example.org': 'Ada' };
+const NAMES: Record<string, string> = { '@helen:example.org': 'Helen' };
 const nameOf = (userId: string) => NAMES[userId] ?? userId;
 
 // The composer reads no more of the client than this.
@@ -99,7 +99,7 @@ function Rows({ device }: { device: string }) {
             </Avatar>
           }
           time="12:04"
-          preview={{ sender: 'Ada', text: 'See you there' }}
+          preview={{ sender: 'Helen', text: 'See you there' }}
           draft={draft}
           onOptions={() => undefined}
         />
@@ -150,21 +150,21 @@ function Composer({ device }: { device: string }) {
           // keeps the caret in the composer, as the autocomplete does
           onMouseDown={(evt) => evt.preventDefault()}
           onClick={() => {
-            editor.insertNode(createMentionElement('@ada:example.org', 'Ada', false));
+            editor.insertNode(createMentionElement('@helen:example.org', 'Helen', false));
             moveCursor(editor, true);
           }}
         >
-          <Text size="B300">Mention Ada</Text>
+          <Text size="B300">Mention Helen</Text>
         </Button>
         <Button
           size="300"
           variant="Secondary"
           data-action="reply"
           onClick={() =>
-            setReply({ userId: '@ada:example.org', eventId: '$see-you', body: 'See you there' })
+            setReply({ userId: '@helen:example.org', eventId: '$see-you', body: 'See you there' })
           }
         >
-          <Text size="B300">Reply to Ada</Text>
+          <Text size="B300">Reply to Helen</Text>
         </Button>
       </Box>
     </Box>

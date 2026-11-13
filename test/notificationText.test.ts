@@ -45,11 +45,12 @@ describe('what a message says (PushSummaryTest)', () => {
   it('an invite to me says so, anything else unknown is "New message"', () => {
     const invite = { membership: 'invite' };
     assert.equal(
-      summarizeEvent('m.room.member', invite, { myUserId: '@john:x', stateKey: '@john:x' }).text,
+      summarizeEvent('m.room.member', invite, { myUserId: '@hector:x', stateKey: '@hector:x' })
+        .text,
       'Invited you'
     );
     assert.equal(
-      summarizeEvent('m.room.member', invite, { myUserId: '@john:x', stateKey: '@other:x' }).text,
+      summarizeEvent('m.room.member', invite, { myUserId: '@hector:x', stateKey: '@other:x' }).text,
       'New message'
     );
     assert.equal(summarizeEvent('m.room.encrypted', { algorithm: 'x' }).text, 'New message');

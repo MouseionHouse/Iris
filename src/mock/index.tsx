@@ -561,7 +561,7 @@ function SideNav({
                       color: color.Surface.Container,
                     }}
                   >
-                    <Text size="H4">J</Text>
+                    <Text size="H4">H</Text>
                   </AvatarFallback>
                 </SidebarAvatar>
               </SidebarItem>
@@ -582,7 +582,7 @@ const MESSAGES = [
     text: 'Are we still on for the market tomorrow?',
   },
   {
-    who: 'John',
+    who: 'Hector',
     id: '@hector:example.org',
     time: '9:44 AM',
     text: 'Yes — I’ll bring the bags. Leaving at 8?',
