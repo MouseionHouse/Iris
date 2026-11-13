@@ -1,59 +1,91 @@
 <h1><img src="branding/iris-mark-on-light.svg" alt="" width="44" height="44" align="top"> Iris</h1>
 
-Iris is the chat of [Mouseion](https://forgejo.example.org/mouseion), our household's software. It is a [Matrix](https://matrix.org) client, forked from [Cinny](https://cinny.in) v4.12.6. The name is Homer's messenger in the Iliad, and the flower.
+Iris is a [Matrix](https://matrix.org) client, forked from [Cinny](https://cinny.in) 4.12.6. It follows Cinny, and adds what one household, Mouseion, wanted from its chat. It runs in the browser, as an Android app and as a KDE Plasma desktop app.
 
-- **On the web:** [iris.example.org](https://iris.example.org), on its own or framed inside the Mouseion Hub.
-- **On Android:** the app `house.mouseion.iris`, from the household F-Droid repo.
-- **Tracker:** [issues on this repo](https://forgejo.example.org/mouseion/iris/issues).
-
-It was called Mouseion Chat until 2026-10-09, and this repo was `mouseion/chat`.
+- **Issues:** [github.com/MouseionHouse/Iris/issues](https://github.com/MouseionHouse/Iris/issues)
+- **Pull requests:** [github.com/MouseionHouse/Iris/pulls](https://github.com/MouseionHouse/Iris/pulls), see [`CONTRIBUTING.md`](CONTRIBUTING.md)
 
 ## What Iris adds to Cinny
 
-- **Sidebar sections on Home.** Starred and your own named sections mix chats and rooms; each has its own sort and filter, and they sync between your devices.
-- **An Android app.** A Capacitor wrapper around the same web build, with push notifications while the app is closed (UnifiedPush and ntfy), a place in the share sheet, touch action sheets for messages, and safe areas for notched and folding screens. See [`mobile/WRAPPER-PLAN.md`](mobile/WRAPPER-PLAN.md).
-- **A place in the Hub.** When the Hub frames Iris, the two talk over `postMessage`: the Hub sets the theme and receives the unread counts. See [`src/app/hub/`](src/app/hub).
-- **Its own look.** The flower mark, and the Iris light and Iris dark themes built from its colors on the house grounds, set in the house typefaces.
+- **Sidebar sections on Home.** Starred and your own named sections mix chats and rooms. Each has its own sort and filter, and they sync between your devices.
+- **Draft sync.** A message you start on one device waits in the composer on the others, with a draft marker in the room list.
+- **Scheduled messages.** Pick a time and the homeserver sends the message then, with the app closed ([MSC4140](https://github.com/matrix-org/matrix-spec-proposals/pull/4140) delayed events; the homeserver must support them).
+- **An Android app.** A [Capacitor](https://capacitorjs.com) wrapper around the same web build, with push notifications while the app is closed through [UnifiedPush](https://unifiedpush.org) (with a distributor such as [ntfy](https://ntfy.sh)), a place in the share sheet, and safe areas for notched and folding screens.
+- **A touch UI.** Tap or long-press a message for its action sheet, menus as bottom sheets, and rows and targets sized for fingers.
+- **An image editor.** Crop, rotate and draw on an image before you send it.
+- **The emoji and sticker board.** Add stickers to a pack, and manage stickers and packs, from the sticker board.
+- **A KDE desktop shell.** A Qt WebEngine and KDE Frameworks window around the web app, with KDE notifications you can reply to inline, an unread count on the taskbar, a tray icon and `matrix:` links. See [`desktop/README.md`](desktop/README.md).
+- **Its own look.** The iris mark, and the Iris light and Iris dark themes.
 
-Everything else is Cinny, and we follow it.
+Optionally, Iris can live inside a hub: a page that frames other apps. When a hub you name at build time frames it, the two talk over `postMessage`: the hub sets the theme and receives the unread counts. Without one, the bridge stays off. See [`src/app/hub/`](src/app/hub).
 
-## Develop
+Everything else is Cinny.
+
+## Build and run
 
 Node 24 (the LTS, v24.13.1) is what CI uses.
 
 ```sh
-npm ci      # install
-npm start   # dev server
+npm ci          # install
+npm start       # dev server
+npm test        # unit tests
+npm run lint    # eslint and prettier
 npm run build   # the web app, into dist/
 ```
 
-Two pages draw real components on fake data, with no server needed: `/mock.html` (the Home page) and `/mock-message.html` (messages on a phone). Add `?dark` for the dark theme.
+Serve `dist/` from any static web server that sends unknown paths to `index.html`; [`contrib/`](contrib) has examples for nginx and Caddy.
 
-More on the code is in [`HACKING.md`](HACKING.md), which is Cinny's own guide and still applies.
+Or build the Docker image, which serves the web app with nginx on port 80:
 
-## Build and release
+```sh
+docker build -t iris .
+docker run -p 8080:80 iris
+```
 
-One workflow does it all: [`.forgejo/workflows/build.yml`](.forgejo/workflows/build.yml). The comment at its top is the full account.
+**Android:** `npm run build:mobile` makes the mobile bundle, `npx cap sync android` copies it into the Android project, and Gradle builds the app from [`mobile/android/`](mobile/android) (`./gradlew assembleDebug`).
 
-| A push to                       | Does                                                         |
-| ------------------------------- | ------------------------------------------------------------ |
-| `dev`, touching the web app     | Builds the web image and deploys it to `iris.example.org` |
-| `dev`, touching the Android app | Builds, signs and publishes a new Android version            |
-| Any other branch                | Checks the build only                                        |
+**Desktop:** the KDE shell is a CMake project, with a Nix package; [`desktop/README.md`](desktop/README.md) has both.
 
-`dev` is the one trunk. Changes that touch only `design/` or docs build nothing.
+Pages that draw real components on fake data, with no server needed, are on the dev server: `/mock.html` (the Home page), `/mock-message.html` (messages on a phone) and the other `mock-*.html` at the top of the repo. Add `?dark` for the dark theme.
 
-Pull requests into `dev` merge through the house merge queue: "Merge when ready" (`fj pr merge --auto`, merge commit). The queue tests the scheduled pull requests together on what `dev` will be, as a `merge_group` run that checks the build only, never deploys or publishes, and then lands them with one push to `dev`, which releases as above.
+More on the code is in [`HACKING.md`](HACKING.md).
 
-Homeservers are set in [`config.json`](config.json) for the web and [`config.mobile.json`](config.mobile.json) for the Android app. The household's builds take theirs, and the hub that may frame the web client, from the repo's Actions variables (`IRIS_CONFIG_MOBILE_JSON`, `IRIS_HUB_ORIGINS`, `IRIS_HUB_PREVIEW_PATTERN`; see `.forgejo/workflows/build.yml` and the `Dockerfile`).
+## Configure it
+
+Nothing in the code is tied to one household. What a deployment sets:
+
+| Setting                                        | Where                     | What it does                                                                                                                                                                       |
+| ---------------------------------------------- | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`config.json`](config.json)                   | The web app, at runtime   | The homeservers offered at sign-in, featured communities and the router. Edit it before the build, or replace `config.json` in what you serve.                                     |
+| [`config.mobile.json`](config.mobile.json)     | The Android app           | The same, for the app (`npm run build:mobile` puts it in as `config.json`). The file in the repo has the public defaults; write your own over it before the build.                 |
+| `HUB_ORIGINS`                                  | Docker build arg          | The hub that may frame the web app: a space-separated list of origins. Sets both the client's bridge and nginx's `frame-ancestors`. Empty: no hub, and only Iris may frame itself. |
+| `HUB_PREVIEW_PATTERN`                          | Docker build arg          | One optional regular expression, matched against the whole origin, for the hub's preview deployments.                                                                              |
+| `IRIS_URL` (CMake), `url` (Nix)                | The desktop shell         | The web app the shell opens, and the one origin it trusts. Required.                                                                                                               |
+| `VITE_HUB_ORIGINS`, `VITE_HUB_PREVIEW_PATTERN` | `npm run build`, env vars | The two hub settings, for a build outside Docker.                                                                                                                                  |
+
+```sh
+docker build -t iris \
+  --build-arg HUB_ORIGINS="https://hub.example.org" \
+  --build-arg HUB_PREVIEW_PATTERN="https://hub-pr-[0-9]+\.example\.org" .
+```
+
+The Android app's ID, `house.mouseion.iris`, and the `house.mouseion.*` account-data types Iris stores are part of the app, not settings.
+
+## The name
+
+Iris is Homer's messenger in the Iliad, who carries word between the gods and to men. It is also the flower, which is the mark.
+
+## How it is made
+
+Most of Iris's code is written by AI agents working under the maintainer's direction, and each change is reviewed and tested by the maintainer before it lands. Cinny does not accept AI-written code, so nothing here is offered to Cinny as code.
 
 ## Design
 
-Iris owns its own design: the name, the mark and the colors were decided in rounds kept under [`design/`](design), and the record is [issue #12](https://forgejo.example.org/mouseion/iris/issues/12).
+Iris has its own design: the name, the mark and the colors, worked out in the rounds kept under [`design/`](design).
 
 - [`branding/`](branding): the mark on dark, the mark on light, and the app icon, as SVG.
 - [`design/tokens.json`](design/tokens.json): the five Iris colors.
-- [`scripts/iris-icons.py`](scripts/iris-icons.py): cuts every icon the web app and the Android app use from `branding/`.
+- [`scripts/iris-icons.py`](scripts/iris-icons.py): cuts every icon the web app, the Android app and the desktop shell use from `branding/`.
 - [`src/colors.css.ts`](src/colors.css.ts): the Iris light and Iris dark themes.
 - [`src/app/components/iris-lockup/`](src/app/components/iris-lockup): the mark beside the name, the one way the two are shown together.
 - `/mock-brand.html` on the dev server: all of the above on real controls, on both grounds.
@@ -62,7 +94,7 @@ The mark stands alone. With the name, it sits beside it, never above. The deep r
 
 ## Following Cinny
 
-Upstream is [cinnyapp/cinny](https://github.com/cinnyapp/cinny). [`CONTRIBUTING.md`](CONTRIBUTING.md) and [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) are Cinny's and describe contributing to Cinny, not to Iris. The files under `.github/` are Cinny's too and do not run here.
+Upstream is [cinnyapp/cinny](https://github.com/cinnyapp/cinny). Iris is based on Cinny 4.12.6, and follows its releases. A bug that is Cinny's belongs [upstream](https://github.com/cinnyapp/cinny/issues).
 
 ## License
 
