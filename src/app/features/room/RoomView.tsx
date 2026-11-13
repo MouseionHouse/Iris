@@ -1,26 +1,20 @@
 import React, { useCallback, useRef } from 'react';
-import { Box, Text, config } from 'folds';
-import { EventType } from 'matrix-js-sdk';
+import { Box, config } from 'folds';
 import { ReactEditor } from 'slate-react';
 import { isKeyHotkey } from 'is-hotkey';
 import { useStateEvent } from '../../hooks/useStateEvent';
-import { StateEvent, MessageEvent } from '../../../types/matrix/room';
-import { usePowerLevelsContext } from '../../hooks/usePowerLevels';
-import { useMatrixClient } from '../../hooks/useMatrixClient';
+import { StateEvent } from '../../../types/matrix/room';
 import { useEditor } from '../../components/editor';
-import { RoomInputPlaceholder } from './RoomInputPlaceholder';
 import { RoomTimeline } from './RoomTimeline';
 import { RoomViewTyping } from './RoomViewTyping';
 import { RoomTombstone } from './RoomTombstone';
-import { RoomInput } from './RoomInput';
+import { RoomComposer } from './RoomComposer';
 import { RoomViewFollowing, RoomViewFollowingPlaceholder } from './RoomViewFollowing';
 import { Page } from '../../components/page';
 import { useKeyDown } from '../../hooks/useKeyDown';
 import { editableActiveElement } from '../../utils/dom';
 import { settingsAtom } from '../../state/settings';
 import { useSetting } from '../../state/hooks/settings';
-import { useRoomPermissions } from '../../hooks/useRoomPermissions';
-import { useRoomCreators } from '../../hooks/useRoomCreators';
 import { useRoom } from '../../hooks/useRoom';
 
 const FN_KEYS_REGEX = /^F\d+$/;
@@ -64,18 +58,7 @@ export function RoomView({ eventId }: { eventId?: string }) {
   const { roomId } = room;
   const editor = useEditor();
 
-  const mx = useMatrixClient();
-
   const tombstoneEvent = useStateEvent(room, StateEvent.RoomTombstone);
-  const powerLevels = usePowerLevelsContext();
-  const creators = useRoomCreators(room);
-
-  const permissions = useRoomPermissions(creators, powerLevels);
-  const isEncrypted = mx.isRoomEncrypted(roomId);
-  const canMessage = permissions.event(
-    isEncrypted ? MessageEvent.RoomMessageEncrypted : EventType.RoomMessage,
-    mx.getSafeUserId()
-  );
 
   useKeyDown(
     window,
@@ -115,26 +98,13 @@ export function RoomView({ eventId }: { eventId?: string }) {
               replacementRoomId={tombstoneEvent.getContent().replacement_room}
             />
           ) : (
-            <>
-              {canMessage && (
-                <RoomInput
-                  room={room}
-                  editor={editor}
-                  roomId={roomId}
-                  fileDropContainerRef={roomViewRef}
-                  ref={roomInputRef}
-                />
-              )}
-              {!canMessage && (
-                <RoomInputPlaceholder
-                  style={{ padding: config.space.S200 }}
-                  alignItems="Center"
-                  justifyContent="Center"
-                >
-                  <Text align="Center">You do not have permission to post in this room</Text>
-                </RoomInputPlaceholder>
-              )}
-            </>
+            <RoomComposer
+              room={room}
+              editor={editor}
+              roomId={roomId}
+              fileDropContainerRef={roomViewRef}
+              ref={roomInputRef}
+            />
           )}
         </div>
         {hideActivity ? <RoomViewFollowingPlaceholder /> : <RoomViewFollowing room={room} />}
