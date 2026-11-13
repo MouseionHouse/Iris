@@ -77,7 +77,7 @@ Iris is Homer's messenger in the Iliad, who carries word between the gods and to
 
 ## How it is made
 
-Most of Iris's code is written by AI agents working under the maintainer's direction, and each change is reviewed and tested by the maintainer before it lands. Cinny does not accept AI-written code, so nothing here is offered to Cinny as code.
+Iris is maintained by John Gibson. Most of its code is written by AI agents working under his direction. Cinny does not accept AI-written code, so nothing here is offered to Cinny as code.
 
 ## Design
 
