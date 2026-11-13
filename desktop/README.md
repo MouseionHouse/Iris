@@ -1,7 +1,7 @@
 # Iris desktop
 
-A Qt 6 WebEngine + KDE Frameworks 6 shell around `https://iris.example.org`. The web app is the
-product; this holds only what a browser cannot do on Plasma. Design: mouseion/iris#63.
+A Qt 6 WebEngine + KDE Frameworks 6 shell around an Iris web app, whose URL the build takes
+(`IRIS_URL`, required; the Nix package's `url`). The web app is the product; this holds only what a browser cannot do on Plasma. Design: mouseion/iris#63.
 
 This skeleton (#64) opens Iris in a locked-down view: one instance, a persistent profile, other
 origins open in the default browser, camera/microphone/screen/location refused, an offline page with
@@ -67,7 +67,7 @@ open in Iris.
 ```sh
 nix-shell desktop/shell.nix --run '
   B=~/.cache/build/iris/a    # any directory outside the worktree
-  cmake -S desktop -B $B -G Ninja && cmake --build $B && $B/iris'
+  cmake -S desktop -B $B -G Ninja -DIRIS_URL=https://iris.example.org && cmake --build $B && $B/iris'
 ```
 
 Tests (Qt Test, no display needed; `tst_notifier` starts a private session bus with
@@ -75,7 +75,8 @@ Tests (Qt Test, no display needed; `tst_notifier` starts a private session bus w
 
 ```sh
 nix-shell desktop/shell.nix --run '
-  cmake -S desktop -B $B -G Ninja -DIRIS_SHELL_TEST_HOOKS=ON && cmake --build $B &&
+  cmake -S desktop -B $B -G Ninja -DIRIS_URL=https://iris.example.org -DIRIS_SHELL_TEST_HOOKS=ON &&
+  cmake --build $B &&
   QT_QPA_PLATFORM=offscreen ctest --test-dir $B --output-on-failure &&
   desktop/tests/e2e/run.sh $B'
 ```
@@ -105,7 +106,8 @@ option and must stay off in release builds.
 
 ## Nix package
 
-`nix/package.nix` is `callPackage`-style, no flake. It builds the shell with `IRIS_SHELL_TEST_HOOKS`
+`nix/package.nix` is `callPackage`-style, no flake. It takes one required argument, `url`: the Iris
+web app the shell opens and the one origin it trusts, as `https://host[:port]`. It builds the shell with `IRIS_SHELL_TEST_HOOKS`
 off, runs the Qt Test suites in `checkPhase` (offscreen; the e2e script is not part of it), and
 installs the binary (Qt-wrapped), `house.mouseion.iris.desktop`, `house.mouseion.iris.notifyrc`
 (`share/knotifications6`, one event, `message`; KNotification's component name must be
@@ -115,7 +117,7 @@ in `icons/` are cut by `scripts/iris-icons.py` from `branding/`; rerun it after 
 `nix/deps.nix` lists the inputs; `shell.nix` uses it too, so the shell and the package cannot drift.
 
 ```sh
-nix-build -E 'with import <nixpkgs> { }; callPackage ./desktop/nix/package.nix { }'
+nix-build -E 'with import <nixpkgs> { }; callPackage ./desktop/nix/package.nix { url = "https://iris.example.org"; }'
 nix-build desktop/nix/ci.nix -A package --arg lock /path/to/nix-config/flake.lock  # what CI builds
 ```
 
@@ -123,17 +125,20 @@ Local builds and `shell.nix` use `<nixpkgs>`, whatever your machine has. CI buil
 `nix/ci.nix` against nix-config `main`'s nixpkgs (below); the second command does the same with a
 nix-config checkout's lock.
 
-### For nix-config (household/nix-config#159)
+Without `url` the build stops and says so. The tests check the shell against `iris.example.org`,
+whatever `url` it is built with.
+
+### In a NixOS or Home Manager configuration
 
 ```nix
-# flake.nix inputs
+# flake.nix inputs: this repository, as source only
 iris = {
-  url = "git+ssh://git@forgejo.example.org:2222/mouseion/iris?ref=dev";
+  url = "git+https://<forge>/<owner>/iris?ref=dev";
   flake = false;
 };
 
-# in a module: no arguments; `source` defaults to the input (desktop/ and branding/)
-pkgs.callPackage (inputs.iris + "/desktop/nix/package.nix") { }
+# in a module; `source` defaults to the input (desktop/ and branding/)
+pkgs.callPackage (inputs.iris + "/desktop/nix/package.nix") { url = "https://iris.example.org"; }
 ```
 
 Put the result in `environment.systemPackages` or `home.packages`; the desktop file, icons and

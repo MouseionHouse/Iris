@@ -1,6 +1,5 @@
 #include "irisbridge.h"
 #include "navigationpolicy.h"
-#include "shellconfig.h"
 
 #include <QBuffer>
 #include <QImage>
@@ -10,6 +9,9 @@
 #include <QSignalSpy>
 #include <QTest>
 #include <QWebChannel>
+
+// The origin these tests check, whatever IRIS_URL the shell is built with.
+static const QString testOrigin{"https://iris.example.org"};
 
 class IrisBridgeTest : public QObject
 {
@@ -98,7 +100,7 @@ private Q_SLOTS:
 
     void pageLoadedResendsOnlyOnTheAllowedOrigin()
     {
-        NavigationPolicy policy{QString(ShellConfig::origin)};
+        NavigationPolicy policy{testOrigin};
         BridgeHost host(&policy);
         QVERIFY(host.bridge()->setUnread({{"total", 3}, {"highlight", 1}}));
         QSignalSpy spy(host.bridge(), &IrisBridge::unreadChanged);
@@ -306,7 +308,7 @@ private Q_SLOTS:
 
     void offeredOnlyOnTheAllowedOrigin()
     {
-        NavigationPolicy policy{QString(ShellConfig::origin)};
+        NavigationPolicy policy{testOrigin};
         BridgeHost host(&policy);
         QVERIFY(!host.bridgeRegistered());
 
@@ -329,7 +331,7 @@ private Q_SLOTS:
 
     void injectedScriptGuardsTheOrigin()
     {
-        NavigationPolicy policy{QString(ShellConfig::origin)};
+        NavigationPolicy policy{testOrigin};
         BridgeHost host(&policy);
         const QString script = host.injectedScript();
         QVERIFY(script.startsWith("(function () {\nif (location.origin !== [\"https://iris.example.org\"][0]) return;"));

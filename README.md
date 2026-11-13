@@ -45,7 +45,7 @@ One workflow does it all: [`.forgejo/workflows/build.yml`](.forgejo/workflows/bu
 
 Pull requests into `dev` merge through the house merge queue: "Merge when ready" (`fj pr merge --auto`, merge commit). The queue tests the scheduled pull requests together on what `dev` will be, as a `merge_group` run that checks the build only, never deploys or publishes, and then lands them with one push to `dev`, which releases as above.
 
-Homeservers are set in [`config.json`](config.json) for the web and [`config.mobile.json`](config.mobile.json) for the Android app.
+Homeservers are set in [`config.json`](config.json) for the web and [`config.mobile.json`](config.mobile.json) for the Android app. The household's builds take theirs, and the hub that may frame the web client, from the repo's Actions variables (`IRIS_CONFIG_MOBILE_JSON`, `IRIS_HUB_ORIGINS`, `IRIS_HUB_PREVIEW_PATTERN`; see `.forgejo/workflows/build.yml` and the `Dockerfile`).
 
 ## Design
 

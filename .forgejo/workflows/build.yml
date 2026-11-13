@@ -84,6 +84,7 @@ on:
         'Dockerfile',
         'docker-nginx.conf',
         'scripts/mobile-bundle.js',
+        'scripts/nginx-conf.js',
         'mobile/**',
         'desktop/**',
         'branding/**',
@@ -148,7 +149,7 @@ jobs:
         run: |
           set -euo pipefail
           # Served by the web client.
-          web='^(src/|public/|index\.html$|config\.json$|vite\.config\.js$|build\.config\.ts$|tsconfig\.json$|package\.json$|package-lock\.json$|\.npmrc$|netlify\.toml$|\.dockerignore$|Dockerfile$|docker-nginx\.conf$|\.forgejo/workflows/build\.yml$)'
+          web='^(src/|public/|index\.html$|config\.json$|vite\.config\.js$|build\.config\.ts$|tsconfig\.json$|package\.json$|package-lock\.json$|\.npmrc$|netlify\.toml$|\.dockerignore$|Dockerfile$|docker-nginx\.conf$|scripts/nginx-conf\.js$|\.forgejo/workflows/build\.yml$)'
           # Shipped in the Android app.
           app='^(src/|public/|index\.html$|config\.mobile\.json$|vite\.config\.js$|build\.config\.ts$|tsconfig\.json$|capacitor\.config\.ts$|package\.json$|package-lock\.json$|scripts/mobile-bundle\.js$|mobile/|\.forgejo/workflows/build\.yml$)'
           # What Gradle compiles or packages besides the web build.
@@ -240,8 +241,29 @@ jobs:
     needs: [plan]
     if: needs.plan.outputs.build == 'true'
     runs-on: mouseion-build
+    # The household's values, which the code does not carry (README, the build settings table):
+    # repo Actions variables on mouseion/iris. The two hub settings are Docker build args, read from
+    # here by `--build-arg NAME`; the mobile config is written over config.mobile.json.
+    env:
+      HUB_ORIGINS: ${{ vars.IRIS_HUB_ORIGINS }}
+      HUB_PREVIEW_PATTERN: ${{ vars.IRIS_HUB_PREVIEW_PATTERN }}
+      CONFIG_MOBILE_JSON: ${{ vars.IRIS_CONFIG_MOBILE_JSON }}
     steps:
       - uses: actions/checkout@v4
+
+      # Without them the build would be the public one: no hub framing, and an Android app that
+      # offers any homeserver. Better to stop than to ship that to the household.
+      - name: The household's build settings
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in HUB_ORIGINS HUB_PREVIEW_PATTERN CONFIG_MOBILE_JSON; do
+            if [ -z "${!name}" ]; then
+              echo "the repo variable IRIS_$name is not set: this would build the public defaults" >&2
+              exit 1
+            fi
+          done
+          printf '%s\n' "$CONFIG_MOBILE_JSON" > config.mobile.json
 
       - name: Login to Forgejo Packages
         if: needs.plan.outputs.deploy == 'true'
@@ -249,7 +271,9 @@ jobs:
 
       # The one `npm ci` + `vite build` of the run, in the image's builder stage.
       - name: Build the web image
-        run: docker buildx build --platform linux/amd64 --load --tag "$IMAGE:${GITHUB_SHA:0:7}" .
+        run: |
+          docker buildx build --platform linux/amd64 --build-arg HUB_ORIGINS --build-arg HUB_PREVIEW_PATTERN \
+            --load --tag "$IMAGE:${GITHUB_SHA:0:7}" .
 
       # Gate before publishing: the exact image must serve the app shell and the frame-ancestors
       # header that the hub's chat spoke (mouseion/hub#51) depends on. Checked from inside the
@@ -268,6 +292,10 @@ jobs:
           echo "$headers"
           echo "$headers" | grep -qi 'content-security-policy:.*frame-ancestors' \
             || { echo "image does not serve the frame-ancestors header" >&2; exit 1; }
+          for origin in $HUB_ORIGINS; do
+            echo "$headers" | grep -i 'content-security-policy:' | grep -qF " $origin" \
+              || { echo "image does not let $origin frame it" >&2; exit 1; }
+          done
           docker exec "$name" wget -q -O - http://127.0.0.1/ | grep -q '<div id="root"' \
             || { echo "image does not serve the app shell" >&2; exit 1; }
 
@@ -277,7 +305,8 @@ jobs:
         if: needs.plan.outputs.android == 'true'
         run: |
           set -euo pipefail
-          docker buildx build --platform linux/amd64 --target android --output type=local,dest=android-inputs .
+          docker buildx build --platform linux/amd64 --build-arg HUB_ORIGINS --build-arg HUB_PREVIEW_PATTERN \
+            --target android --output type=local,dest=android-inputs .
           test -f android-inputs/mobile/android/app/src/main/assets/public/index.html
           tar -czf android-inputs.tgz -C android-inputs .
 

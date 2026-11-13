@@ -3,6 +3,9 @@
 
 #include <QTest>
 
+// The origin these tests check, whatever IRIS_URL the shell is built with.
+static const QString testOrigin{"https://iris.example.org"};
+
 class NavigationPolicyTest : public QObject
 {
     Q_OBJECT
@@ -17,7 +20,7 @@ private Q_SLOTS:
         QTest::newRow("upper case host") << "https://IRIS.example.org/" << true;
         QTest::newRow("http") << "http://iris.example.org/" << false;
         QTest::newRow("other port") << "https://iris.example.org:8443/" << false;
-        QTest::newRow("parent domain") << "https://mouseion.house/" << false;
+        QTest::newRow("parent domain") << "https://example.org/" << false;
         QTest::newRow("subdomain") << "https://evil.iris.example.org/" << false;
         QTest::newRow("sibling") << "https://hub.example.org/" << false;
         QTest::newRow("suffix attack") << "https://iris.example.org.evil.example/" << false;
@@ -34,7 +37,7 @@ private Q_SLOTS:
     {
         QFETCH(QString, url);
         QFETCH(bool, allowed);
-        NavigationPolicy policy{QString(ShellConfig::origin)};
+        NavigationPolicy policy{testOrigin};
         QCOMPARE(policy.isAllowed(QUrl(url)), allowed);
         // The bridge follows the same rule, and has no other.
         QCOMPARE(policy.bridgeOffered(QUrl(url)), allowed);
@@ -42,7 +45,7 @@ private Q_SLOTS:
 
     void externalLinksGoToTheOpener()
     {
-        NavigationPolicy policy{QString(ShellConfig::origin)};
+        NavigationPolicy policy{testOrigin};
         QList<QUrl> opened;
         policy.setOpener([&](const QUrl &u) { opened << u; return true; });
         QVERIFY(policy.openExternal(QUrl("https://example.com/a")));
@@ -52,7 +55,7 @@ private Q_SLOTS:
     }
     void otherSchemesAreNotLaunched()
     {
-        NavigationPolicy policy{QString(ShellConfig::origin)};
+        NavigationPolicy policy{testOrigin};
         int calls = 0;
         policy.setOpener([&](const QUrl &) { ++calls; return true; });
         QVERIFY(!policy.openExternal(QUrl("file:///etc/passwd")));

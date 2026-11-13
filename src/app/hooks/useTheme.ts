@@ -12,7 +12,7 @@ import {
 } from '../../colors.css';
 import { settingsAtom } from '../state/settings';
 import { useSetting } from '../state/hooks/settings';
-import { isFramed } from '../hub/hubBridge';
+import { getHubOrigin, isFramed } from '../hub/hubBridge';
 import { pickTheme, systemIsDark } from './themeChoice';
 
 export enum ThemeKind {
@@ -69,15 +69,17 @@ export const MouseionTheme: Theme = {
  * hub sends `hub.theme` the bridge sets this atom, and both
  * `AuthRouteThemeManager` and `UnAuthRouteThemeManager` give it top priority.
  *
- * Its initial value is `MouseionTheme` whenever the client is framed, not
- * `null`: `useHubBridge` only mounts once the member is authenticated
- * (`ClientRoot`), so the login screen paints and sits there, however briefly,
- * before any `hub.theme` message can arrive. Defaulting to the hub's theme as
+ * Its initial value is `MouseionTheme` whenever the client is framed and the
+ * build names a hub, not `null`: `useHubBridge` only mounts once the member is
+ * authenticated (`ClientRoot`), so the login screen paints and sits there,
+ * however briefly, before any `hub.theme` message can arrive. Defaulting to the hub's theme as
  * soon as we know we are framed avoids a light login screen flashing inside
  * the hub's dark shell. A member opening the client on its own (`isFramed()`
- * false) keeps their own theme choice, as before.
+ * false), or a build with no hub, keeps their own theme choice, as before.
  */
-export const hubThemeAtom = atom<Theme | null>(isFramed() ? MouseionTheme : null);
+export const hubThemeAtom = atom<Theme | null>(
+  isFramed() && getHubOrigin() !== undefined ? MouseionTheme : null
+);
 
 /**
  * The Plasma colour scheme, set by the desktop shell (`useDesktopBridge`); `null` everywhere else.

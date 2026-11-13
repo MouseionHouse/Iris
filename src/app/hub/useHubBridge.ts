@@ -78,7 +78,7 @@ const makeHighlightMessage = (
  *
  * Call this from the authenticated client root (it needs the matrix client,
  * the router and the jotai store). It is a complete no-op when the client is
- * not framed in the hub.
+ * not framed in the hub, or the build names no hub.
  *
  * @param mx the active matrix client (undefined until the client has loaded)
  * @param loading true until the client has reached the `PREPARED` sync state
@@ -133,6 +133,7 @@ export const useHubBridge = (mx: MatrixClient | undefined, loading: boolean): vo
   useEffect(() => {
     if (!isFramed()) return undefined;
     const hubOrigin = getHubOrigin();
+    if (!hubOrigin) return undefined;
     const onMessage = (event: MessageEvent) => {
       // Origin-check every inbound message; ignore anything not from the hub.
       if (event.origin !== hubOrigin) return;
