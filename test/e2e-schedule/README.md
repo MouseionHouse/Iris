@@ -19,3 +19,15 @@ What `run.mjs` checks:
 - A delay over the limit fails with `ORG.MATRIX.MSC4140_DELAY_TOO_LARGE`, and the maximum is read from the error text.
 
 It prints `PASS` or `FAIL` for each check, then a JSON summary with the measured delays. It exits 1 if any check failed.
+
+## The app itself
+
+`app.mjs` drives Iris in a browser as alice, against the same Synapse, while bob listens with matrix-js-sdk. It needs a production build served by `vite preview` (the dev server inside a nested worktree loads two copies of react-query), and any install of `playwright-core`:
+
+```sh
+npx vite build --outDir /tmp/iris-dist
+npx vite preview --outDir /tmp/iris-dist --port 5188 &
+node test/e2e-schedule/app.mjs <playwright-core dir> <screenshot dir> http://localhost:5188
+```
+
+It schedules a message in an encrypted room through the composer (chevron, Schedule message, the picker's first preset, Enter), checks the server holds only ciphertext, that the list in the app previews it decrypted in the browser, that Send now in the list delivers it to bob, and that alice's browser decrypts the delivered message after the preview.

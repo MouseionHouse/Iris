@@ -504,7 +504,8 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
               scheduler.setSendTs(ts);
               scheduler.setFailure(undefined);
               setSchedulePicker(false);
-              if (!mobileOrTablet()) ReactEditor.focus(editor);
+              // after the picker's focus trap hands focus back
+              if (!mobileOrTablet()) setTimeout(() => ReactEditor.focus(editor), 100);
             }}
           />
         )}
