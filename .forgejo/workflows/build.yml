@@ -79,7 +79,6 @@ on:
         'package.json',
         'package-lock.json',
         '.npmrc',
-        'netlify.toml',
         '.dockerignore',
         'Dockerfile',
         'docker-nginx.conf',
@@ -149,7 +148,7 @@ jobs:
         run: |
           set -euo pipefail
           # Served by the web client.
-          web='^(src/|public/|index\.html$|config\.json$|vite\.config\.js$|build\.config\.ts$|tsconfig\.json$|package\.json$|package-lock\.json$|\.npmrc$|netlify\.toml$|\.dockerignore$|Dockerfile$|docker-nginx\.conf$|scripts/nginx-conf\.js$|\.forgejo/workflows/build\.yml$)'
+          web='^(src/|public/|index\.html$|config\.json$|vite\.config\.js$|build\.config\.ts$|tsconfig\.json$|package\.json$|package-lock\.json$|\.npmrc$|\.dockerignore$|Dockerfile$|docker-nginx\.conf$|scripts/nginx-conf\.js$|\.forgejo/workflows/build\.yml$)'
           # Shipped in the Android app.
           app='^(src/|public/|index\.html$|config\.mobile\.json$|vite\.config\.js$|build\.config\.ts$|tsconfig\.json$|capacitor\.config\.ts$|package\.json$|package-lock\.json$|scripts/mobile-bundle\.js$|mobile/|\.forgejo/workflows/build\.yml$)'
           # What Gradle compiles or packages besides the web build.

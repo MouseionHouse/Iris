@@ -7,6 +7,7 @@ import { SettingTile } from '../../../components/setting-tile';
 import MouseionLogo from '../../../../../public/res/iris-logo.png';
 import { clearCacheAndReload } from '../../../../client/initMatrix';
 import { useMatrixClient } from '../../../hooks/useMatrixClient';
+import { IRIS_SOURCE_URL } from '../../../sourceCode';
 
 type AboutProps = {
   requestClose: () => void;
@@ -50,13 +51,13 @@ export function About({ requestClose }: AboutProps) {
                       </Text>
                       <Text size="T200">built on Cinny v4.12.6</Text>
                     </Box>
-                    <Text>The household&apos;s Matrix chat.</Text>
+                    <Text>A Matrix client</Text>
                   </Box>
 
                   <Box gap="200" wrap="Wrap">
                     <Button
                       as="a"
-                      href="https://forgejo.example.org/mouseion/iris"
+                      href={IRIS_SOURCE_URL}
                       rel="noreferrer noopener"
                       target="_blank"
                       variant="Secondary"
@@ -65,7 +66,7 @@ export function About({ requestClose }: AboutProps) {
                       radii="300"
                       before={<Icon src={Icons.Code} size="100" filled />}
                     >
-                      <Text size="B300">Source Code</Text>
+                      <Text size="B300">Source code</Text>
                     </Button>
                     <Button
                       as="a"
