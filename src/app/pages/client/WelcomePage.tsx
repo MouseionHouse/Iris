@@ -2,8 +2,8 @@ import React from 'react';
 import { Box, Button, Icon, Icons, Text, config, toRem } from 'folds';
 import { Page, PageHeroSection } from '../../components/page';
 import { IrisLockup } from '../../components/iris-lockup';
+import { IRIS_SOURCE_URL } from '../../sourceCode';
 
-export const MOUSEION_SOURCE_URL = 'https://forgejo.example.org/mouseion/iris';
 export const CINNY_URL = 'https://cinny.in';
 
 export function WelcomePage() {
@@ -28,13 +28,13 @@ export function WelcomePage() {
               <Box grow="Yes" style={{ maxWidth: toRem(300) }} direction="Column" gap="300">
                 <Button
                   as="a"
-                  href={MOUSEION_SOURCE_URL}
+                  href={IRIS_SOURCE_URL}
                   target="_blank"
                   rel="noreferrer noopener"
                   before={<Icon size="200" src={Icons.Code} />}
                 >
                   <Text as="span" size="B400" truncate>
-                    Source Code
+                    Source code
                   </Text>
                 </Button>
                 <Button
