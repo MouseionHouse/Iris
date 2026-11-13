@@ -1,15 +1,14 @@
 # Iris: one build of the web app per push, used for everything that ships.
 #
-#   plan ── bundle ──┬── deploy                  (dev: the web client on server, iris.example.org)
-#                    └── apk ── publish-fdroid   (dev: the Android app, fdroid.example.org)
+#   plan ── bundle ──┬── deploy                  (RELEASE_BRANCH: the web client, by compose on the host)
+#                    └── apk ── publish-fdroid   (RELEASE_BRANCH: the Android app, into an F-Droid repo)
 #   plan ── desktop                              (check only: the Nix package of the Linux desktop shell)
 #
 # `bundle` runs the one `npm ci` and `vite build` of a push, inside the Docker image that serves
 # the web client, and exports what the Android project needs from them as an artifact: the same
 # build with the mobile config.json (scripts/mobile-bundle.js), synced by Capacitor, plus
 # Capacitor's Android libraries. `apk` unpacks that over a checkout and runs Gradle, with no Node
-# step of its own: see mobile/WRAPPER-PLAN.md. Before, the web image and the APK each ran their
-# own `npm ci` and `vite build` on every merge.
+# step of its own: see mobile/WRAPPER-PLAN.md.
 #
 # What a push does is decided in `plan`, from the paths it changes:
 #
@@ -19,46 +18,56 @@
 # - A push to any other branch is a check only: the web build and the image smoke test always,
 #   and the Android project (unit tests and an unsigned, unminified APK) only when the branch
 #   changes something native.
-# - A `merge_group` run is the house merge queue testing a train (mouseion/forgejo, README "A merge
-#   queue"): the scheduled pull requests merged onto RELEASE_BRANCH's newest commit, on the ref
-#   `refs/merge-queue/heads/dev`. It is a check, never a release: the web build and the image
-#   smoke test when the train changes any path above, the Android project when it changes
-#   something native, and never a deploy, an F-Droid publish or a tag. What it changes is the diff
-#   from the commit the train was built on (`merge_group.base_sha`). `merge_group:` takes no
-#   `paths:`, so a train of README edits gets a run too: then only `plan` runs, and passes, since a
-#   run whose every job was skipped fails the train. The release happens afterwards, as for any
-#   merge: the train lands as one push to RELEASE_BRANCH, which runs this workflow as a push.
+# - A `merge_group` run is the forge's merge queue testing a train: the scheduled pull requests
+#   merged onto RELEASE_BRANCH's newest commit, on the ref `refs/merge-queue/heads/dev`. It is a
+#   check, never a release: the web build and the image smoke test when the train changes any
+#   path above, the Android project when it changes something native, and never a deploy, an
+#   F-Droid publish or a tag. What it changes is the diff from the commit the train was built on
+#   (`merge_group.base_sha`). `merge_group:` takes no `paths:`, so a train of README edits gets a
+#   run too: then only `plan` runs, and passes, since a run whose every job was skipped fails the
+#   train. The release happens afterwards, as for any merge: the train lands as one push to
+#   RELEASE_BRANCH, which runs this workflow as a push.
 #
 # Android versioning is automatic, not manual tags: a release computes the next semantic version
 # from the latest `mobile-vX.Y.Z` tag and the commit messages since it. A `feat:` commit bumps
 # minor, a `BREAKING CHANGE:` footer or a `!` after the type (`feat!:`, `fix!:`) bumps major,
 # anything else (including this project's own informal `mobile: ...`/`web: ...` commits) bumps
 # patch. The git tag itself is best-effort (see "Tag this release" below): it is never what
-# triggers a release, only a record of one after the fact. versionCode is the Forgejo run number,
-# which only ever increases, as F-Droid requires to offer the update. Branch pushes and trains
-# use run numbers too, so releases skip numbers; nothing needs them consecutive. Release builds are
+# triggers a release, only a record of one after the fact. versionCode is the run number, which
+# only ever increases, as F-Droid requires to offer the update. Branch pushes and trains use run
+# numbers too, so releases skip numbers; nothing needs them consecutive. Release builds are
 # R8-minified; the mapping is uploaded as an artifact so release crashes can be decoded.
 #
-# The web deploy follows the hub's one-build-and-deploy pattern (mouseion/hub ADR-0005), plus the
-# forge's rule that the exact image is gated before it is pushed. Unlike the hub, which runs
-# `:latest`, the deploy pins cinny to `<sha7>` in the compose file, so the file always records
-# what is live and every backup is a rollback point. The stack's Watchtower watches every
-# container, so a `:latest` line would also let it redeploy on its own.
+# The web deploy builds once and deploys that build, and the exact image is gated by a smoke test
+# before it is pushed. The deploy pins the service to `<sha7>` in the compose file rather than
+# `:latest`, so the file always records what is live, every backup is a rollback point, and
+# nothing that watches `:latest` can redeploy on its own.
 #
-# Runner facts this relies on (checked 2026-09-23, see issue #4; build lane 2026-10-12): `plan`
-# runs on builder's light lane (`builder`) and `bundle` on builder's build lane (`builder-docker`:
-# one build at a time, 7 CPUs and 14 GB at most, with a Docker daemon of its own), so nothing is
-# built on server: the image reaches it through the registry and the Android inputs as an
-# artifact. `homeserver` and `android` are :host labels on the one `forgejo-runner-server`
-# container, which mounts the compose directory read-write and sits on `homeserver_default`, so
-# it can reach the service as http://cinny/. It cannot reach https://iris.example.org over
-# the tailnet, so the checks never use the public URL. The `android` job runs in the household
-# android-build image (glibc, which aapt2 needs).
+# Runners, by label: `mouseion-docker` for light jobs and the Android build, `mouseion-build` for
+# the image (with a Docker daemon of its own), `mouseion-nix` for the desktop check (with Nix),
+# and `mouseion-deploy` for the two release jobs, which runs on the deployment host: it can run
+# docker there, read and write the compose file and the F-Droid repos at their host paths, and
+# reach the service by name on the compose network. Nothing is built on the deployment host: the
+# image reaches it through the registry and the APK as an artifact.
 #
-# Secrets: registry credentials are the ORG-level secret REGISTRY_TOKEN and variable
-# REGISTRY_USER on org `mouseion`. Signing material is the repo secrets
-# HOUSE_MOUSEION_CHAT_{KEYSTORE_BASE64,KEYSTORE_PASSWORD,KEY_ALIAS,KEY_PASSWORD}; the keystore is
-# decoded into a private temp dir and removed afterwards.
+# Where the deployment lives is not in this file. These are Actions variables on the repository
+# (and REGISTRY_USER on its organization), and a job that needs one stops if it is unset:
+#
+#   REGISTRY             the container registry the image is pushed to, e.g. registry.example.org
+#   IMAGE                the web image, without a tag, e.g. registry.example.org/owner/iris-web
+#   COMPOSE_FILE         the compose file on the deployment host that runs the web client
+#   DEPLOY_SERVICE       the web client's service in it (and its container name)
+#   ANDROID_BUILD_IMAGE  the image the Android build runs in: Node, the Android SDK, JDK 17 and 21
+#   FDROID_APPDATA       the directory on the deployment host that holds the F-Droid repos
+#   FDROID_REPO          the repo under it to publish into
+#   NIX_CONFIG_URL       the git URL (ssh) of the NixOS configuration the desktop check follows
+#   FORGE_KNOWN_HOSTS    the known_hosts line(s) of that URL's ssh host
+#   IRIS_*               the build settings (README, "Configure it")
+#
+# Secrets: the registry token is the organization secret REGISTRY_TOKEN. Signing material is the
+# repo secrets HOUSE_MOUSEION_CHAT_{KEYSTORE_BASE64,KEYSTORE_PASSWORD,KEY_ALIAS,KEY_PASSWORD}; the
+# keystore is decoded into a private temp dir and removed afterwards. NIX_CONFIG_READ_KEY is the
+# desktop check's read-only ssh key.
 name: build
 
 on:
@@ -88,10 +97,10 @@ on:
         'desktop/**',
         'branding/**',
         'scripts/iris-icons.py',
-        '.forgejo/known_hosts',
+        '.forgejo/actions/**',
         '.forgejo/workflows/build.yml',
       ]
-  # Turns the house merge queue on for dev. Takes `branches:` only, no `paths:`.
+  # Turns the forge's merge queue on for dev. Takes `branches:` only, no `paths:`.
   merge_group:
     branches: [dev]
   workflow_dispatch:
@@ -107,9 +116,9 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/dev' && github.event_name != 'merge_group' }}
 
 env:
-  IMAGE: forgejo.example.org/mouseion/iris-web
-  # The branch that deploys and releases. `dev` is the fork's one trunk (owner decision,
-  # 2026-09-23), and upstream Cinny merges land there too.
+  IMAGE: ${{ vars.IMAGE }}
+  # The branch that deploys and releases. `dev` is the fork's one trunk, and upstream Cinny merges
+  # land there too.
   RELEASE_BRANCH: dev
 
 jobs:
@@ -132,8 +141,7 @@ jobs:
           # Full history and tags: the diff below and the version step need the commits and every
           # `mobile-v*` tag, which a shallow clone would not have. A train's commit is on no branch,
           # and at depth 0 the action fetches branches and tags only, so a train checks out its
-          # commit alone and fetches the history in the next step (mouseion/forgejo README, "A
-          # merge queue").
+          # commit alone and fetches the history in the next step.
           fetch-depth: ${{ github.event_name == 'merge_group' && 1 || 0 }}
 
       - name: History of a train
@@ -148,14 +156,14 @@ jobs:
         run: |
           set -euo pipefail
           # Served by the web client.
-          web='^(src/|public/|index\.html$|config\.json$|vite\.config\.js$|build\.config\.ts$|tsconfig\.json$|package\.json$|package-lock\.json$|\.npmrc$|\.dockerignore$|Dockerfile$|docker-nginx\.conf$|scripts/nginx-conf\.js$|\.forgejo/workflows/build\.yml$)'
+          web='^(src/|public/|index\.html$|config\.json$|vite\.config\.js$|build\.config\.ts$|tsconfig\.json$|package\.json$|package-lock\.json$|\.npmrc$|\.dockerignore$|Dockerfile$|docker-nginx\.conf$|scripts/nginx-conf\.js$|\.forgejo/actions/compose-deploy/|\.forgejo/workflows/build\.yml$)'
           # Shipped in the Android app.
-          app='^(src/|public/|index\.html$|config\.mobile\.json$|vite\.config\.js$|build\.config\.ts$|tsconfig\.json$|capacitor\.config\.ts$|package\.json$|package-lock\.json$|scripts/mobile-bundle\.js$|mobile/|\.forgejo/workflows/build\.yml$)'
+          app='^(src/|public/|index\.html$|config\.mobile\.json$|vite\.config\.js$|build\.config\.ts$|tsconfig\.json$|capacitor\.config\.ts$|package\.json$|package-lock\.json$|scripts/mobile-bundle\.js$|mobile/|\.forgejo/actions/fdroid-publish/|\.forgejo/workflows/build\.yml$)'
           # What Gradle compiles or packages besides the web build.
           native='^(mobile/android/|capacitor\.config\.ts$|package\.json$|package-lock\.json$|scripts/mobile-bundle\.js$|\.forgejo/workflows/build\.yml$)'
 
           # The Linux desktop shell: its Nix package and the artwork it embeds.
-          desktop_paths='^(desktop/|branding/|scripts/iris-icons\.py$|\.forgejo/known_hosts$|\.forgejo/workflows/build\.yml$)'
+          desktop_paths='^(desktop/|branding/|scripts/iris-icons\.py$|\.forgejo/workflows/build\.yml$)'
 
           # `build` is false when the change touches no web or app path (a desktop-only push or
           # train). "Run workflow" always builds.
@@ -207,10 +215,9 @@ jobs:
               IFS=. read -r lmajor lminor _ <<< "${latest#mobile-v}"
             fi
             if [[ -z "$latest" ]] || (( lmajor == 0 && lminor < 4 )); then
-              # First release of the Capacitor wrapper (mobile/WRAPPER-PLAN.md). There is an old
-              # clean mobile-v0.1.1 tag from the very first Compose bring-up (everything since used
-              # -rcN suffixes, so this loop never saw them as "latest") — the Compose app's last
-              # version was 0.3.0, so the wrapper starts fresh at 0.4.0 rather than bumping 0.1.1.
+              # First release of the Capacitor wrapper (mobile/WRAPPER-PLAN.md). An older native
+              # app reached 0.3.0, and one of its early tags is a clean mobile-v0.1.1, so the
+              # wrapper starts at 0.4.0 rather than bumping that.
               next="0.4.0"
             else
               msgs="$(git log --format=%B "$latest..HEAD")"
@@ -240,9 +247,9 @@ jobs:
     needs: [plan]
     if: needs.plan.outputs.build == 'true'
     runs-on: mouseion-build
-    # The household's values, which the code does not carry (README, the build settings table):
-    # repo Actions variables on mouseion/iris. The two hub settings are Docker build args, read from
-    # here by `--build-arg NAME`; the mobile config is written over config.mobile.json.
+    # The deployment's values, which the code does not carry (README, "Configure it"): repo
+    # Actions variables. The two hub settings are Docker build args, read from here by
+    # `--build-arg NAME`; the mobile config is written over config.mobile.json.
     env:
       HUB_ORIGINS: ${{ vars.IRIS_HUB_ORIGINS }}
       HUB_PREVIEW_PATTERN: ${{ vars.IRIS_HUB_PREVIEW_PATTERN }}
@@ -251,22 +258,34 @@ jobs:
       - uses: actions/checkout@v4
 
       # Without them the build would be the public one: no hub framing, and an Android app that
-      # offers any homeserver. Better to stop than to ship that to the household.
-      - name: The household's build settings
+      # offers any homeserver. Better to stop than to ship that to the deployment.
+      - name: The deployment's build settings
         shell: bash
         run: |
           set -euo pipefail
           for name in HUB_ORIGINS HUB_PREVIEW_PATTERN CONFIG_MOBILE_JSON; do
-            if [ -z "${!name}" ]; then
+            if [ -z "${!name:-}" ]; then
               echo "the repo variable IRIS_$name is not set: this would build the public defaults" >&2
               exit 1
             fi
           done
+          if [ -z "$IMAGE" ]; then
+            echo "the repo variable IMAGE is not set" >&2
+            exit 1
+          fi
           printf '%s\n' "$CONFIG_MOBILE_JSON" > config.mobile.json
 
-      - name: Login to Forgejo Packages
+      - name: Login to the registry
         if: needs.plan.outputs.deploy == 'true'
-        run: echo "${{ secrets.REGISTRY_TOKEN }}" | docker login forgejo.example.org -u "${{ vars.REGISTRY_USER }}" --password-stdin
+        env:
+          REGISTRY: ${{ vars.REGISTRY }}
+        run: |
+          set -euo pipefail
+          if [ -z "$REGISTRY" ]; then
+            echo "the repo variable REGISTRY is not set" >&2
+            exit 1
+          fi
+          echo "${{ secrets.REGISTRY_TOKEN }}" | docker login "$REGISTRY" -u "${{ vars.REGISTRY_USER }}" --password-stdin
 
       # The one `npm ci` + `vite build` of the run, in the image's builder stage.
       - name: Build the web image
@@ -275,8 +294,8 @@ jobs:
             --load --tag "$IMAGE:${GITHUB_SHA:0:7}" .
 
       # Gate before publishing: the exact image must serve the app shell and the frame-ancestors
-      # header that the hub's chat spoke (mouseion/hub#51) depends on. Checked from inside the
-      # container, so no port or network is involved.
+      # header that lets each IRIS_HUB_ORIGINS origin frame it. Checked from inside the container,
+      # so no port or network is involved.
       - name: Smoke-test the image
         run: |
           set -euo pipefail
@@ -323,18 +342,16 @@ jobs:
           docker push "$IMAGE:${GITHUB_SHA:0:7}"
           docker push "$IMAGE:latest"
 
-  # The Linux desktop shell (desktop/, mouseion/iris#65): a check only, nothing is published. It
-  # builds the Nix package and runs its Qt Test suites, on builder's Nix lane (the host's Nix),
-  # against the nixpkgs that household/nix-config's `main` locks for its root input, read from
-  # that branch's flake.lock on every run (desktop/nix/ci.nix, mouseion/iris#79). Nothing in this
-  # repo copies the pin, and the check follows `main`, not whatever Builder last switched to: if
-  # Builder runs an older nixpkgs, Builder needs to switch. Iris's CI owns the build and the
-  # packaging; nix-config only installs the result.
+  # The Linux desktop shell (desktop/): a check only, nothing is published. It builds the Nix
+  # package and runs its Qt Test suites, with the runner host's Nix, against the nixpkgs that the
+  # NixOS configuration at NIX_CONFIG_URL locks on `main` for its root input, read from that
+  # branch's flake.lock on every run (desktop/nix/ci.nix). Nothing in this repo copies the pin, and
+  # the check follows `main`, not whatever a machine last switched to. Iris's CI owns the build and
+  # the packaging; the configuration only installs the result.
   #
-  # nix-config is private. NIX_CONFIG_READ_KEY is the private half of a read-only deploy key on it
-  # (deploy key 7), used the way nix-config's own workflows use TV_BOX_INPUTS_KEY: a 0600 file
-  # under /dev/shm, never in the workspace, removed at the end even when a step fails, and ssh that
-  # trusts only the host key in .forgejo/known_hosts.
+  # The configuration is private. NIX_CONFIG_READ_KEY is the private half of a read-only deploy key
+  # on it: a 0600 file under /dev/shm, never in the workspace, removed at the end even when a step
+  # fails, and ssh that trusts only the host key in FORGE_KNOWN_HOSTS, written beside it.
   desktop:
     runs-on: mouseion-nix
     needs: [plan]
@@ -346,28 +363,39 @@ jobs:
       - name: Key
         env:
           READ_KEY: ${{ secrets.NIX_CONFIG_READ_KEY }}
+          KNOWN_HOSTS: ${{ vars.FORGE_KNOWN_HOSTS }}
+          NIX_CONFIG_URL: ${{ vars.NIX_CONFIG_URL }}
         run: |
           set -euo pipefail
           if [ -z "$READ_KEY" ]; then
-            echo "the secret NIX_CONFIG_READ_KEY is not set: the desktop check cannot read household/nix-config's flake.lock" >&2
+            echo "the secret NIX_CONFIG_READ_KEY is not set: the desktop check cannot read the NixOS configuration's flake.lock" >&2
             exit 1
           fi
+          for name in KNOWN_HOSTS NIX_CONFIG_URL; do
+            if [ -z "${!name:-}" ]; then
+              echo "the repo variable ${name/KNOWN_HOSTS/FORGE_KNOWN_HOSTS} is not set" >&2
+              exit 1
+            fi
+          done
           keys=$(mktemp -d -p /dev/shm iris-desktop.XXXXXX)
           (umask 077; printf '%s\n' "$READ_KEY" >"$keys/nix-config")
-          ssh_options="-o IdentitiesOnly=yes -o IdentityAgent=none -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$PWD/.forgejo/known_hosts"
+          printf '%s\n' "$KNOWN_HOSTS" >"$keys/known_hosts"
+          ssh_options="-o IdentitiesOnly=yes -o IdentityAgent=none -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$keys/known_hosts"
           {
             echo "KEYS=$keys"
             echo "GIT_SSH_COMMAND=ssh -i $keys/nix-config $ssh_options"
           } >>"$GITHUB_ENV"
 
-      - name: nix-config main's nixpkgs
+      - name: The configuration's nixpkgs on main
+        env:
+          NIX_CONFIG_URL: ${{ vars.NIX_CONFIG_URL }}
         run: |
           set -euo pipefail
           # Outside the workspace; only flake.lock is kept from the fetch.
           lock=$(mktemp -d)
           echo "LOCK=$lock" >>"$GITHUB_ENV"
           git -C "$lock" init -q
-          git -C "$lock" fetch -q --depth 1 ssh://git@forgejo.example.org:2222/household/nix-config main
+          git -C "$lock" fetch -q --depth 1 "$NIX_CONFIG_URL" main
           git -C "$lock" show FETCH_HEAD:flake.lock >"$lock/flake.lock"
           echo "nix-config: main at $(git -C "$lock" rev-parse FETCH_HEAD)"
           echo "nixpkgs: $(nix eval --raw -f desktop/nix/ci.nix --arg lock "$lock/flake.lock" nixpkgs)"
@@ -389,58 +417,71 @@ jobs:
     if: needs.plan.outputs.deploy == 'true' && github.event_name != 'merge_group'
     runs-on: mouseion-deploy
     env:
-      COMPOSE_FILE: /home/user/homeserver/docker-compose.yml
+      COMPOSE_FILE: ${{ vars.COMPOSE_FILE }}
+      SERVICE: ${{ vars.DEPLOY_SERVICE }}
     steps:
-      # House convention (the .bak.* files beside it): back up before editing, as the 2026-09-18
-      # hand deploy did. Only the newest 10 of this workflow's backups are kept.
+      - name: The deployment's settings
+        run: |
+          set -euo pipefail
+          for name in IMAGE COMPOSE_FILE SERVICE; do
+            if [ -z "${!name:-}" ]; then
+              echo "the repo variable ${name/SERVICE/DEPLOY_SERVICE} is not set" >&2
+              exit 1
+            fi
+          done
+          test -f "$COMPOSE_FILE" || { echo "the compose file (COMPOSE_FILE) is not on this runner" >&2; exit 1; }
+
+      # For the compose-deploy action in .forgejo/actions, at this commit.
+      - uses: actions/checkout@v4
+
+      # Back up before editing. Only the newest 10 of this workflow's backups are kept.
       - name: Back up the compose file
         run: |
           set -euo pipefail
           cp -a "$COMPOSE_FILE" "$COMPOSE_FILE.bak.iris-web-$(date +%Y%m%d-%H%M%S)"
           ls -t "$COMPOSE_FILE".bak.iris-web-* | tail -n +11 | xargs -r rm --
 
-      # Pin the cinny service's image line to the new tag. The pattern matches iris-web and the
-      # names the image had before Iris (mouseion-chat-web, chat-web), so the first deploy after the
-      # rename moves the line over. The edit is checked in a temp file and then written back into
-      # the same file rather than renamed over it, in case anything bind-mounts this one file. The
-      # registry domain is mouseion.house: example.net is no longer used (#58).
-      - name: Pin the cinny service to the new image
+      # Pin the service's image line, the one line that names IMAGE, to the new tag. The edit is
+      # checked in a temp file and then written back into the same file rather than renamed over
+      # it, in case anything bind-mounts this one file.
+      - name: Pin the service to the new image
         run: |
           set -euo pipefail
           sha="${GITHUB_SHA:0:7}"
+          image_re="$(printf '%s' "$IMAGE" | sed -E 's/[][\\.*^$+?(){}|#]/\\&/g')"
           tmp="$(mktemp "$COMPOSE_FILE.deploy-web.XXXXXX")"
           trap 'rm -f "$tmp"' EXIT
           sed -E \
-            -e "s#^([[:space:]]+image: )(mouseion-chat-web|forgejo\.example\.org/mouseion/(chat|iris)-web):.*#\1$IMAGE:${sha}  \# pinned by mouseion/iris .forgejo/workflows/build.yml#" \
+            -e "s#^([[:space:]]+image: )${image_re}:.*#\1$IMAGE:${sha}  \# pinned by mouseion/iris .forgejo/workflows/build.yml#" \
             "$COMPOSE_FILE" > "$tmp"
           test "$(grep -c "image: $IMAGE:${sha}  # pinned by" "$tmp")" = 1 \
-            || { echo "expected exactly one cinny image line to update; aborting before touching anything" >&2; exit 1; }
+            || { echo "expected exactly one $SERVICE image line to update; aborting before touching anything" >&2; exit 1; }
           docker compose -f "$tmp" --project-directory "$(dirname "$COMPOSE_FILE")" config -q
           cat "$tmp" > "$COMPOSE_FILE"
 
       # Each deploy pins a new :<sha>, so the replaced image is tagged with its old sha: same-repository removes it.
       - name: Pull and restart
-        uses: https://forgejo.example.org/mouseion/common/actions/compose-deploy@da24f1a359c36b76c0635d1b5c0b1ef2bfe42ac8 # v1.0.0
+        uses: ./.forgejo/actions/compose-deploy
         with:
-          service: cinny
+          service: ${{ env.SERVICE }}
           compose-file: ${{ env.COMPOSE_FILE }}
           replaced-tags: same-repository
 
       # Success means the running container is on the new image and serves the header. Checked
-      # by service name on the compose network: the public URL is unreachable from this runner.
+      # by service name on the compose network: the public URL is not reachable from this runner.
       - name: Verify the running service
         run: |
           set -euo pipefail
-          running="$(docker inspect cinny --format '{{.Config.Image}}')"
+          running="$(docker inspect "$SERVICE" --format '{{.Config.Image}}')"
           test "$running" = "$IMAGE:${GITHUB_SHA:0:7}" \
-            || { echo "cinny is running $running, not $IMAGE:${GITHUB_SHA:0:7}" >&2; exit 1; }
+            || { echo "$SERVICE is running $running, not $IMAGE:${GITHUB_SHA:0:7}" >&2; exit 1; }
           for _ in $(seq 1 15); do
-            if curl -sfI http://cinny/ | grep -qi 'content-security-policy:.*frame-ancestors'; then
+            if curl -sfI "http://$SERVICE/" | grep -qi 'content-security-policy:.*frame-ancestors'; then
               exit 0
             fi
             sleep 2
           done
-          echo "cinny does not serve the frame-ancestors header after the restart" >&2
+          echo "$SERVICE does not serve the frame-ancestors header after the restart" >&2
           exit 1
 
   apk:
@@ -448,10 +489,8 @@ jobs:
     if: needs.plan.outputs.android == 'true'
     runs-on: mouseion-docker
     container:
-      # Hardcoded: the DOMAIN/REGISTRY_USER Actions variables exist on the forge repo, not here.
-      # Node 22, Android SDK 36, and JDK 21 beside the default 17 (server:
-      # ~/homeserver/android-build/Dockerfile).
-      image: forgejo.example.org/household/android-build:jdk17-jdk21-sdk36-bun
+      # Node 22, Android SDK 36, and JDK 21 beside the default 17, at /opt/java/jdk21.
+      image: ${{ vars.ANDROID_BUILD_IMAGE }}
       volumes:
         - forge-gradle-cache:/gradle-cache
     defaults:
@@ -473,13 +512,16 @@ jobs:
           path: ./android-inputs
 
       # The synced mobile bundle and Capacitor's Android libraries, from `bundle`, unpacked over
-      # the checkout.
+      # the checkout. Its config.json must be the deployment's mobile config, as `bundle` wrote it.
       - name: Android inputs (into the Android project)
+        env:
+          CONFIG_MOBILE_JSON: ${{ vars.IRIS_CONFIG_MOBILE_JSON }}
         run: |
           set -euo pipefail
           tar -xzf android-inputs/android-inputs.tgz
           rm -r android-inputs
-          grep -q mouseion.house mobile/android/app/src/main/assets/public/config.json
+          [[ "$(< mobile/android/app/src/main/assets/public/config.json)" == "$(printf '%s' "$CONFIG_MOBILE_JSON")" ]] \
+            || { echo "the bundle's config.json is not IRIS_CONFIG_MOBILE_JSON" >&2; exit 1; }
           printf 'sdk.dir=%s\n' "$ANDROID_HOME" > mobile/android/local.properties
 
       - name: Decode signing keystore
@@ -552,18 +594,36 @@ jobs:
     # As for `deploy`: `plan` never says publish for a train.
     if: needs.plan.outputs.publish == 'true' && github.event_name != 'merge_group'
     runs-on: mouseion-deploy
+    env:
+      APPDATA: ${{ vars.FDROID_APPDATA }}
+      FDROID_REPO: ${{ vars.FDROID_REPO }}
     steps:
+      - name: The deployment's settings
+        run: |
+          set -euo pipefail
+          for name in APPDATA FDROID_REPO; do
+            if [ -z "${!name:-}" ]; then
+              echo "the repo variable ${name/#APPDATA/FDROID_APPDATA} is not set" >&2
+              exit 1
+            fi
+          done
+
+      # For the fdroid-publish action in .forgejo/actions, at this commit. Before the download:
+      # checkout empties a workspace that is not yet a repository.
+      - uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v3
         with:
           name: mouseion-apk
           path: ./apk
 
-      # The house publish, shared with media, ada and forge (mouseion/common#12).
       - name: Publish to F-Droid repo
-        uses: https://forgejo.example.org/mouseion/common/actions/fdroid-publish@47adab754fecf1183f6068810961cfa2eeb345bc # v1.0.1
+        uses: ./.forgejo/actions/fdroid-publish
         with:
           apk: ./apk/house.mouseion.iris-${{ needs.plan.outputs.name }}.apk
           app-id: house.mouseion.iris
+          base-name: ${{ env.FDROID_REPO }}
+          appdata: ${{ env.APPDATA }}
           mark-current: 'true'
           version-code: ${{ needs.plan.outputs.code }}
           version-name: ${{ needs.plan.outputs.name }}

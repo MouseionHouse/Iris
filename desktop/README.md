@@ -118,12 +118,12 @@ in `icons/` are cut by `scripts/iris-icons.py` from `branding/`; rerun it after 
 
 ```sh
 nix-build -E 'with import <nixpkgs> { }; callPackage ./desktop/nix/package.nix { url = "https://iris.example.org"; }'
-nix-build desktop/nix/ci.nix -A package --arg lock /path/to/nix-config/flake.lock  # what CI builds
+nix-build desktop/nix/ci.nix -A package --arg lock /path/to/configuration/flake.lock  # what CI builds
 ```
 
 Local builds and `shell.nix` use `<nixpkgs>`, whatever your machine has. CI builds through
-`nix/ci.nix` against nix-config `main`'s nixpkgs (below); the second command does the same with a
-nix-config checkout's lock.
+`nix/ci.nix` against the nixpkgs a NixOS configuration's `main` locks (below); the second command
+does the same with a checkout's lock.
 
 Without `url` the build stops and says so. The tests check the shell against `iris.example.org`,
 whatever `url` it is built with.
@@ -146,19 +146,20 @@ notifyrc land under `share/`, which Plasma reads from the profile.
 
 ### CI
 
-`.forgejo/workflows/build.yml` has a `desktop` job (check only, nothing published) on the
-`builder-nix` runner label, the lane with the host's Nix. It runs when `desktop/`, `branding/`,
-`scripts/iris-icons.py`, `.forgejo/known_hosts` or the workflow change. Iris's CI owns the build and
-the packaging; nix-config only installs the result.
+`.forgejo/workflows/build.yml` has a `desktop` job (check only, nothing published) on a runner
+with Nix (the `mouseion-nix` label). It runs when `desktop/`, `branding/`, `scripts/iris-icons.py`
+or the workflow change. Iris's CI owns the build and the packaging; the NixOS configuration only
+installs the result.
 
-It builds the package and its tests against the nixpkgs household/nix-config's `main` locks:
-each run fetches `main`'s `flake.lock` and `nix/ci.nix` follows `root` → `inputs.nixpkgs` to its node
-(found by that link, never by name: it is `nixpkgs_2` today) and fetches that node's `locked`
-source with `builtins.fetchTree`, verified by its narHash. There is no copy of the pin here to bump;
-the check follows `main`, not what Builder last switched to. If Builder runs an older nixpkgs, Builder
-needs to switch. The log names nix-config's commit and the nixpkgs rev and narHash it used.
+It builds the package and its tests against the nixpkgs that a NixOS configuration's `main` locks.
+The configuration is the repository at the Actions variable `NIX_CONFIG_URL`: each run fetches
+`main`'s `flake.lock`, and `nix/ci.nix` follows `root` → `inputs.nixpkgs` to its node (found by
+that link, never by name: it is `nixpkgs_2` today) and fetches that node's `locked` source with
+`builtins.fetchTree`, verified by its narHash. There is no copy of the pin here to bump; the check
+follows `main`, not what a machine last switched to. A machine on an older nixpkgs needs to switch.
+The log names the configuration's commit and the nixpkgs rev and narHash it used.
 
-nix-config is private: the job reads it with the repo secret `NIX_CONFIG_READ_KEY`, the private half
-of a read-only deploy key on nix-config (deploy key 7), kept in `/dev/shm` for the job and removed
-at its end, over ssh that trusts only the host key in `.forgejo/known_hosts`. Without the secret the
-job fails and says so.
+The configuration is private: the job reads it with the repo secret `NIX_CONFIG_READ_KEY`, the
+private half of a read-only deploy key on it, kept in `/dev/shm` for the job and removed at its
+end, over ssh that trusts only the host key in the variable `FORGE_KNOWN_HOSTS`. Without the secret
+or either variable the job fails and says so.

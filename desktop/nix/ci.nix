@@ -1,8 +1,8 @@
-# What the `desktop` CI job builds (mouseion/iris#79): the package against the nixpkgs that
-# household/nix-config's `main` locks for its root `nixpkgs` input. `lock` is that flake.lock,
-# fetched by the job. The node is found by following root → inputs.nixpkgs, never by its name
-# (it is `nixpkgs_2` today), and fetched from its `locked` attributes, so the source is verified
-# by narHash. Local builds use <nixpkgs>; see ../README.md, "Nix package".
+# What the `desktop` CI job builds: the package against the nixpkgs that the NixOS configuration
+# the job follows (NIX_CONFIG_URL) locks on `main` for its root `nixpkgs` input. `lock` is that
+# flake.lock, fetched by the job. The node is found by following root → inputs.nixpkgs, never by
+# its name (it is `nixpkgs_2` today), and fetched from its `locked` attributes, so the source is
+# verified by narHash. Local builds use <nixpkgs>; see ../README.md, "Nix package".
 #
 #   nix-build desktop/nix/ci.nix -A package --arg lock /path/to/flake.lock
 { lock }:
