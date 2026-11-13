@@ -7,7 +7,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { useAtom, useAtomValue } from 'jotai';
+import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { isKeyHotkey } from 'is-hotkey';
 import { EventType, IContent, MsgType, RelationType, Room } from 'matrix-js-sdk';
 import { ReactEditor } from 'slate-react';
@@ -90,6 +90,21 @@ import { useRoomCreatorsTag } from '../../hooks/useRoomCreatorsTag';
 import { usePowerLevelTags } from '../../hooks/usePowerLevelTags';
 import { useComposingCheck } from '../../hooks/useComposingCheck';
 import { useComposerUploads } from './useComposerUploads';
+import { useDelayedEventsSupport } from '../../hooks/useDelayedEventsSupport';
+import {
+  ScheduleErrorBar,
+  ScheduleSendButton,
+  ScheduledMessagesList,
+  ScheduledTimeBar,
+  SchedulePickerOverlay,
+  putInComposer,
+  scheduledReplyDraft,
+  scheduledToEditorInput,
+  useScheduleSend,
+} from './schedule-send';
+import { DelayedEvent } from '../../utils/delayedEvents';
+import { roomIdToScheduledListOpenAtomFamily } from '../../state/scheduledMessages';
+import { ReplaceDraftDialog } from './schedule-send/ReplaceDraftDialog';
 
 interface RoomInputProps {
   editor: Editor;
@@ -163,8 +178,15 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
     // restores the room's draft, keeps it when the room is left, and syncs it to other devices
     const draftSync = useDraftSync(roomId, editor);
 
-    /** Takes the text off the composer (running a command); returns the message to send. */
-    const takeTextContent = useCallback((): IContent | undefined => {
+    const clearText = useCallback(() => {
+      resetEditor(editor);
+      resetEditorHistory(editor);
+      setReplyDraft(undefined);
+      sendTypingStatus(false);
+    }, [editor, setReplyDraft, sendTypingStatus]);
+
+    /** The message the composer holds, leaving it there; runs (and clears) a command instead. */
+    const buildTextContent = useCallback((): IContent | undefined => {
       const commandName = getBeginCommand(editor);
       let plainText = toPlainText(editor.children, isMarkdown).trim();
       let customHtml = trimCustomHtml(
@@ -238,15 +260,53 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
           content['m.relates_to'].is_falling_back = false;
         }
       }
-      resetEditor(editor);
-      resetEditorHistory(editor);
-      setReplyDraft(undefined);
-      sendTypingStatus(false);
       return content;
-    }, [mx, roomId, editor, replyDraft, sendTypingStatus, setReplyDraft, isMarkdown, commands]);
+    }, [mx, roomId, editor, replyDraft, sendTypingStatus, isMarkdown, commands]);
+
+    /** Takes the text off the composer (running a command); returns the message to send. */
+    const takeTextContent = useCallback((): IContent | undefined => {
+      const content = buildTextContent();
+      if (content) clearText();
+      return content;
+    }, [buildTextContent, clearText]);
+
+    // scheduled sends (MSC4140), where the server holds delayed events
+    const delayedEventsSupported = useDelayedEventsSupport();
+    const scheduler = useScheduleSend(room);
+    const [schedulePicker, setSchedulePicker] = useState(false);
+    const setScheduledListOpen = useSetAtom(roomIdToScheduledListOpenAtomFamily(roomId));
+    const [replaceDraftFor, setReplaceDraftFor] = useState<{
+      event: DelayedEvent;
+      content: IContent;
+    }>();
+    const sendNowRef = useRef(false);
+
+    /** Schedules the composer's message, or sends the edited one now; clears it once done. */
+    const scheduleDraft = async (now: boolean) => {
+      if (uploads.items.length > 0) {
+        scheduler.setFailure({ kind: 'attachments' });
+        return;
+      }
+      const before = JSON.stringify([editor.children, replyDraft]);
+      const content = buildTextContent();
+      if (!content) return;
+      const done = now ? await scheduler.sendEditedNow(content) : await scheduler.schedule(content);
+      // only what was scheduled leaves: text typed meanwhile stays
+      if (done && JSON.stringify([editor.children, replyDraft]) === before) {
+        clearText();
+        draftSync.flush();
+      }
+    };
 
     // the attachments go first, then the text; both leave the composer at once
     const sendDraft = () => {
+      const now = sendNowRef.current;
+      sendNowRef.current = false;
+      if (scheduler.editingDelayId !== undefined || (scheduler.sendTs !== undefined && !now)) {
+        scheduleDraft(now);
+        return;
+      }
+      if (scheduler.sendTs !== undefined) scheduler.clear();
       const uploadContents = uploads.takeContents();
       const textContent = takeTextContent();
       draftSync.flush();
@@ -258,13 +318,50 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
 
     const {
       pending: sendPending,
-      request: submit,
+      request: requestSend,
       cancel: cancelSend,
     } = useSendAfterUploads(uploads.summary, sendDraft, (file) =>
       uploadStripRef.current?.reveal(file)
     );
+    const { sendTs: scheduledTs, setFailure: setScheduleFailure } = scheduler;
+    const hasUploads = uploads.items.length > 0;
+    const submit = useCallback(() => {
+      // attachments are sent now or not at all: say so before waiting for their upload
+      if (scheduledTs !== undefined && hasUploads) {
+        setScheduleFailure({ kind: 'attachments' });
+        return;
+      }
+      requestSend();
+    }, [scheduledTs, hasUploads, setScheduleFailure, requestSend]);
     // a wait for uploads belongs to the room it was asked in
     useEffect(() => cancelSend, [roomId, cancelSend]);
+
+    const handleSendNow = () => {
+      sendNowRef.current = true;
+      scheduler.setFailure(undefined);
+      requestSend();
+    };
+
+    const editScheduled = async (event: DelayedEvent, content: IContent) => {
+      setReplaceDraftFor(undefined);
+      putInComposer(editor, scheduledToEditorInput(content, isMarkdown));
+      setReplyDraft(await scheduledReplyDraft(mx, room, content));
+      scheduler.setSendTs(event.sendTs);
+      scheduler.setEditingDelayId(event.delayId);
+      scheduler.setFailure(undefined);
+      draftSync.onChange();
+      // once the new content is drawn
+      if (!mobileOrTablet()) setTimeout(() => ReactEditor.focus(editor), 100);
+    };
+
+    const handleEditScheduled = (event: DelayedEvent, content: IContent) => {
+      // nothing typed is replaced without asking
+      if (!isEmptyEditor(editor) && scheduler.editingDelayId === undefined) {
+        setReplaceDraftFor({ event, content });
+        return;
+      }
+      editScheduled(event, content);
+    };
 
     const handleKeyDown: KeyboardEventHandler = useCallback(
       (evt) => {
@@ -390,6 +487,33 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
             requestClose={handleCloseAutocomplete}
           />
         )}
+        {delayedEventsSupported && (
+          <ScheduledMessagesList
+            roomId={roomId}
+            editingDelayId={scheduler.editingDelayId}
+            onEdit={handleEditScheduled}
+          />
+        )}
+        {schedulePicker && (
+          <SchedulePickerOverlay
+            initialTs={scheduler.sendTs}
+            encrypted={room.hasEncryptionStateEvent()}
+            maxDelayMs={scheduler.maxDelayMs}
+            onCancel={() => setSchedulePicker(false)}
+            onSubmit={(ts) => {
+              scheduler.setSendTs(ts);
+              scheduler.setFailure(undefined);
+              setSchedulePicker(false);
+              if (!mobileOrTablet()) ReactEditor.focus(editor);
+            }}
+          />
+        )}
+        {replaceDraftFor && (
+          <ReplaceDraftDialog
+            onReplace={() => editScheduled(replaceDraftFor.event, replaceDraftFor.content)}
+            onCancel={() => setReplaceDraftFor(undefined)}
+          />
+        )}
         <CustomEditor
           editableName="RoomInput"
           editor={editor}
@@ -400,6 +524,24 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
           onChange={draftSync.onChange}
           top={
             <>
+              {scheduler.sendTs !== undefined && (
+                <ScheduledTimeBar
+                  sendTs={scheduler.sendTs}
+                  editing={scheduler.editingDelayId !== undefined}
+                  onClear={scheduler.clear}
+                  onChange={() => setSchedulePicker(true)}
+                />
+              )}
+              {scheduler.failure && (
+                <ScheduleErrorBar
+                  failure={scheduler.failure}
+                  onDismiss={() => scheduler.setFailure(undefined)}
+                  onPickTime={() => setSchedulePicker(true)}
+                  onRetry={submit}
+                  onSendNow={handleSendNow}
+                  onShowList={() => setScheduledListOpen(true)}
+                />
+              )}
               {replyDraft && (
                 <div>
                   <Box
@@ -535,15 +677,25 @@ export const RoomInput = forwardRef<HTMLDivElement, RoomInputProps>(
                   </PopOut>
                 )}
               </UseStateProvider>
-              <UploadsSendButton
-                waiting={
-                  sendPending && uploads.summary.state === 'running'
-                    ? uploads.summary.progress
-                    : undefined
-                }
-                onSend={submit}
-                onCancel={cancelSend}
-              />
+              {delayedEventsSupported && !(sendPending && uploads.summary.state === 'running') ? (
+                <ScheduleSendButton
+                  scheduled={scheduler.sendTs !== undefined}
+                  busy={scheduler.busy}
+                  onSend={submit}
+                  onSendNow={handleSendNow}
+                  onSchedule={() => setSchedulePicker(true)}
+                />
+              ) : (
+                <UploadsSendButton
+                  waiting={
+                    sendPending && uploads.summary.state === 'running'
+                      ? uploads.summary.progress
+                      : undefined
+                  }
+                  onSend={submit}
+                  onCancel={cancelSend}
+                />
+              )}
             </>
           }
           bottom={
