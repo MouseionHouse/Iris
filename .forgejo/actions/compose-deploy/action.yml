@@ -1,0 +1,43 @@
+# Copied from mouseion/common, actions/compose-deploy at da24f1a359c36b76c0635d1b5c0b1ef2bfe42ac8
+# (v1.0.0). Changed from there: `compose-file` has no default, and the descriptions name no host.
+# A change upstream reaches Iris only when it is copied here again.
+name: compose-deploy
+description: >-
+  Pull and restart services from a compose file on the host, then remove the
+  image each one replaced. Runs on a runner that can run docker and read the
+  compose file at its host path.
+inputs:
+  service:
+    description: One or more compose services, separated by spaces, commas or newlines.
+    required: true
+  compose-file:
+    description: The compose file on the host.
+    required: true
+  pull:
+    description: "'false' skips `compose pull` and only runs `up -d` (for an image built on the host)."
+    required: false
+    default: 'true'
+  replaced-tags:
+    description: >-
+      'untagged' (default) removes a replaced image only when it has no tag.
+      'same-repository' also removes one whose tags are all in the services' own
+      image repositories, for deploys that pin a new tag each time (`:<sha>`).
+    required: false
+    default: untagged
+  up-args:
+    description: Extra flags for `docker compose up -d`, separated by spaces, e.g. `--pull never`.
+    required: false
+    default: ''
+runs:
+  using: composite
+  steps:
+    - name: Deploy ${{ inputs.service }}
+      shell: bash
+      env:
+        INPUT_SERVICE: ${{ inputs.service }}
+        INPUT_COMPOSE_FILE: ${{ inputs.compose-file }}
+        INPUT_PULL: ${{ inputs.pull }}
+        INPUT_REPLACED_TAGS: ${{ inputs.replaced-tags }}
+        INPUT_UP_ARGS: ${{ inputs.up-args }}
+      # Inputs reach the script as env, never spliced into the command line.
+      run: ${{ github.action_path }}/deploy.sh

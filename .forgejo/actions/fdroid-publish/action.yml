@@ -1,0 +1,57 @@
+# Copied from mouseion/common, actions/fdroid-publish at 47adab754fecf1183f6068810961cfa2eeb345bc
+# (fdroid-publish-v1.0.1). Changed from there: `appdata` has no default, and the descriptions,
+# comments and log lines name no host. A change upstream reaches Iris only when it is copied here
+# again.
+name: fdroid-publish
+description: >-
+  Publish a signed APK into a self-hosted F-Droid repo: name it
+  <appId>_<versionCode>.apk, re-index, and optionally pin it as the version
+  clients recommend. Runs on a runner that mounts the repos at their host
+  paths and can run docker.
+inputs:
+  apk:
+    description: Path to the signed APK.
+    required: true
+  app-id:
+    description: The app's applicationId, e.g. house.mouseion.iris.
+    required: true
+  base-name:
+    description: The repo under APPDATA to publish into.
+    required: false
+    default: fdroid
+  mark-current:
+    description: "'true' pins this build as CurrentVersion / CurrentVersionCode, the one clients recommend."
+    required: false
+    default: 'false'
+  version-code:
+    description: The APK's versionCode. Required with mark-current.
+    required: false
+    default: ''
+  version-name:
+    description: The APK's versionName. Required with mark-current.
+    required: false
+    default: ''
+  appdata:
+    description: Where the repos live on the host.
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Publish to F-Droid (${{ inputs.base-name }})
+      shell: bash
+      env:
+        APPDATA: ${{ inputs.appdata }}
+        INPUT_APK: ${{ inputs.apk }}
+        INPUT_APP_ID: ${{ inputs.app-id }}
+        INPUT_BASE_NAME: ${{ inputs.base-name }}
+        INPUT_MARK_CURRENT: ${{ inputs.mark-current }}
+        INPUT_VERSION_CODE: ${{ inputs.version-code }}
+        INPUT_VERSION_NAME: ${{ inputs.version-name }}
+      # Inputs reach the script as env, never spliced into the command line.
+      run: |
+        set -euo pipefail
+        args=(--apk "$INPUT_APK" --app-id "$INPUT_APP_ID" --base-name "$INPUT_BASE_NAME")
+        if [[ "$INPUT_MARK_CURRENT" == "true" ]]; then
+          args+=(--mark-current --version-code "$INPUT_VERSION_CODE" --version-name "$INPUT_VERSION_NAME")
+        fi
+        "${{ github.action_path }}/publish.sh" "${args[@]}"
