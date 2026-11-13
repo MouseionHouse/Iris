@@ -1,12 +1,13 @@
-// The one place that names Iris. Nothing else in the shell hardcodes these.
+// The one place that names Iris. Nothing else in the shell hardcodes these. The URL and origin come
+// from the build (CMake's IRIS_URL).
 #pragma once
 
 #include <QLatin1StringView>
 
 namespace ShellConfig {
 
-inline constexpr QLatin1StringView url{"https://iris.example.org"};
-inline constexpr QLatin1StringView origin{"https://iris.example.org"};
+inline constexpr QLatin1StringView url{IRIS_SHELL_URL};
+inline constexpr QLatin1StringView origin{IRIS_SHELL_ORIGIN};
 inline constexpr QLatin1StringView appId{"house.mouseion.iris"};
 inline constexpr QLatin1StringView displayName{"Iris"};
 inline constexpr QLatin1StringView iconName{"house.mouseion.iris"};

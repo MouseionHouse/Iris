@@ -19,7 +19,8 @@ let
   pkgs = import (builtins.fetchTree locked) { };
 in
 {
-  package = pkgs.callPackage ./package.nix { };
+  # A neutral URL: the check builds and tests the shell, it does not ship it.
+  package = pkgs.callPackage ./package.nix { url = "https://iris.example.org"; };
 
   # One line for the job's log: what this check builds against.
   nixpkgs =

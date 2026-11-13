@@ -8,6 +8,16 @@ include(KDEInstallDirs)
 include(KDECMakeSettings)
 include(KDECompilerSettings NO_POLICY_SCOPE)
 
+# The Iris web app the shell opens and the one origin it trusts. Nothing in the code names one.
+set(IRIS_URL "" CACHE STRING "The Iris web app the shell opens, as https://host[:port] (required)")
+if(NOT IRIS_URL MATCHES "^https://[A-Za-z0-9.-]+(:[0-9]+)?/?$")
+    if(IRIS_URL STREQUAL "")
+        message(FATAL_ERROR "IRIS_URL is not set: pass the Iris web app the shell opens, for example -DIRIS_URL=https://iris.example.org (the Nix package's `url` argument)")
+    endif()
+    message(FATAL_ERROR "IRIS_URL is \"${IRIS_URL}\": it must be https://host or https://host:port, with no path")
+endif()
+string(REGEX REPLACE "/$" "" IRIS_ORIGIN "${IRIS_URL}")
+
 option(IRIS_SHELL_TEST_HOOKS "Let environment variables point the shell at a test server (never for release builds)" OFF)
 
 find_package(Qt6 REQUIRED COMPONENTS Core DBus Gui Network Qml Quick QuickControls2 WebChannel Widgets WebEngineQuick Test)
@@ -29,7 +39,7 @@ qt_add_library(irisshell STATIC
     src/windowstate.cpp
 )
 target_include_directories(irisshell PUBLIC src)
-target_compile_definitions(irisshell PUBLIC IRIS_SHELL_VERSION="${PROJECT_VERSION}")
+target_compile_definitions(irisshell PUBLIC IRIS_SHELL_VERSION="${PROJECT_VERSION}" IRIS_SHELL_URL="${IRIS_URL}" IRIS_SHELL_ORIGIN="${IRIS_ORIGIN}")
 target_link_libraries(irisshell PUBLIC Qt6::Core Qt6::DBus Qt6::Gui Qt6::Network Qt6::WebChannel Qt6::Widgets KF6::ConfigCore KF6::ConfigGui KF6::GlobalAccel KF6::Notifications KF6::StatusNotifierItem)
 set_source_files_properties(../branding/iris-mark-on-dark.svg PROPERTIES QT_RESOURCE_ALIAS icon.svg)
 set_source_files_properties(src/bridge-adapter.js PROPERTIES QT_RESOURCE_ALIAS bridge-adapter.js)
