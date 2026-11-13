@@ -49,7 +49,7 @@ export function About({ requestClose }: AboutProps) {
                       <Text className="iris-name" size="H3">
                         Iris
                       </Text>
-                      <Text size="T200">built on Cinny v4.12.6</Text>
+                      <Text size="T200">built on Cinny v4.12.8</Text>
                     </Box>
                     <Text>A Matrix client</Text>
                   </Box>

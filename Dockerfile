@@ -36,7 +36,7 @@ COPY --from=android-sync /src/node_modules/@capacitor /node_modules/@capacitor
 
 
 ## App
-FROM nginx:1.31.5-alpine
+FROM nginx:1.31.8-alpine
 
 COPY --from=builder /src/dist /app
 COPY --from=builder /src/nginx.conf /etc/nginx/conf.d/default.conf

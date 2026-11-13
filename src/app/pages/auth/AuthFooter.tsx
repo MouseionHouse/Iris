@@ -10,7 +10,7 @@ export function AuthFooter() {
         Source code
       </Text>
       <Text as="a" size="T300" href="https://cinny.in" target="_blank" rel="noreferrer">
-        Built on Cinny v4.12.6
+        Built on Cinny v4.12.8
       </Text>
       <Text as="a" size="T300" href="https://matrix.org" target="_blank" rel="noreferrer">
         Powered by Matrix

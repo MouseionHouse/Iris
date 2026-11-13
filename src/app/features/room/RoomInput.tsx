@@ -106,7 +106,7 @@ import { DelayedEvent } from '../../utils/delayedEvents';
 import { roomIdToScheduledListOpenAtomFamily } from '../../state/scheduledMessages';
 import { ReplaceDraftDialog } from './schedule-send/ReplaceDraftDialog';
 
-interface RoomInputProps {
+export interface RoomInputProps {
   editor: Editor;
   fileDropContainerRef: RefObject<HTMLElement>;
   roomId: string;

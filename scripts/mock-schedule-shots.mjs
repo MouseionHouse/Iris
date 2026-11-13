@@ -199,6 +199,41 @@ for (const theme of ['light', 'dark']) {
   await page.context().close();
 }
 
+// power levels (mouseion/iris#94): an encrypted room's composer needs m.room.encrypted, a plain
+// room's m.room.message; without it there is no composer, so nothing to send or schedule with
+for (const [query, allowed] of [
+  ['no-encrypted', false],
+  ['no-encrypted&plain', true],
+  ['no-message', true],
+  ['no-message&plain', false],
+]) {
+  const page = await open(`light&${query}`);
+  const composer = {
+    editor: await page.locator('[data-slate-editor]').count(),
+    send: await page.locator('[data-action="send"]').count(),
+    schedule: await page.locator('[data-action="send-options"]').count(),
+    chip: await page.locator('[data-action="scheduled-chip"]').count(),
+    note: await page.locator('[data-composer="no-permission"]').count(),
+  };
+  const requests = await page.evaluate(() => window.__schedule.requests);
+  check(
+    `${query}: ${
+      allowed ? 'composer with send and schedule' : 'no composer, no send, no schedule'
+    }`,
+    allowed
+      ? composer.editor === 1 && composer.send === 1 && composer.schedule === 1 && !composer.note
+      : !composer.editor &&
+          !composer.send &&
+          !composer.schedule &&
+          !composer.chip &&
+          composer.note === 1 &&
+          Object.keys(requests).length === 0,
+    { ...composer, requests }
+  );
+  if (!allowed) await shot(page, `desktop-light-${query.replace('&', '-')}`);
+  await page.context().close();
+}
+
 await browser.close();
 const failed = checks.filter((c) => !c.ok).length;
 console.log(`${checks.length - failed}/${checks.length} checks passed`);

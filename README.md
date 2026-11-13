@@ -1,6 +1,6 @@
 <h1><img src="branding/iris-mark-on-light.svg" alt="" width="44" height="44" align="top"> Iris</h1>
 
-Iris is a [Matrix](https://matrix.org) client, forked from [Cinny](https://cinny.in) 4.12.6. It follows Cinny, and adds what one household, Mouseion, wanted from its chat. It runs in the browser, as an Android app and as a KDE Plasma desktop app.
+Iris is a [Matrix](https://matrix.org) client, forked from [Cinny](https://cinny.in) 4.12.8. It follows Cinny, and adds what one household, Mouseion, wanted from its chat. It runs in the browser, as an Android app and as a KDE Plasma desktop app.
 
 - **Issues:** [github.com/MouseionHouse/Iris/issues](https://github.com/MouseionHouse/Iris/issues)
 - **Pull requests:** [github.com/MouseionHouse/Iris/pulls](https://github.com/MouseionHouse/Iris/pulls), see [`CONTRIBUTING.md`](CONTRIBUTING.md)
@@ -94,7 +94,7 @@ The mark stands alone. With the name, it sits beside it, never above. The deep r
 
 ## Following Cinny
 
-Upstream is [cinnyapp/cinny](https://github.com/cinnyapp/cinny). Iris is based on Cinny 4.12.6, and follows its releases. A bug that is Cinny's belongs [upstream](https://github.com/cinnyapp/cinny/issues).
+Upstream is [cinnyapp/cinny](https://github.com/cinnyapp/cinny). Iris is based on Cinny 4.12.8, and follows its releases. A bug that is Cinny's belongs [upstream](https://github.com/cinnyapp/cinny/issues).
 
 ## License
 

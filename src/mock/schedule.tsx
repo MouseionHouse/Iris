@@ -1,11 +1,13 @@
 // Scheduled messages (mouseion/iris#87), for checking without a homeserver: the real composer
-// (RoomInput, with its split send button, picker, time bar and list of scheduled messages) over an
+// (RoomComposer and RoomInput, with its split send button, picker, time bar and list of scheduled messages) over an
 // in-memory delayed-events store that behaves as Synapse 1.165 does, with a 7-day limit.
 //
 // Open /mock-schedule.html on the vite dev server. ?phone draws the phone layout, ?dark and ?light
 // override the system setting, ?plain makes the room unencrypted, ?unsupported is a server
 // without MSC4140 (and seeds nothing), ?empty seeds nothing, ?limit=1 sets the server's limit to an
-// hour (default 7 days). window.__schedule is the store:
+// hour (default 7 days). ?no-encrypted makes m.room.encrypted need power 50, ?no-message the same
+// for m.room.message; Hector has 0, so the first leaves him no composer in the encrypted room
+// (mouseion/iris#94). window.__schedule is the store:
 // its `requests` counts every call. Not part of the app build.
 import React, { useMemo, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -35,7 +37,7 @@ import { IrisDarkTheme, IrisLightTheme, ThemeContextProvider } from '../app/hook
 import { DraftStoreProvider } from '../app/hooks/useDraftSync';
 import { createMemoryDraftHub, createMemoryDraftStore } from '../app/state/room/draftSync';
 import { useEditor } from '../app/components/editor';
-import { RoomInput } from '../app/features/room/RoomInput';
+import { RoomComposer } from '../app/features/room/RoomComposer';
 import {
   ScheduledMessagesStore,
   ScheduledMessagesStoreProvider,
@@ -49,6 +51,14 @@ const supported = !params.has('unsupported');
 // ?limit=1 sets the server's limit in hours
 const MAX_DELAY_MS = Number(params.get('limit') ?? 7 * 24) * 60 * 60 * 1000;
 const MY_ID = '@hector:example.org';
+const powerLevels = {
+  users: {},
+  users_default: 0,
+  events: {
+    ...(params.has('no-encrypted') ? { 'm.room.encrypted': 50 } : {}),
+    ...(params.has('no-message') ? { 'm.room.message': 50 } : {}),
+  },
+};
 const ROOM_ID = '!lounge:example.org';
 
 // ---- the in-memory store: Synapse 1.165's answers, a little later
@@ -279,7 +289,7 @@ function Composer() {
         </Text>
       </Box>
       <div style={{ padding: `0 ${config.space.S400} ${config.space.S400}` }}>
-        <RoomInput editor={editor} fileDropContainerRef={dropRef} roomId={ROOM_ID} room={room} />
+        <RoomComposer editor={editor} fileDropContainerRef={dropRef} roomId={ROOM_ID} room={room} />
       </div>
     </div>
   );
@@ -305,7 +315,7 @@ function App() {
               }}
             >
               <MediaConfigProvider value={{ 'm.upload.size': 100 * 1024 * 1024 }}>
-                <PowerLevelsContextProvider value={{ users: {}, events: {} } as never}>
+                <PowerLevelsContextProvider value={powerLevels as never}>
                   <ThemeContextProvider value={dark ? IrisDarkTheme : IrisLightTheme}>
                     <DraftStoreProvider value={draftStore}>
                       <ScheduledMessagesStoreProvider value={schedule}>
