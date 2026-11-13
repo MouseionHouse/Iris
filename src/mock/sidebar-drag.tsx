@@ -74,7 +74,7 @@ const START: SidebarRoom[] = [
   room('Dad', true, [FAMILY]),
   room('Kitchen', false, [FAMILY]),
   room('Mum', true),
-  room('Sam', true),
+  room('Nestor', true),
   room('Jo', true),
   room('Ana', true),
   ...['Bikes', 'Books', 'Cooking', 'Games', 'Music', 'Photos', 'Recipes', 'Travel'].map((n) =>

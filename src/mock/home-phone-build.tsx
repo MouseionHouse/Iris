@@ -135,8 +135,8 @@ const CONVS: Conv[] = [
     preview: { text: 'Photo' },
   },
   {
-    id: '!sam:example.org',
-    name: 'Sam',
+    id: '!nestor:example.org',
+    name: 'Nestor',
     direct: true,
     section: 'chats',
     typing: true,
@@ -321,7 +321,7 @@ const initialFilter = (): ListFilter => {
   return asked === 'unreads' || asked === 'mentions' ? asked : 'all';
 };
 
-const ME = { userId: '@hector:example.org', name: 'John Gibson' };
+const ME = { userId: '@hector:example.org', name: 'Hector' };
 // one invite waiting, and one other device not verified yet
 const INVITES = 1;
 const UNVERIFIED = { current: false, others: 1 };

@@ -216,7 +216,7 @@ const room = {
   name: 'Lounge',
   client: undefined as unknown,
   hasEncryptionStateEvent: () => encrypted,
-  getMember: (userId: string) => ({ userId, rawDisplayName: 'John', name: 'John' }),
+  getMember: (userId: string) => ({ userId, rawDisplayName: 'Hector', name: 'Hector' }),
   getJoinedMembers: () => [],
   getMembers: () => [],
   getLiveTimeline: () => ({

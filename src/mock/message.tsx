@@ -29,7 +29,7 @@ import { handleBackButton } from '../app/native/backButton';
 
 const MY_ID = '@hector:example.org';
 const NAMES: Record<string, string> = {
-  [MY_ID]: 'John',
+  [MY_ID]: 'Hector',
   '@andromache:example.org': 'Andromache',
 };
 
@@ -143,7 +143,7 @@ function MockTimeline() {
                   <>
                     {' '}
                     <a href="#link" onClick={() => setLog('link')}>
-                      mouseion.house/list
+                      the market list
                     </a>
                   </>
                 )}

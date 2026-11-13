@@ -129,8 +129,8 @@ const CONVS: Conv[] = [
     preview: 'Who took the good knife',
   },
   {
-    id: '!sam:example.org',
-    name: 'Sam',
+    id: '!nestor:example.org',
+    name: 'Nestor',
     direct: true,
     section: 'chats',
     time: 'Tue',
@@ -633,7 +633,7 @@ function VariantNow() {
                       <AvatarFallback
                         style={{ backgroundColor: colorMXID(ME), color: color.Surface.Container }}
                       >
-                        <Text size="H4">J</Text>
+                        <Text size="H4">H</Text>
                       </AvatarFallback>
                     </SidebarAvatar>
                   </SidebarItem>
