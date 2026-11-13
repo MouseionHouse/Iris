@@ -1,5 +1,5 @@
-# The Iris desktop shell, callPackage-style, no flake (mouseion/iris#65). household/nix-config
-# builds it against its own nixpkgs; see ../README.md, "Nix".
+# The Iris desktop shell, callPackage-style, no flake. A NixOS configuration builds it against its
+# own nixpkgs; see ../README.md, "Nix package".
 #
 #   callPackage <iris>/desktop/nix/package.nix { url = "https://iris.example.org"; }
 #
