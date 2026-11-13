@@ -318,7 +318,7 @@ function Me({ size }: { size: number }) {
         fontWeight: 600,
       }}
     >
-      J
+      H
     </span>
   );
 }

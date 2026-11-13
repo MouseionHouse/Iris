@@ -57,7 +57,7 @@ export const isNativePushAvailable = (): boolean => Capacitor.isNativePlatform()
 
 /**
  * The Matrix push gateway for a UnifiedPush endpoint: ntfy serves one at its own origin and only
- * accepts pushkeys on that origin, so the gateway follows the endpoint (WORKTRACK 2026-09-16).
+ * accepts pushkeys on that origin, so the gateway follows the endpoint (2026-09-16).
  */
 export const pushGatewayAt = (endpoint: string): string | undefined => {
   try {
