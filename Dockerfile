@@ -8,7 +8,13 @@ COPY .npmrc package.json package-lock.json /src/
 RUN --mount=type=cache,target=/root/.npm npm ci
 COPY . /src/
 ENV NODE_OPTIONS=--max_old_space_size=4096
-RUN npm run build
+# The hub that may frame the client (src/app/hub/hubBridge.ts): a space-separated list of origins
+# and one optional regular expression for its pull-request previews. Both empty: no hub, and the
+# client may be framed by itself only. The web build and the nginx config get the same two.
+ARG HUB_ORIGINS=""
+ARG HUB_PREVIEW_PATTERN=""
+RUN VITE_HUB_ORIGINS="$HUB_ORIGINS" VITE_HUB_PREVIEW_PATTERN="$HUB_PREVIEW_PATTERN" npm run build \
+  && node scripts/nginx-conf.js docker-nginx.conf nginx.conf
 
 
 ## Android: everything the Android project takes from Node, made from the same build and the same
@@ -33,7 +39,7 @@ COPY --from=android-sync /src/node_modules/@capacitor /node_modules/@capacitor
 FROM nginx:1.31.5-alpine
 
 COPY --from=builder /src/dist /app
-COPY --from=builder /src/docker-nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=builder /src/nginx.conf /etc/nginx/conf.d/default.conf
 
 RUN rm -rf /usr/share/nginx/html \
   && ln -s /app /usr/share/nginx/html

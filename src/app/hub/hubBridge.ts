@@ -1,25 +1,45 @@
 /**
- * The household hub (hub.example.org) embeds this client in an `<iframe>`
- * and talks to it over a versioned `postMessage` protocol.
+ * A hub (a page that frames other apps, such as the household's) embeds this
+ * client in an `<iframe>` and talks to it over a versioned `postMessage`
+ * protocol.
  *
  * This module is the pure, React-free half of that protocol: origin handling,
  * framing checks and message shaping/parsing. The React wiring (boot,
  * navigation, unread, logout, theme, visibility) lives in `useHubBridge`.
  *
  * The bridge is a complete no-op when the client is not framed (no parent
- * browsing context), so it is safe to run in every deployment.
+ * browsing context) or when the build names no hub, so it is safe to run in
+ * every deployment.
  */
 
 export const HUB_PROTOCOL_VERSION = 1;
 
-/** Origin the hub lives at. Overridable via the `VITE_HUB_ORIGIN` env var. */
-export const DEFAULT_HUB_ORIGIN = 'https://hub.example.org';
-
 /**
- * The hub and its pull-request previews (hub-pr-<n>.example.org). The same
- * set `docker-nginx.conf` lets frame this client; keep the two in step.
+ * Which origins may be the hub, set at build time: `VITE_HUB_ORIGINS`, a
+ * space-separated list of origins, and `VITE_HUB_PREVIEW_PATTERN`, one
+ * optional regular expression for the hub's pull-request previews (matched
+ * against the whole origin). The Dockerfile sets both from its `HUB_ORIGINS`
+ * and `HUB_PREVIEW_PATTERN` build args, and renders the same two into
+ * `docker-nginx.conf`'s `frame-ancestors`, so the two stay in step. Neither
+ * set: no hub, and the bridge stays off.
  */
-const HUB_ORIGIN_PATTERN = /^https:\/\/hub(-pr-\d+)?\.example\.org$/;
+export type HubConfig = { origins: string[]; preview?: RegExp };
+
+export const parseHubConfig = (origins?: string, previewPattern?: string): HubConfig => {
+  const pattern = previewPattern?.trim();
+  return {
+    origins: (origins ?? '').split(/\s+/).filter((origin) => origin.length > 0),
+    preview: pattern ? new RegExp(`^(?:${pattern})$`) : undefined,
+  };
+};
+
+export const isHubOrigin = (config: HubConfig, origin: string): boolean =>
+  config.origins.includes(origin) || (config.preview?.test(origin) ?? false);
+
+const hubConfig = parseHubConfig(
+  import.meta.env?.VITE_HUB_ORIGINS as string | undefined,
+  import.meta.env?.VITE_HUB_PREVIEW_PATTERN as string | undefined
+);
 
 /**
  * The framing page's origin as the browser reports it: `ancestorOrigins`
@@ -37,12 +57,20 @@ const parentOrigin = (): string | undefined => {
   }
 };
 
-export const getHubOrigin = (): string => {
-  const configured = (import.meta.env.VITE_HUB_ORIGIN as string | undefined)?.trim();
-  if (configured && configured.length > 0) return configured;
-  const parent = parentOrigin();
-  return parent && HUB_ORIGIN_PATTERN.test(parent) ? parent : DEFAULT_HUB_ORIGIN;
+/**
+ * The hub this client talks to: the framing page when it is one of the hub's
+ * origins, else the first listed origin (the browser then drops what is posted
+ * to a parent that is not it). `undefined` when the build names no hub.
+ */
+export const resolveHubOrigin = (
+  config: HubConfig,
+  parent: string | undefined
+): string | undefined => {
+  if (parent && isHubOrigin(config, parent)) return parent;
+  return config.origins[0];
 };
+
+export const getHubOrigin = (): string | undefined => resolveHubOrigin(hubConfig, parentOrigin());
 
 /**
  * Whether this client is running inside an iframe with a parent browsing
@@ -101,13 +129,16 @@ export type HubToChatMessage =
   | HubSignOutMessage;
 
 /**
- * Post a message to the framing hub. A no-op when the client is not framed, so
- * callers do not need to gate on `isFramed()` themselves.
+ * Post a message to the framing hub. A no-op when the client is not framed or
+ * the build names no hub, so callers do not need to gate on `isFramed()`
+ * themselves.
  */
 export const postToHub = (message: ChatToHubMessage): void => {
   if (!isFramed()) return;
+  const hubOrigin = getHubOrigin();
+  if (!hubOrigin) return;
   try {
-    window.parent.postMessage(message, getHubOrigin());
+    window.parent.postMessage(message, hubOrigin);
   } catch {
     // The parent context is gone (e.g. the top frame navigated away). Nothing to do.
   }
