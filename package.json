@@ -1,7 +1,7 @@
 {
-  "name": "cinny",
+  "name": "iris",
   "version": "4.12.6",
-  "description": "Yet another matrix client",
+  "description": "A Matrix client, forked from Cinny",
   "main": "index.js",
   "type": "module",
   "engines": {
@@ -34,7 +34,12 @@
     }
   },
   "keywords": [],
-  "author": "Ajay Bura",
+  "author": "John Gibson <dev@jgibson.org>",
+  "contributors": [
+    "Ajay Bura (Cinny)"
+  ],
+  "homepage": "https://github.com/MouseionHouse/Iris",
+  "repository": "https://github.com/MouseionHouse/Iris",
   "license": "AGPL-3.0-only",
   "dependencies": {
     "@atlaskit/pragmatic-drag-and-drop": "1.1.6",
