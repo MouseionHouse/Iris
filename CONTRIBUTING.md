@@ -39,6 +39,6 @@ AGPL-3.0-only.
 
 ## Be patient
 
-The maintainers work on Iris in their spare time. A reply may take days or weeks.
+John Gibson keeps Iris in his spare time. A reply may take days or weeks.
 
 Everyone who takes part follows the [code of conduct](CODE_OF_CONDUCT.md).
