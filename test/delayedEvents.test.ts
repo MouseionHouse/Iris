@@ -11,6 +11,7 @@ import {
   scheduleMessage,
   scheduleTimeProblem,
 } from '../src/app/utils/delayedEvents.ts';
+import { schedulePresets, sendDay } from '../src/app/features/room/schedule-send/scheduleTime.ts';
 
 const ROOM = '!lounge:example.org';
 
@@ -254,5 +255,37 @@ describe('scheduling in an encrypted room', () => {
     await scheduleMessage(mx, room(true), content, 1000);
     assert.deepEqual(sent, [{ type: 'm.room.encrypted', content: ciphertext }]);
     assert.ok(!JSON.stringify(sent).includes('4321'));
+  });
+});
+
+describe("the picker's presets", () => {
+  // Friday 13 November 2026, 15:20:30 local time
+  const friday = new Date(2026, 10, 13, 15, 20, 30).getTime();
+  const at = (ts: number) => {
+    const d = new Date(ts);
+    return [d.getDate(), d.getHours(), d.getMinutes()];
+  };
+
+  it('in an hour, to the next whole minute', () => {
+    assert.deepEqual(at(schedulePresets(friday)[0].sendTs), [13, 16, 21]);
+  });
+
+  it('tomorrow at 8:00 and 13:00, and Monday at 8:00', () => {
+    const [, morning, afternoon, monday] = schedulePresets(friday);
+    assert.deepEqual(at(morning.sendTs), [14, 8, 0]);
+    assert.deepEqual(at(afternoon.sendTs), [14, 13, 0]);
+    assert.deepEqual(at(monday.sendTs), [16, 8, 0]);
+  });
+
+  it('on a Monday, Monday morning is next week', () => {
+    const monday = new Date(2026, 10, 16, 9, 0).getTime();
+    assert.deepEqual(at(schedulePresets(monday)[3].sendTs), [23, 8, 0]);
+  });
+
+  it('names the day: today, tomorrow, this week, later', () => {
+    assert.equal(sendDay(friday + 60000, friday), 'today');
+    assert.equal(sendDay(new Date(2026, 10, 14, 1).getTime(), friday), 'tomorrow');
+    assert.equal(sendDay(new Date(2026, 10, 19, 1).getTime(), friday), 'thisWeek');
+    assert.equal(sendDay(new Date(2026, 10, 20, 1).getTime(), friday), 'later');
   });
 });
