@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Iris mark, round 3: the three flowers John and Andromache like, set on a background shape.
+"""Iris mark, round 3: the three flowers the household likes, set on a background shape.
 
 The Sketch (S1, bare with shaded falls), From above (S4, shaded the same way) and In profile (S5 with
 the compact near petal, R2), each inside a circle, a rounded square, an arch and a hexagon. Every

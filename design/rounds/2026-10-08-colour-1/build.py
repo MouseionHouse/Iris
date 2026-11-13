@@ -3,7 +3,7 @@
 
 The same five sketches from mark round 1, drawn in three palettes: the house's nine as they are,
 nine taken from natural dyes, and nine at full saturation. Each palette has a Night and a Chalk
-set, and every colour is checked against its ground (the Chalk sets are lighter than the house's 3:1 floor, at John's ask).
+set, and every colour is checked against its ground (the Chalk sets are lighter than the house's 3:1 floor, at the household's ask).
 Run: python3 build.py, then ../../capture.sh index.html
 """
 import importlib.util

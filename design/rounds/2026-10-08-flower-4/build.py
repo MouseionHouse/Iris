@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Iris mark, round 4: the Sketch, standing alone.
 
-John and Andromache like the Sketch (S1, bare with shaded falls) best, and want the mark to stand alone:
+The household likes the Sketch (S1, bare with shaded falls) best, and wants the mark to stand alone:
 a background shape is only for places that need one, such as a phone's app icon. This board shows
 it alone at every size and beside the name, then as an app icon. It opens in Amethyst's purples
 with the teal greens of Iris and sea (P11).
@@ -63,7 +63,7 @@ def main():
             (kept / f"iris-{slug}-on-{g}.svg").write_text(
                 f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">\n{draw({k: v[i] for k, v in p11.items()})}\n</svg>\n')
     (kept / "README.md").write_text(
-        "# Kept\n\nThe three flowers John and Andromache liked on 2026-10-08, kept in case of a change of mind. The Sketch is the one going forward.\n\n"
+        "# Kept\n\nThe three flowers the household liked on 2026-10-08, kept in case of a change of mind. The Sketch is the one going forward.\n\n"
         + "".join(f"- `iris-{slug}-on-dark.svg`, `iris-{slug}-on-light.svg`: {what}\n" for slug, what, _ in KEPT)
         + "\nAll are in P11, Amethyst and sea. Each is drawn by `rounds/2026-10-08-flower-1/build.py`, which can redraw it in any colourway.\n")
 
