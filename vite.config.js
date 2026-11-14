@@ -75,22 +75,8 @@ function serverMatrixSdkCryptoWasm(wasmFilePath) {
   };
 }
 
-export default defineConfig(({ command }) => ({
+export default defineConfig({
   appType: 'spa',
-  resolve: {
-    alias:
-      command === 'build'
-        ? [
-            // react-router 7's package exports point only at its development build, which logs
-            // dev warnings and carries dev-only checks; production builds take its own production
-            // build instead. The dev server keeps the warnings.
-            {
-              find: /^react-router$/,
-              replacement: path.resolve('node_modules/react-router/dist/production/index.mjs'),
-            },
-          ]
-        : [],
-  },
   publicDir: false,
   // The Android wrapper serves the bundle from the root of https://localhost/ as well, so the
   // same base holds there.
@@ -152,4 +138,4 @@ export default defineConfig(({ command }) => ({
       plugins: [inject({ Buffer: ['buffer', 'Buffer'] })],
     },
   },
-}));
+});

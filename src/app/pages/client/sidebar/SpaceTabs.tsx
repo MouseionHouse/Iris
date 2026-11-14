@@ -81,7 +81,7 @@ import { usePowerLevels } from '../../../hooks/usePowerLevels';
 import { useRoomsUnread } from '../../../state/hooks/unread';
 import { roomToUnreadAtom } from '../../../state/room/roomToUnread';
 import { markAsRead } from '../../../utils/notifications';
-import { copyToClipboard } from '../../../utils/dom';
+import { copyToClipboard, tryDecodeURIComponent } from '../../../utils/dom';
 import { stopPropagation } from '../../../utils/keyboard';
 import { getMatrixToRoom } from '../../../plugins/matrix-to';
 import { getViaServers } from '../../../plugins/via-servers';
@@ -770,7 +770,12 @@ export function SpaceTabs({ scrollRef }: SpaceTabsProps) {
     }
 
     const activePath = navToActivePath.get(targetSpaceId);
-    if (activePath && activePath.pathname.startsWith(spacePath)) {
+    // Compared decoded: a stored path may spell the space's ID `%3A` where a fresh one has `:`
+    // (react-router 8 leaves `:` and `@` unescaped in path params; earlier versions did not).
+    if (
+      activePath &&
+      tryDecodeURIComponent(activePath.pathname).startsWith(tryDecodeURIComponent(spacePath))
+    ) {
       navigate(joinPathComponent(activePath));
       return;
     }
