@@ -38,7 +38,7 @@ function useShareTargetsSync() {
   const directs = useDirects(mx, allRoomsAtom, mDirects);
   const useAuthentication = useMediaAuthentication();
   const [backgroundedAt, setBackgroundedAt] = useState(0);
-  const lastPushed = useRef<string>();
+  const lastPushed = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     const handleVisibility = () => {

@@ -108,7 +108,7 @@ import { ReplaceDraftDialog } from './schedule-send/ReplaceDraftDialog';
 
 export interface RoomInputProps {
   editor: Editor;
-  fileDropContainerRef: RefObject<HTMLElement>;
+  fileDropContainerRef: RefObject<HTMLElement | null>;
   roomId: string;
   room: Room;
 }

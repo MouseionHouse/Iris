@@ -39,8 +39,8 @@ export function BottomSheet({
   'aria-label': ariaLabel,
 }: BottomSheetProps) {
   const sheetRef = useRef<HTMLDivElement>(null);
-  const dragRef = useRef<{ y: number; time: number }>();
-  const closeTimerRef = useRef<number>();
+  const dragRef = useRef<{ y: number; time: number } | undefined>(undefined);
+  const closeTimerRef = useRef<number | undefined>(undefined);
   const [closing, setClosing] = useState(false);
 
   useEffect(() => {

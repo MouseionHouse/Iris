@@ -148,7 +148,7 @@ export const renderMatrixMention = (
 };
 
 export const factoryRenderLinkifyWithMention = (
-  mentionRender: (href: string) => JSX.Element | undefined
+  mentionRender: (href: string) => React.JSX.Element | undefined
 ): OptFn<(ir: IntermediateRepresentation) => any> => {
   const render: OptFn<(ir: IntermediateRepresentation) => any> = ({
     tagName,
@@ -165,7 +165,7 @@ export const factoryRenderLinkifyWithMention = (
   return render;
 };
 
-export const scaleSystemEmoji = (text: string): (string | JSX.Element)[] =>
+export const scaleSystemEmoji = (text: string): (string | React.JSX.Element)[] =>
   findAndReplace(
     text,
     EMOJI_REG_G,
@@ -187,8 +187,8 @@ export const makeHighlightRegex = (highlights: string[]): RegExp | undefined => 
 
 export const highlightText = (
   regex: RegExp,
-  data: (string | JSX.Element)[]
-): (string | JSX.Element)[] =>
+  data: (string | React.JSX.Element)[]
+): (string | React.JSX.Element)[] =>
   data.flatMap((text) => {
     if (typeof text !== 'string') return text;
 

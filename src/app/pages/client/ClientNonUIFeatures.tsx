@@ -158,7 +158,7 @@ function InviteNotifications() {
 
 function MessageNotifications() {
   const audioRef = useRef<HTMLAudioElement>(null);
-  const notifRef = useRef<Notification>();
+  const notifRef = useRef<Notification | undefined>(undefined);
   const mDirects = useAtomValue(mDirectAtom);
   const unreadCacheRef = useRef<Map<string, UnreadInfo>>(new Map());
   const mx = useMatrixClient();

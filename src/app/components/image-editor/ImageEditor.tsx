@@ -203,9 +203,9 @@ export const ImageEditor = as<'div', ImageEditorProps>(
 
     const stageRef = useRef<HTMLDivElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
-    const dragRef = useRef<Drag>();
-    const pendingRef = useRef<{ pointerId: number; stroke: Stroke }>();
-    const frameRequest = useRef<number>();
+    const dragRef = useRef<Drag | undefined>(undefined);
+    const pendingRef = useRef<{ pointerId: number; stroke: Stroke } | undefined>(undefined);
+    const frameRequest = useRef<number | undefined>(undefined);
 
     useEffect(() => {
       let disposed = false;

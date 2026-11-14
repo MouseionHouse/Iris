@@ -98,7 +98,7 @@ export const useDraftSync = (roomId: string, editor: Editor) => {
   const replyAtom = roomIdToReplyDraftAtomFamily(roomId);
   const syncAtom = roomIdToDraftSyncAtomFamily(roomId);
   const replyDraft = useAtomValue(replyAtom);
-  const timerRef = useRef<number>();
+  const timerRef = useRef<number | undefined>(undefined);
 
   const currentKey = useCallback(
     () => draftKey(editor.children, jotai.get(replyAtom)),

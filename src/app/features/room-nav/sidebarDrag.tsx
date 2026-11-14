@@ -53,7 +53,7 @@ const readTarget = (data: Record<string | symbol, unknown>): Target => ({
 });
 
 type SidebarDragOptions = {
-  scrollRef: RefObject<HTMLElement>;
+  scrollRef: RefObject<HTMLElement | null>;
   enabled: boolean;
   sections: SidebarSection[];
   save: (sections: SidebarSection[]) => unknown;
