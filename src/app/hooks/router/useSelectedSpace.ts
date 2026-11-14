@@ -1,4 +1,4 @@
-import { useMatch, useParams } from 'react-router-dom';
+import { useMatch, useParams } from 'react-router';
 import { getCanonicalAliasRoomId, isRoomAlias } from '../../utils/matrix';
 import { useMatrixClient } from '../useMatrixClient';
 import { getSpaceLobbyPath, getSpaceSearchPath } from '../../pages/pathUtils';

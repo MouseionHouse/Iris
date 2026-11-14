@@ -1,5 +1,5 @@
 import React, { ReactNode } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams } from 'react-router';
 import { useAtom, useAtomValue } from 'jotai';
 import { useSelectedRoom } from '../../../hooks/router/useSelectedRoom';
 import { IsDirectRoomProvider, RoomProvider } from '../../../hooks/useRoom';

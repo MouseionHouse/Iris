@@ -18,7 +18,7 @@ import {
   config,
 } from 'folds';
 import FocusTrap from 'focus-trap-react';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { MatrixError } from 'matrix-js-sdk';
 import { getMxIdLocalPart, getMxIdServer, isUserId } from '../../../utils/matrix';
 import { EMAIL_REGEX } from '../../../utils/regex';

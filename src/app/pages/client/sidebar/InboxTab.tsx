@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { Icon, Icons } from 'folds';
 import { useAtomValue } from 'jotai';
 import {

@@ -1,4 +1,4 @@
-import { useMatch } from 'react-router-dom';
+import { useMatch } from 'react-router';
 import { getDirectCreatePath, getDirectPath } from '../../pages/pathUtils';
 
 export const useDirectSelected = (): boolean => {

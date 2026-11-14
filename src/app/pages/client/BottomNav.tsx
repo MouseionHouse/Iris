@@ -1,5 +1,5 @@
 import React from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router';
 import { useAtomValue } from 'jotai';
 import { Icons, Text } from 'folds';
 import { BottomNavAvatar, BottomNavBar, BottomNavItem, scrollTabToTop } from './BottomNavBar';

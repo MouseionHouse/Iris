@@ -1,7 +1,7 @@
 import { useAtomValue } from 'jotai';
 import { SyncState } from 'matrix-js-sdk';
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { useMatrixClient } from '../hooks/useMatrixClient';
 import { useRoomNavigate } from '../hooks/useRoomNavigate';
 import { useSyncState } from '../hooks/useSyncState';

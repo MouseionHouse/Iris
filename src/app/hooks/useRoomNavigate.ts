@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { NavigateOptions, useNavigate } from 'react-router-dom';
+import { NavigateOptions, useNavigate } from 'react-router';
 import { useAtomValue } from 'jotai';
 import { getCanonicalAliasOrRoomId } from '../utils/matrix';
 import {

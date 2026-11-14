@@ -6,7 +6,7 @@ import {
   createHashRouter,
   createRoutesFromElements,
   redirect,
-} from 'react-router-dom';
+} from 'react-router';
 
 import { ClientConfig } from '../hooks/useClientConfig';
 import { AuthLayout, Login, Register, ResetPassword } from './auth';
@@ -84,14 +84,20 @@ import { getFallbackSession } from '../state/sessions';
 import { CallStatusRenderer } from './CallStatusRenderer';
 import { CallEmbedProvider } from '../components/CallEmbedProvider';
 
+// Nothing renders while the first loaders run (they only redirect), as before react-router 7.
+function NoHydrateFallback() {
+  return null;
+}
+
 export const createRouter = (clientConfig: ClientConfig, screenSize: ScreenSize) => {
   const { hashRouter } = clientConfig;
   const mobile = screenSize === ScreenSize.Mobile;
 
   const routes = createRoutesFromElements(
-    <Route>
+    <Route HydrateFallback={NoHydrateFallback}>
       <Route
         index
+        element={null}
         loader={() => {
           if (getFallbackSession()) return redirect(getHomePath());
           const afterLoginPath = getAppPathFromHref(getOriginBaseUrl(), window.location.href);
@@ -333,6 +339,7 @@ export const createRouter = (clientConfig: ClientConfig, screenSize: ScreenSize)
         ) : (
           <Route
             path={`${SEARCH_PATH}*`}
+            element={null}
             loader={({ request }) => {
               // A fold opened on message search keeps the search: Home has the same page.
               const { pathname, search } = new URL(request.url);
@@ -362,7 +369,7 @@ export const createRouter = (clientConfig: ClientConfig, screenSize: ScreenSize)
             <Route path={_YOU_PAGE_PATH} element={<YouSettings />} />
           </Route>
         ) : (
-          <Route path={`${YOU_PATH}*`} loader={() => redirect(getHomePath())} />
+          <Route path={`${YOU_PATH}*`} element={null} loader={() => redirect(getHomePath())} />
         )}
       </Route>
       <Route path="/*" element={<p>Page not found</p>} />

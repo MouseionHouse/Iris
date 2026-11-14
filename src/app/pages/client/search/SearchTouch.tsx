@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router';
 import { PageNav } from '../../../components/page';
 import { RoomNavItemTouch } from '../../../features/room-nav';
 import { TouchListArea } from '../../../features/room-nav/TouchList';

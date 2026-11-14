@@ -1,7 +1,7 @@
 import { Box, Button, color, config, Icon, Icons, Input, Spinner, Switch, Text } from 'folds';
 import React, { FormEventHandler, useCallback, useState } from 'react';
 import { ICreateRoomStateEvent, MatrixError, Preset, Visibility } from 'matrix-js-sdk';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { SettingTile } from '../../components/setting-tile';
 import { SequenceCard } from '../../components/sequence-card';
 import { addRoomIdToMDirect, isUserId } from '../../utils/matrix';

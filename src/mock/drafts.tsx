@@ -8,7 +8,7 @@
 // window.__editors each device's editor. Not part of the app build.
 import React, { useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router';
 import { Provider as JotaiProvider, useAtom } from 'jotai';
 import { MatrixClient } from 'matrix-js-sdk';
 import { Editor } from 'slate';
