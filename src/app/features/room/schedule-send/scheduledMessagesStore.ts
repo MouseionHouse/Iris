@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { IContent, MatrixClient, Room } from 'matrix-js-sdk';
+import type { RoomMessageEventContent } from 'matrix-js-sdk/lib/types';
 import { useMatrixClient } from '../../../hooks/useMatrixClient';
 import {
   DelayedEvent,
@@ -33,7 +34,7 @@ export const createMatrixScheduledMessagesStore = (mx: MatrixClient): ScheduledM
   cancel: (delayId) => cancelDelayedEvent(mx, delayId),
   sendNow: (delayId) => sendDelayedEventNow(mx, delayId),
   send: async (roomId, content) => {
-    await mx.sendMessage(roomId, content as Parameters<MatrixClient['sendMessage']>[1]);
+    await mx.sendMessage(roomId, content as RoomMessageEventContent);
   },
   decrypt: (event) => decryptDelayedEvent(mx, event),
 });

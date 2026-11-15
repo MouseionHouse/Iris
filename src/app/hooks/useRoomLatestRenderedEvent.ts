@@ -1,5 +1,5 @@
 /* eslint-disable no-continue */
-import { MatrixEvent, Room, RoomEvent, RoomEventHandlerMap } from 'matrix-js-sdk';
+import { MatrixEvent, Room, RoomEvent } from 'matrix-js-sdk';
 import { useEffect, useState } from 'react';
 import { settingsAtom } from '../state/settings';
 import { useSetting } from '../state/hooks/settings';
@@ -43,7 +43,9 @@ export const useRoomLatestRenderedEvent = (room: Room) => {
       return undefined;
     };
 
-    const handleTimelineEvent: RoomEventHandlerMap[RoomEvent.Timeline] = () => {
+    // Takes no arguments: it handles RoomEvent.Timeline and RoomEvent.LocalEchoUpdated, whose
+    // arguments differ.
+    const handleTimelineEvent = () => {
       setLatestEvent(getLatestEvent());
     };
     setLatestEvent(getLatestEvent());

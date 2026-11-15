@@ -21,7 +21,9 @@ export type ReplyRoom = {
 export type ReplyClient = {
   getUserId(): string | null;
   getRoom(roomId: string): ReplyRoom | null;
-  sendMessage(roomId: string, content: Record<string, unknown>): Promise<unknown>;
+  // `object`, not Record<string, unknown>: matrix-js-sdk's content types are interfaces, which have
+  // no index signature, so MatrixClient would not fit a Record parameter.
+  sendMessage(roomId: string, content: object): Promise<unknown>;
 };
 
 /** The longest reply the shell hands over; Matrix events are limited to 64 KiB in all. */
