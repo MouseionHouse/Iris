@@ -6,7 +6,7 @@ type SearchProps = {
   loading?: boolean;
   /** The term the page was opened with. */
   defaultValue?: string;
-  searchInputRef: RefObject<HTMLInputElement>;
+  searchInputRef: RefObject<HTMLInputElement | null>;
   onSearch: (term: string) => void;
   onReset: () => void;
 };

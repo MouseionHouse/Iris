@@ -40,7 +40,6 @@ type SchedulePickerOverlayProps = SchedulePickerProps & {
 export function SchedulePickerOverlay({ onCancel, ...props }: SchedulePickerOverlayProps) {
   const screenSize = useScreenSizeContext();
   if (screenSize !== ScreenSize.Mobile) {
-    // eslint-disable-next-line react/jsx-props-no-spreading
     return <SchedulePickerDialog onCancel={onCancel} {...props} />;
   }
   return (
@@ -61,7 +60,6 @@ export function SchedulePickerOverlay({ onCancel, ...props }: SchedulePickerOver
       }
     >
       <Box direction="Column" style={{ padding: `0 ${config.space.S400} ${config.space.S400}` }}>
-        {/* eslint-disable-next-line react/jsx-props-no-spreading */}
         <SchedulePicker {...props} />
       </Box>
     </BottomSheet>

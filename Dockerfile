@@ -17,6 +17,14 @@ RUN VITE_HUB_ORIGINS="$HUB_ORIGINS" VITE_HUB_PREVIEW_PATTERN="$HUB_PREVIEW_PATTE
   && node scripts/nginx-conf.js docker-nginx.conf nginx.conf
 
 
+## Checks: types, lint, formatting and unit tests, on the builder's node_modules, so CI needs no
+## `npm ci` of its own. CI builds this target before the image (`--target check`); it produces
+## nothing.
+FROM builder AS check
+
+RUN npm run typecheck && npm run lint && npm test
+
+
 ## Android: everything the Android project takes from Node, made from the same build and the same
 ## node_modules as the web image. CI exports it (`--target android --output type=local`) over a
 ## checkout, and Gradle then runs with no Node, npm ci or Capacitor CLI of its own.

@@ -318,7 +318,7 @@ function StickerSidebar({ activeGroupAtom, packs, onScrollToGroup }: StickerSide
 }
 
 type EmojiGroupHolderProps = {
-  contentScrollRef: RefObject<HTMLDivElement>;
+  contentScrollRef: RefObject<HTMLDivElement | null>;
   previewAtom: PrimitiveAtom<PreviewData | undefined>;
   children?: ReactNode;
   onGroupItemClick: MouseEventHandler;
@@ -573,7 +573,7 @@ export function EmojiBoard({
 
   // long-press (touch) and right-click (or the context-menu key) open the sticker menu
   const STICKER_SELECTOR = `button[data-emoji-type="${EmojiType.Sticker}"]`;
-  const pressRef = useRef<{ timer: number; x: number; y: number }>();
+  const pressRef = useRef<{ timer: number; x: number; y: number } | undefined>(undefined);
   const suppressClickRef = useRef(false);
   const cancelPress = () => {
     if (pressRef.current) window.clearTimeout(pressRef.current.timer);

@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router';
 import { Box, Icon, IconButton, Icons, Scroll } from 'folds';
 import { useMatrixClient } from '../../../hooks/useMatrixClient';
 import { getDirectCreateSearchParams } from '../../pathSearchParam';

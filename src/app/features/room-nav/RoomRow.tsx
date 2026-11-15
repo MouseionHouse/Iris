@@ -1,5 +1,5 @@
 import React, { MouseEventHandler, ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { Badge, Icon, IconSrc, Icons, Text } from 'folds';
 import { UnreadBadge } from '../../components/unread-badge';
 import { TypingIndicator } from '../../components/typing-indicator';

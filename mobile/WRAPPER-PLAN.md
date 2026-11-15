@@ -5,6 +5,7 @@ wrapper** around the web UI built from this fork (`src/`). The web app is the pr
 exists only for what a WebView cannot do. UI changes are made once, in `src/`, for both platforms.
 
 Phase 0 decisions (owner, "LGTM"):
+
 - Capacitor 8 (`@capacitor/core` + `@capacitor/android` 8.5.x), not a raw WebView, not a TWA.
 - Web assets **bundled** in the APK; updates ship through the existing Forgejo → F-Droid pipeline.
 - Push stays **UnifiedPush/ntfy**; the existing native push code is reused.
@@ -48,8 +49,9 @@ scripts/mobile-bundle.js: dist → dist-mobile with config.mobile.json as its co
 Web build for mobile (`npm run build:mobile` = `vite build`, then `scripts/mobile-bundle.js`). Since
 2026-10-08 it is the web build itself, not a second `--mode mobile` build: CI builds the app once and
 ships the same files in the web image and the APK (`.forgejo/workflows/build.yml`).
+
 - `config.json` (mobile variant): `defaultHomeserver` = mouseion.house only, `allowCustomHomeservers:
-  false`, `featuredCommunities` empty, `hashRouter.enabled: true` (Capacitor serves `https://localhost/`
+false`, `featuredCommunities` empty, `hashRouter.enabled: true` (Capacitor serves `https://localhost/`
   from assets; hash routing avoids server-side rewrites and survives reloads).
 - `base: '/'` as on the web: Capacitor serves the bundle from the root of `https://localhost/`.
 - Service worker `src/sw.ts` (adds the access token to media `<img>` fetches) is kept: Android WebView
@@ -61,8 +63,9 @@ ships the same files in the web image and the APK (`.forgejo/workflows/build.yml
 ### Bridge contract — Capacitor plugin `MouseionPush` (Kotlin ↔ TS)
 
 Web → native:
+
 - `getState()` → `{ distributors: [{id,label}], endpoint?: string, notificationsAllowed: boolean,
-  error?: string }` (from UnifiedPush `getDistributors`, stored endpoint, POST_NOTIFICATIONS).
+error?: string }` (from UnifiedPush `getDistributors`, stored endpoint, POST_NOTIFICATIONS).
 - `enable({ distributor })` → saves the choice, `UnifiedPush.register(...)`; requests POST_NOTIFICATIONS
   first (API 33+). The endpoint arrives later as an event.
 - `disable()` → `UnifiedPush.unregister`, forgets the endpoint.
@@ -72,6 +75,7 @@ Web → native:
 - `openNotificationSettings()`.
 
 Native → web (plugin events):
+
 - `endpoint` `{ pushkey }` — the web app registers/updates the pusher itself with matrix-js-sdk
   `setPusher` (kind `http`, app_id `house.mouseion.chat`, pushkey = endpoint, `data.url` = gateway at
   the endpoint's origin + `/_matrix/push/v1/notify` — the `pushGatewayAt` rule — `format`
@@ -108,6 +112,7 @@ whenever the app is backgrounded, and removed on sign out.
 ## Phases
 
 ### Phase 1 — shell (`mobile-v0.4.0-rc1`)
+
 1. Tag `mobile-compose-final` on the current `mobile/phase-2` HEAD. Remove `mobile/shared`,
    `mobile/androidApp`, `mobile/spike-jvm`, Gradle wrapper files; keep the work log
    (now `mobile/WORKTRACK.md` in the private repo mouseion/iris-notes) and this plan. (Compose
@@ -126,9 +131,11 @@ whenever the app is backgrounded, and removed on sign out.
    button behaves, edge-to-edge is right. Owner installs rc1 from F-Droid on a phone.
 
 ### Phase 2 — OS bridges (`rc2`–`rcN`)
+
 - **Done (2026-09-28):** items 1–2 (push). Java, not Kotlin (the wrapper has no
   Kotlin toolchain); the token uses an Android Keystore AES-GCM key instead of the deprecated
   EncryptedSharedPreferences; the pusher is set at every start rather than only when missing.
+
 1. `MouseionPush` plugin + moved `MouseionPushService`/`PushSummary` on OkHttp/ktor with the stored
    token (`/rooms/{id}/event/{eid}`, room name from `/state/m.room.name`, member display name).
 2. Web side: `src/app/native/` — plugin typings, `useNativePush()`, pusher registration on `endpoint`,
@@ -141,6 +148,7 @@ whenever the app is backgrounded, and removed on sign out.
    (owner enters the ntfy password themselves).
 
 ### Phase 3 — mobile polish in the web code (both platforms)
+
 - **Done (2026-09-23):** safe-area insets + true edge-to-edge. `viewport-fit=cover` in
   `index.html`, `SystemBars: { insetsHandling: 'css', initialViewportFitValueHint: 'cover' }` in
   `capacitor.config.ts`, `#root` padded by `var(--safe-area-inset-*, env(safe-area-inset-*, 0px))`
@@ -150,6 +158,7 @@ whenever the app is backgrounded, and removed on sign out.
   keyboard, the sidebar sections at phone width, long-press menus. Each fix is a `web:` commit.
 
 ### Phase 4 — retire the rest
+
 - Delete leftovers, update the work log's exclusions (everything Cinny does is now included except
   E2EE/calls/spaces by owner choice), memory, and the F-Droid metadata if it names the old app.
 

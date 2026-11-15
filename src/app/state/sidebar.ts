@@ -260,7 +260,7 @@ export const useBindSidebarAtoms = (mx: MatrixClient) => {
   const bumpTags = useSetAtom(roomTagsVersionAtom);
 
   useEffect(() => {
-    setSidebar(parseSidebar(mx.getAccountData(SIDEBAR_EVENT_TYPE as any)));
+    setSidebar(parseSidebar(mx.getAccountData(SIDEBAR_EVENT_TYPE)));
     const handleAccountData = (event: MatrixEvent) => {
       if (event.getType() === SIDEBAR_EVENT_TYPE) setSidebar(parseSidebar(event));
     };

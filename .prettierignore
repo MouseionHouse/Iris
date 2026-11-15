@@ -1,5 +1,13 @@
 dist
+dist-mobile
 node_modules
 package.json
 package-lock.json
 LICENSE
+.worktrees
+experiment
+devAssets
+# Dated snapshots of past design rounds, kept as they were.
+design/rounds
+# Mirrors mouseion/design tokens.json byte for byte.
+design/tokens.json

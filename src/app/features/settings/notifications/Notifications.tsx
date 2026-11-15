@@ -45,9 +45,7 @@ export function Notifications({ requestClose }: NotificationsProps) {
                   direction="Column"
                   gap="400"
                 >
-                  <SettingTile
-                    description={'This option has been moved to "Account > Block Users" section.'}
-                  />
+                  <SettingTile description='This option has been moved to "Account > Block Users" section.' />
                 </SequenceCard>
               </Box>
             </Box>

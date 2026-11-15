@@ -258,7 +258,6 @@ export function SchedulePickerDialog({ onCancel, ...props }: SchedulePickerDialo
               </IconButton>
             </Header>
             <Box style={{ padding: config.space.S400 }} direction="Column">
-              {/* eslint-disable-next-line react/jsx-props-no-spreading */}
               <SchedulePicker {...props} />
             </Box>
           </Dialog>

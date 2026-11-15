@@ -1,5 +1,5 @@
 import React, { ReactNode } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams } from 'react-router';
 import { useMatrixClient } from '../../../hooks/useMatrixClient';
 import { useSpaces } from '../../../state/hooks/roomList';
 import { allRoomsAtom } from '../../../state/room-list/roomList';

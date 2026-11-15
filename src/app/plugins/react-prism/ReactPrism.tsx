@@ -310,7 +310,7 @@ import './ReactPrism.css';
 export default function ReactPrism({
   children,
 }: {
-  children: (ref: MutableRefObject<null>) => ReactNode;
+  children: (ref: MutableRefObject<null | null>) => ReactNode;
 }) {
   const codeRef = useRef<HTMLElement>(null);
 
@@ -319,5 +319,5 @@ export default function ReactPrism({
     if (el) Prism.highlightElement(el);
   }, []);
 
-  return <>{children(codeRef as MutableRefObject<null>)}</>;
+  return <>{children(codeRef as MutableRefObject<null | null>)}</>;
 }

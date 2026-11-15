@@ -1,3 +1,4 @@
-# These are commented until we enable lint and typecheck
-# npx tsc -p tsconfig.json --noEmit
-# npx lint-staged
+# The same checks as CI's (the Dockerfile's `check` stage), on what is being committed: the whole
+# project's types, ESLint on staged files under src/, Prettier on every staged file.
+npx tsc -p tsconfig.json --noEmit
+npx lint-staged

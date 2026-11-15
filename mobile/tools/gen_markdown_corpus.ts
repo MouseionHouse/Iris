@@ -13,7 +13,12 @@ import { findAndReplace } from '../../src/app/utils/findAndReplace';
 // Copied from src/app/components/editor/output.ts (which imports slate).
 const HTML_TAG_REG_G = /<([\w-]+)(?: [^>]*)?(?:(?:\/>)|(?:>.*?<\/\1>))/g;
 const ignoreHTMLParseInlineMD = (text: string): string =>
-  findAndReplace(text, HTML_TAG_REG_G, (m) => m[0], (t) => parseInlineMD(t)).join('');
+  findAndReplace(
+    text,
+    HTML_TAG_REG_G,
+    (m) => m[0],
+    (t) => parseInlineMD(t)
+  ).join('');
 
 const corpus: string[] = [
   'just plain text',

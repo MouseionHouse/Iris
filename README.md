@@ -26,11 +26,12 @@ Everything else is Cinny.
 Node 24 (the LTS, v24.13.1) is what CI uses.
 
 ```sh
-npm ci          # install
-npm start       # dev server
-npm test        # unit tests
-npm run lint    # eslint and prettier
-npm run build   # the web app, into dist/
+npm ci             # install
+npm start          # dev server
+npm test           # unit tests
+npm run typecheck  # tsc
+npm run lint       # eslint and prettier
+npm run build      # the web app, into dist/
 ```
 
 Serve `dist/` from any static web server that sends unknown paths to `index.html`; [`contrib/`](contrib) has examples for nginx and Caddy.

@@ -1,6 +1,6 @@
 import classNames from 'classnames';
 import React, { ComponentProps, forwardRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { as } from 'folds';
 import * as css from './styles.css';
 

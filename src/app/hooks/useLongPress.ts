@@ -61,8 +61,8 @@ export const useLongPress = <T extends Element = HTMLElement>(
 ): LongPressProps<T> => {
   const { disabled, delay = LONG_PRESS_DELAY, ignore } = options ?? {};
 
-  const timerRef = useRef<number>();
-  const startRef = useRef<LongPressPoint>();
+  const timerRef = useRef<number | undefined>(undefined);
+  const startRef = useRef<LongPressPoint | undefined>(undefined);
   const callbackRef = useRef(onLongPress);
   callbackRef.current = onLongPress;
 

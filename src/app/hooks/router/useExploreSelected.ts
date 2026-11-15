@@ -1,4 +1,4 @@
-import { useMatch, useParams } from 'react-router-dom';
+import { useMatch, useParams } from 'react-router';
 import { getExploreFeaturedPath, getExplorePath } from '../../pages/pathUtils';
 
 export const useExploreSelected = (): boolean => {

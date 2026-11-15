@@ -50,8 +50,13 @@ You can visit the app in your browser by navigating to `http://localhost:8080`.
 
 ## Code formatting
 
-We use [ESLint](https://eslint.org/) for clean and stylistically
-consistent code syntax, so make sure your pull request follow it.
+[ESLint](https://eslint.org/) (`eslint.config.js`) and [Prettier](https://prettier.io/) keep the
+code consistent, and `tsc` checks the types: `npm run lint` and `npm run typecheck`. The pre-commit
+hook runs them on what you commit, and CI on every push. ESLint's warnings (`any`, non-null
+assertions, `console`) are allowed but best not added to.
+
+For a change the unit tests cannot see (a dependency upgrade, routing), run the app in a browser
+against a local Synapse: [`test/e2e-app`](test/e2e-app/README.md).
 
 ## Helpful links
 

@@ -23,7 +23,7 @@ import {
   Spinner,
   Button,
 } from 'folds';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { Room } from 'matrix-js-sdk';
 import { useStateEvent } from '../../hooks/useStateEvent';
 import { PageHeader } from '../../components/page';

@@ -3,7 +3,7 @@ import { Text, Box, Icon, Icons, config, Spinner, IconButton, Line, toRem } from
 import { useAtomValue } from 'jotai';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router';
 import { SearchOrderBy } from 'matrix-js-sdk';
 import { PageHero, PageHeroEmpty, PageHeroSection } from '../../components/page';
 import { useMatrixClient } from '../../hooks/useMatrixClient';
@@ -41,7 +41,7 @@ type MessageSearchProps = {
   allowGlobal?: boolean;
   rooms: string[];
   senders?: string[];
-  scrollRef: RefObject<HTMLDivElement>;
+  scrollRef: RefObject<HTMLDivElement | null>;
 };
 export function MessageSearch({
   defaultRoomsFilterName,

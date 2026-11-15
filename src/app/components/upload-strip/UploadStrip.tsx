@@ -149,7 +149,6 @@ function TileThumbnail({ fileItem, onDecoded, mark }: TileThumbnailProps) {
     return (
       <>
         {/* the first frame; the fragment makes browsers that wait for play draw one */}
-        {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
         <video className={media} src={`${url}#t=0.001`} preload="metadata" muted playsInline />
         {mark ? (
           <span className={css.UploadTileScrim}>{mark}</span>

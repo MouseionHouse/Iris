@@ -29,7 +29,8 @@ A pull request should:
 
 - do one thing, and say what and why;
 - name the issue it fixes, if there is one;
-- pass `npm test`, `npm run build` and `npm run lint`;
+- pass `npm test`, `npm run typecheck`, `npm run lint` and `npm run build` (CI runs all four, and
+  the pre-commit hook the first three);
 - use [conventional commits](https://www.conventionalcommits.org) (`npm run commit` helps).
 
 [`HACKING.md`](HACKING.md) has how to build and run Iris.

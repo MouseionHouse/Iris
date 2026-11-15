@@ -92,7 +92,7 @@ export const useSidebar = (override?: SectionFilterOverride): Sidebar => {
   }, [mx, conversations, mDirects, roomToUnread, tagsByRoom, sections, selectedId, override]);
 
   const save = useCallback(
-    (next: SidebarSection[]) => mx.setAccountData(SIDEBAR_EVENT_TYPE as any, { sections: next }),
+    (next: SidebarSection[]) => mx.setAccountData(SIDEBAR_EVENT_TYPE, { sections: next }),
     [mx]
   );
   const update = useCallback(

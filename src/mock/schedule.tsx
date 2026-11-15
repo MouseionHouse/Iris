@@ -11,7 +11,7 @@
 // its `requests` counts every call. Not part of the app build.
 import React, { useMemo, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router';
 import { Provider as JotaiProvider } from 'jotai';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { IContent, MatrixClient, Room } from 'matrix-js-sdk';

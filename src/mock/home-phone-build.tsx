@@ -13,7 +13,7 @@
 // Not part of the app build.
 import React, { ReactNode, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router';
 import '@fontsource/inter/variable.css';
 import 'folds/dist/style.css';
 import '../index.css';

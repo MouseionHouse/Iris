@@ -1,13 +1,6 @@
 import React, { useCallback, useEffect } from 'react';
 import { Box, Header, Scroll, Spinner, Text, color } from 'folds';
-import {
-  Outlet,
-  generatePath,
-  matchPath,
-  useLocation,
-  useNavigate,
-  useParams,
-} from 'react-router-dom';
+import { Outlet, generatePath, matchPath, useLocation, useNavigate, useParams } from 'react-router';
 import classNames from 'classnames';
 
 import { AuthFooter } from './AuthFooter';
@@ -98,7 +91,7 @@ export function AuthLayout() {
     if (!urlEncodedServer || tryDecodeURIComponent(urlEncodedServer) !== server) {
       navigate(
         generatePath(currentAuthPath(location.pathname), {
-          server: encodeURIComponent(server),
+          server,
         }),
         { replace: true }
       );
@@ -112,9 +105,7 @@ export function AuthLayout() {
         discoverServer(server);
         return;
       }
-      navigate(
-        generatePath(currentAuthPath(location.pathname), { server: encodeURIComponent(newServer) })
-      );
+      navigate(generatePath(currentAuthPath(location.pathname), { server: newServer }));
     },
     [navigate, location, discoveryState, server, discoverServer]
   );

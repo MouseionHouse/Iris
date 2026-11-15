@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { MatrixClient } from 'matrix-js-sdk';
 import { getMemberDisplayName } from '../utils/room';
