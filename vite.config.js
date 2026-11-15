@@ -3,28 +3,28 @@ import react from '@vitejs/plugin-react';
 import { wasm } from '@rollup/plugin-wasm';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
 import { vanillaExtractPlugin } from '@vanilla-extract/vite-plugin';
-import { NodeGlobalsPolyfillPlugin } from '@esbuild-plugins/node-globals-polyfill';
-import inject from '@rollup/plugin-inject';
-import topLevelAwait from 'vite-plugin-top-level-await';
 import { VitePWA } from 'vite-plugin-pwa';
 import fs from 'fs';
 import path from 'path';
-import buildConfig from './build.config';
+import buildConfig from './build.config.ts';
 
 // There is one build. The Capacitor Android wrapper embeds the same bundle with
 // config.mobile.json in place of config.json (scripts/mobile-bundle.js, npm run build:mobile),
 // so nothing here depends on the target. See mobile/WRAPPER-PLAN.md.
+// vite-plugin-static-copy keeps each file's path from the project root; `stripBase` drops that
+// many leading directories (`true`: all of them) so the files land where the app looks for them.
 function copyFiles() {
   return {
     targets: [
       {
-        src: 'node_modules/@element-hq/element-call-embedded/dist/*',
+        src: 'node_modules/@element-hq/element-call-embedded/dist/**/*',
         dest: 'public/element-call',
+        rename: { stripBase: 4 },
       },
       {
         src: 'node_modules/pdfjs-dist/build/pdf.worker.min.mjs',
         dest: '',
-        rename: 'pdf.worker.min.js',
+        rename: { stripBase: true, name: 'pdf.worker.min.js' },
       },
       {
         src: 'config.json',
@@ -33,14 +33,17 @@ function copyFiles() {
       {
         src: 'public/manifest.json',
         dest: '',
+        rename: { stripBase: true },
       },
       {
-        src: 'public/res/android',
-        dest: 'public/',
+        src: 'public/res/android/**/*',
+        dest: 'public/android',
+        rename: { stripBase: 3 },
       },
       {
-        src: 'public/locales',
-        dest: 'public/',
+        src: 'public/locales/**/*',
+        dest: 'public/locales',
+        rename: { stripBase: 2 },
       },
     ],
   };
@@ -91,12 +94,6 @@ export default defineConfig({
   },
   plugins: [
     serverMatrixSdkCryptoWasm('/node_modules/.vite/deps/pkg/matrix_sdk_crypto_wasm_bg.wasm'),
-    topLevelAwait({
-      // The export name of top-level await promise for each chunk module
-      promiseExportName: '__tla',
-      // The function to generate import names of top-level await promise in each chunk module
-      promiseImportName: (i) => `__tla_${i}`,
-    }),
     viteStaticCopy(copyFiles()),
     vanillaExtractPlugin(),
     wasm(),
@@ -116,26 +113,32 @@ export default defineConfig({
       },
     }),
   ],
+  // matrix-js-sdk and its dependencies use Node's Buffer, and some read `global`. Rolldown supplies
+  // both: in the dev server's dependency bundle and in the build.
   optimizeDeps: {
-    esbuildOptions: {
-      define: {
-        global: 'globalThis',
+    rolldownOptions: {
+      transform: {
+        define: {
+          global: 'globalThis',
+        },
+        inject: {
+          Buffer: ['buffer', 'Buffer'],
+        },
       },
-      plugins: [
-        // Enable esbuild polyfill plugins
-        NodeGlobalsPolyfillPlugin({
-          process: false,
-          buffer: true,
-        }),
-      ],
     },
   },
   build: {
     outDir: 'dist',
     sourcemap: true,
     copyPublicDir: false,
-    rollupOptions: {
-      plugins: [inject({ Buffer: ['buffer', 'Buffer'] })],
+    // Top-level await (pdfjs, the crypto wasm) needs no transform: Vite's default target,
+    // 'baseline-widely-available' (Chrome 111, Firefox 114, Safari 16.4), supports it.
+    rolldownOptions: {
+      transform: {
+        inject: {
+          Buffer: ['buffer', 'Buffer'],
+        },
+      },
     },
   },
 });

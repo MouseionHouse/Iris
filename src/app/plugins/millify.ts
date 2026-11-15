@@ -1,4 +1,5 @@
-import millifyPlugin from 'millify';
+// The named export: millify is CommonJS, and its default import differs between bundlers.
+import { millify as millifyPlugin } from 'millify';
 import { MillifyOptions } from 'millify/dist/options';
 
 export const millify = (count: number, options?: Partial<MillifyOptions>): string =>

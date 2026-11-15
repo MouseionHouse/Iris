@@ -32,7 +32,12 @@ if ('serviceWorker' in navigator) {
     pushSessionToSW(session?.baseUrl, session?.accessToken);
   };
 
-  swRegistration = navigator.serviceWorker.register(swUrl);
+  // In dev the worker is served as an ES module (vite-plugin-pwa devOptions.type); the built
+  // sw.js is a classic script.
+  swRegistration = navigator.serviceWorker.register(
+    swUrl,
+    import.meta.env.PROD ? undefined : { type: 'module' }
+  );
   swRegistration.then(sendSessionToSW);
   navigator.serviceWorker.ready.then(sendSessionToSW);
   // The session can only be pushed to a controller, so push again once there is one.
