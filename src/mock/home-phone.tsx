@@ -1,4 +1,3 @@
-/* eslint-disable react/no-array-index-key */
 // PROTOTYPE, design round 2026-10-09-home-phone-1 (design/rounds/): what should Home look like on
 // a phone? "Now" is Home as it ships; A, B and C are three structurally different answers, on
 // fake rooms, built from folds and the app's own pieces. Nothing is wired to a server.
