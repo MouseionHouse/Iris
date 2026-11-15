@@ -93,6 +93,10 @@ on:
         'docker-nginx.conf',
         'scripts/mobile-bundle.js',
         'scripts/nginx-conf.js',
+        'test/**',
+        'eslint.config.js',
+        '.prettierrc.json',
+        '.prettierignore',
         'mobile/**',
         'desktop/**',
         'branding/**',
@@ -162,11 +166,15 @@ jobs:
           # What Gradle compiles or packages besides the web build.
           native='^(mobile/android/|capacitor\.config\.ts$|package\.json$|package-lock\.json$|scripts/mobile-bundle\.js$|\.forgejo/workflows/build\.yml$)'
 
+          # Read by the Dockerfile's `check` stage only: a change here builds, to check, but
+          # deploys and releases nothing.
+          checks='^(test/|eslint\.config\.js$|\.prettierrc\.json$|\.prettierignore$)'
+
           # The Linux desktop shell: its Nix package and the artwork it embeds.
           desktop_paths='^(desktop/|branding/|scripts/iris-icons\.py$|\.forgejo/workflows/build\.yml$)'
 
-          # `build` is false when the change touches no web or app path (a desktop-only push or
-          # train). "Run workflow" always builds.
+          # `build` is false when the change touches no web, app or checks path (a desktop-only push
+          # or train). "Run workflow" always builds.
           build=true; deploy=false; android=false; publish=false; desktop=false
           if [[ "$GITHUB_EVENT_NAME" == "merge_group" ]]; then
             # A train: what it brings in since the commit of RELEASE_BRANCH it was built on.
@@ -174,7 +182,7 @@ jobs:
             if [[ ! "$BASE" =~ ^[0-9a-f]+$ ]] || ! changed="$(git diff --name-only "$BASE" "$GITHUB_SHA" 2>/dev/null)"; then
               changed="$(git ls-files)"
             fi
-            if ! grep -qE "$web|$app" <<< "$changed"; then build=false; fi
+            if ! grep -qE "$web|$app|$checks" <<< "$changed"; then build=false; fi
             if grep -qE "$native" <<< "$changed"; then android=true; fi
             if grep -qE "$desktop_paths" <<< "$changed"; then desktop=true; fi
           elif [[ "$GITHUB_REF" == "refs/heads/$RELEASE_BRANCH" ]]; then
@@ -188,14 +196,14 @@ jobs:
               if grep -qE "$web" <<< "$changed"; then deploy=true; fi
               if grep -qE "$app" <<< "$changed"; then android=true; publish=true; fi
               if grep -qE "$desktop_paths" <<< "$changed"; then desktop=true; fi
-              if ! grep -qE "$web|$app" <<< "$changed"; then build=false; fi
+              if ! grep -qE "$web|$app|$checks" <<< "$changed"; then build=false; fi
             fi
           elif [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
             git fetch --quiet origin "$RELEASE_BRANCH"
             changed="$(git diff --name-only "origin/$RELEASE_BRANCH...HEAD")"
             if grep -qE "$native" <<< "$changed"; then android=true; fi
             if grep -qE "$desktop_paths" <<< "$changed"; then desktop=true; fi
-            if ! grep -qE "$web|$app" <<< "$changed"; then build=false; fi
+            if ! grep -qE "$web|$app|$checks" <<< "$changed"; then build=false; fi
           elif [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
             desktop=true
           fi
@@ -286,6 +294,13 @@ jobs:
             exit 1
           fi
           echo "${{ secrets.REGISTRY_TOKEN }}" | docker login "$REGISTRY" -u "${{ vars.REGISTRY_USER }}" --password-stdin
+
+      # tsc, ESLint, Prettier and `npm test` (the Dockerfile's `check` stage), on the builder
+      # stage's `npm ci` and build. A failure stops the run before anything is built to ship.
+      - name: Check types, lint and tests
+        run: |
+          docker buildx build --platform linux/amd64 --build-arg HUB_ORIGINS --build-arg HUB_PREVIEW_PATTERN \
+            --target check --progress plain .
 
       # The one `npm ci` + `vite build` of the run, in the image's builder stage.
       - name: Build the web image

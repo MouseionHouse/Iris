@@ -25,7 +25,7 @@
     "bump": "node scripts/update-version.js"
   },
   "lint-staged": {
-    "*.{ts,tsx,js,jsx}": "eslint",
+    "src/**/*.{ts,tsx,js,jsx}": "eslint",
     "*": "prettier --ignore-unknown --write"
   },
   "config": {
