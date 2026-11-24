@@ -436,10 +436,11 @@ jobs:
           if [ -n "${KEYS-}" ]; then rm -rf "$KEYS"; fi
           if [ -n "${LOCK-}" ]; then rm -rf "$LOCK"; fi
 
-  # The macOS desktop shell (desktop-macos/): its tests, then Iris.app, ad-hoc signed, zipped as an
-  # artifact; nothing is published. It runs on the Mac behind `mouseion-macos`, on the host (no
-  # Docker) as the runner's own user, with Xcode's Swift. SwiftPM's build stays warm in that user's
-  # ~/.cache between runs. The app opens IRIS_DESKTOP_URL, the deployment's web app, so the artifact
+  # The macOS desktop shell (desktop-macos/): its tests, then Iris.app, zipped as an artifact;
+  # nothing is published. Ad-hoc signed, or with a Developer ID and notarized once the
+  # organization has the secrets (the macos-sign step). It runs on the Mac behind `mouseion-macos`,
+  # on the host (no Docker) as the runner's own user, with Xcode's Swift. SwiftPM's build stays
+  # warm in that user's ~/.cache between runs. The app opens IRIS_DESKTOP_URL, the deployment's web app, so the artifact
   # is the app to install (desktop-macos/README.md); a train builds it too, as a check.
   macos:
     runs-on: mouseion-macos
@@ -485,8 +486,37 @@ jobs:
           archs=$(lipo -archs "$app/Contents/MacOS/Iris"); echo "$archs"
           for a in $ARCHS; do case " $archs " in *" $a "*) ;; *) echo "Iris.app has no $a slice" >&2; exit 1;; esac; done
           codesign -dv "$app" 2>&1 | grep -E '^(Identifier|Signature|CodeDirectory)'
-          # ditto keeps the signature and the bundle's structure intact.
-          ditto -c -k --keepParent "$app" "Iris-macos-universal-0.1.0-${GITHUB_RUN_NUMBER}-${GITHUB_SHA::7}.zip"
+          echo "IRIS_ZIP=Iris-macos-universal-0.1.0-${GITHUB_RUN_NUMBER}-${GITHUB_SHA::7}.zip" >> "$GITHUB_ENV"
+
+      # With the mouseion organization's Developer ID secrets: signed with the hardened runtime,
+      # zipped, notarized and stapled (.forgejo/actions/macos-sign). Without them it
+      # says so in one line and the app stays ad-hoc signed.
+      - name: Sign and notarize Iris.app
+        id: sign
+        uses: ./.forgejo/actions/macos-sign
+        with:
+          app: ${{ runner.temp }}/iris-macos/Iris.app
+          entitlements: desktop-macos/Iris.entitlements
+          package: zip
+          output: ${{ env.IRIS_ZIP }}
+          p12-base64: ${{ secrets.APPLE_DEVELOPER_ID_P12_BASE64 }}
+          p12-password: ${{ secrets.APPLE_DEVELOPER_ID_P12_PASSWORD }}
+          notary-key-p8-base64: ${{ secrets.APPLE_NOTARY_KEY_P8_BASE64 }}
+          notary-key-id: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+          notary-issuer-id: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
+          team-id: ${{ vars.APPLE_TEAM_ID }}
+
+      - name: Zip Iris.app
+        env:
+          SIGNED: ${{ steps.sign.outputs.signed }}
+        run: |
+          set -euo pipefail
+          # Signed, the action made the zip. Ad hoc: ditto keeps the signature and the bundle's
+          # structure intact.
+          if [ "$SIGNED" != true ]; then
+            ditto -c -k --keepParent "$RUNNER_TEMP/iris-macos/Iris.app" "$IRIS_ZIP"
+          fi
+          ls -l "$IRIS_ZIP"
           rm -rf "$RUNNER_TEMP/iris-macos"
 
       - uses: actions/upload-artifact@v3

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Iris.app's entitlements when it is signed with a Developer ID (the hardened runtime), by
+  mouseion/common's macos-sign action in build.yml's macos job. A WKWebView shell needs only
+  outgoing connections. The app isn't sandboxed, so this one is inert for now and is here for
+  the day it is. Camera, microphone and screen are refused by the shell, so there are no device
+  entitlements; WebKit's JIT runs in WebKit's own processes and needs no exception here.
+  build.sh's ad-hoc signature does not use this file.
+-->
+<plist version="1.0">
+<dict>
+	<key>com.apple.security.network.client</key>
+	<true/>
+</dict>
+</plist>
