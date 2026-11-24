@@ -474,15 +474,19 @@ jobs:
         env:
           IRIS_VERSION: 0.1.0
           IRIS_BUILD_NUMBER: ${{ github.run_number }}
+          # Universal: Apple Silicon and Intel (Intel Macs run macOS 26 at most;
+          # the app's minimum is macOS 13). The check below fails the job if a slice is missing.
+          ARCHS: arm64 x86_64
         run: |
           set -euo pipefail
           OUT_DIR="$RUNNER_TEMP/iris-macos" nice -n 10 desktop-macos/build.sh
           app="$RUNNER_TEMP/iris-macos/Iris.app"
           /usr/libexec/PlistBuddy -c 'Print :IrisURL' -c 'Print :CFBundleIdentifier' -c 'Print :CFBundleVersion' "$app/Contents/Info.plist"
-          lipo -archs "$app/Contents/MacOS/Iris"
+          archs=$(lipo -archs "$app/Contents/MacOS/Iris"); echo "$archs"
+          for a in $ARCHS; do case " $archs " in *" $a "*) ;; *) echo "Iris.app has no $a slice" >&2; exit 1;; esac; done
           codesign -dv "$app" 2>&1 | grep -E '^(Identifier|Signature|CodeDirectory)'
           # ditto keeps the signature and the bundle's structure intact.
-          ditto -c -k --keepParent "$app" "Iris-macos-0.1.0-${GITHUB_RUN_NUMBER}-${GITHUB_SHA::7}.zip"
+          ditto -c -k --keepParent "$app" "Iris-macos-universal-0.1.0-${GITHUB_RUN_NUMBER}-${GITHUB_SHA::7}.zip"
           rm -rf "$RUNNER_TEMP/iris-macos"
 
       - uses: actions/upload-artifact@v3

@@ -86,7 +86,8 @@ log show --last 10m --predicate 'subsystem == "house.mouseion.iris"'
 `.forgejo/workflows/build.yml` has a `macos` job on the `mouseion-macos` runner, a Mac whose jobs
 run on the host with Xcode. It runs when `desktop-macos/`, `desktop/BRIDGE.md` or the workflow
 change, and from "Run workflow". It runs the core's tests, builds `Iris.app` for the URL in the repo
-variable `IRIS_DESKTOP_URL` (version 0.1.0, build number = run number), and uploads it zipped
+variable `IRIS_DESKTOP_URL` (version 0.1.0, build number = run number) as one universal app
+(Apple Silicon and Intel; the job fails if a slice is missing), and uploads it zipped
 (`ditto`) as the artifact `iris-macos`.
 
 ## Install
