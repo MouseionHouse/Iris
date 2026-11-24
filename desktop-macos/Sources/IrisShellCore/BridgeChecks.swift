@@ -158,8 +158,9 @@ public enum BridgeChecks {
         return s
     }
 
-    /// A PNG or JPEG data URL, at most `maxIconBytes` decoded and `maxIconPixels` a side. Only the
-    /// header is read here; the app decodes the image and refuses it if that fails.
+    /// A PNG or JPEG data URL, at most `maxIconBytes` decoded and `maxIconPixels` a side, whole (a PNG's
+    /// chunks with their checksums up to IEND, a JPEG's frame and scan up to its end marker). The
+    /// app then decodes it and refuses it if that fails.
     public static func icon(fromDataURL v: JSONValue) -> NotificationIcon? {
         guard case let .string(url) = v else { return nil }
         let prefixes: [(String, NotificationIcon.Format)] = [("data:image/png;base64,", .png), ("data:image/jpeg;base64,", .jpeg)]
@@ -168,7 +169,8 @@ public enum BridgeChecks {
         guard encoded.utf8.count <= maxIconBytes / 3 * 4 + 4,
               let data = Data(base64Encoded: encoded), !data.isEmpty, data.count <= maxIconBytes,
               let (w, h) = format == .png ? ImageHeader.pngSize(data) : ImageHeader.jpegSize(data),
-              w > 0, h > 0, w <= maxIconPixels, h <= maxIconPixels else { return nil }
+              w > 0, h > 0, w <= maxIconPixels, h <= maxIconPixels,
+              format == .png ? ImageHeader.pngComplete(data) : ImageHeader.jpegComplete(data) else { return nil }
         return NotificationIcon(format: format, data: data, width: w, height: h)
     }
 }
@@ -205,6 +207,60 @@ enum ImageHeader {
             i += 2 + length
         }
         return nil
+    }
+
+    /// Every chunk whole, with a good CRC: IHDR first, at least one IDAT, IEND last and nothing after it.
+    static func pngComplete(_ d: Data) -> Bool {
+        let b = [UInt8](d)
+        guard b.count >= 8 + 25 + 12 else { return false }
+        var i = 8
+        var first = true
+        var sawData = false
+        while i + 12 <= b.count {
+            let length = be32(b, i)
+            guard length >= 0, length <= b.count - i - 12 else { return false }
+            let type = Array(b[i + 4 ..< i + 8])
+            let crcEnd = i + 8 + length
+            guard crc32(b[(i + 4) ..< crcEnd]) == UInt32(be32(b, crcEnd)) else { return false }
+            if first, type != Array("IHDR".utf8) { return false }
+            first = false
+            if type == Array("IDAT".utf8) { sawData = true }
+            i = crcEnd + 4
+            if type == Array("IEND".utf8) { return sawData && i == b.count }
+        }
+        return false
+    }
+
+    /// A frame header, a scan, and the end marker as the last two bytes.
+    static func jpegComplete(_ d: Data) -> Bool {
+        let b = [UInt8](d)
+        guard b.count >= 4, b[b.count - 2] == 0xFF, b[b.count - 1] == 0xD9, jpegSize(d) != nil else { return false }
+        // The scan follows the frame header; jpegSize stopped at the frame, so look for SOS after it.
+        var i = 2
+        while i + 4 <= b.count {
+            guard b[i] == 0xFF else { return false }
+            let marker = b[i + 1]
+            if marker == 0xFF { i += 1; continue }
+            if marker == 0xDA { return true }
+            if marker == 0xD9 { return false }
+            if marker == 0x01 || (0xD0 ... 0xD7).contains(marker) { i += 2; continue }
+            let length = Int(b[i + 2]) << 8 | Int(b[i + 3])
+            guard length >= 2 else { return false }
+            i += 2 + length
+        }
+        return false
+    }
+
+    private static let crcTable: [UInt32] = (0 ..< 256).map { n -> UInt32 in
+        var c = UInt32(n)
+        for _ in 0 ..< 8 { c = c & 1 != 0 ? 0xEDB8_8320 ^ (c >> 1) : c >> 1 }
+        return c
+    }
+
+    static func crc32(_ bytes: ArraySlice<UInt8>) -> UInt32 {
+        var c: UInt32 = 0xFFFF_FFFF
+        for byte in bytes { c = crcTable[Int((c ^ UInt32(byte)) & 0xFF)] ^ (c >> 8) }
+        return c ^ 0xFFFF_FFFF
     }
 
     private static func be32(_ b: [UInt8], _ at: Int) -> Int {

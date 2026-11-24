@@ -3,6 +3,7 @@
 #   plan ── bundle ──┬── deploy                  (RELEASE_BRANCH: the web client, by compose on the host)
 #                    └── apk ── publish-fdroid   (RELEASE_BRANCH: the Android app, into an F-Droid repo)
 #   plan ── desktop                              (check only: the Nix package of the Linux desktop shell)
+#   plan ── macos                                (the macOS desktop shell: tests, and Iris.app as an artifact)
 #
 # `bundle` runs the one `npm ci` and `vite build` of a push, inside the Docker image that serves
 # the web client, and exports what the Android project needs from them as an artifact: the same
@@ -45,6 +46,7 @@
 #
 # Runners, by label: `mouseion-docker` for light jobs and the Android build, `mouseion-build` for
 # the image (with a Docker daemon of its own), `mouseion-nix` for the desktop check (with Nix),
+# `mouseion-macos` for the macOS shell (a Mac, jobs run on the host with Xcode, one at a time),
 # and `mouseion-deploy` for the two release jobs, which runs on the deployment host: it can run
 # docker there, read and write the compose file and the F-Droid repos at their host paths, and
 # reach the service by name on the compose network. Nothing is built on the deployment host: the
@@ -62,6 +64,7 @@
 #   FDROID_REPO          the repo under it to publish into
 #   NIX_CONFIG_URL       the git URL (ssh) of the NixOS configuration the desktop check follows
 #   FORGE_KNOWN_HOSTS    the known_hosts line(s) of that URL's ssh host
+#   IRIS_DESKTOP_URL     the Iris web app the macOS shell opens, https://host[:port]
 #   IRIS_*               the build settings (README, "Configure it")
 #
 # Secrets: the registry token is the organization secret REGISTRY_TOKEN. Signing material is the
@@ -101,6 +104,7 @@ on:
         'desktop/**',
         'branding/**',
         'scripts/iris-icons.py',
+        'desktop-macos/**',
         '.forgejo/actions/**',
         '.forgejo/workflows/build.yml',
       ]
@@ -136,6 +140,7 @@ jobs:
       deploy: ${{ steps.what.outputs.deploy }}
       android: ${{ steps.what.outputs.android }}
       desktop: ${{ steps.what.outputs.desktop }}
+      macos: ${{ steps.what.outputs.macos }}
       publish: ${{ steps.what.outputs.publish }}
       name: ${{ steps.ver.outputs.name }}
       code: ${{ steps.ver.outputs.code }}
@@ -172,10 +177,12 @@ jobs:
 
           # The Linux desktop shell: its Nix package and the artwork it embeds.
           desktop_paths='^(desktop/|branding/|scripts/iris-icons\.py$|\.forgejo/workflows/build\.yml$)'
+          # The macOS desktop shell, and the bridge contract it shares with the Linux one.
+          macos_paths='^(desktop-macos/|desktop/BRIDGE\.md$|\.forgejo/workflows/build\.yml$)'
 
           # `build` is false when the change touches no web, app or checks path (a desktop-only push
           # or train). "Run workflow" always builds.
-          build=true; deploy=false; android=false; publish=false; desktop=false
+          build=true; deploy=false; android=false; publish=false; desktop=false; macos=false
           if [[ "$GITHUB_EVENT_NAME" == "merge_group" ]]; then
             # A train: what it brings in since the commit of RELEASE_BRANCH it was built on.
             # Without that commit, everything counts. Never a deploy or a release.
@@ -185,6 +192,7 @@ jobs:
             if ! grep -qE "$web|$app|$checks" <<< "$changed"; then build=false; fi
             if grep -qE "$native" <<< "$changed"; then android=true; fi
             if grep -qE "$desktop_paths" <<< "$changed"; then desktop=true; fi
+            if grep -qE "$macos_paths" <<< "$changed"; then macos=true; fi
           elif [[ "$GITHUB_REF" == "refs/heads/$RELEASE_BRANCH" ]]; then
             if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
               deploy=true
@@ -196,6 +204,7 @@ jobs:
               if grep -qE "$web" <<< "$changed"; then deploy=true; fi
               if grep -qE "$app" <<< "$changed"; then android=true; publish=true; fi
               if grep -qE "$desktop_paths" <<< "$changed"; then desktop=true; fi
+              if grep -qE "$macos_paths" <<< "$changed"; then macos=true; fi
               if ! grep -qE "$web|$app|$checks" <<< "$changed"; then build=false; fi
             fi
           elif [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
@@ -203,12 +212,13 @@ jobs:
             changed="$(git diff --name-only "origin/$RELEASE_BRANCH...HEAD")"
             if grep -qE "$native" <<< "$changed"; then android=true; fi
             if grep -qE "$desktop_paths" <<< "$changed"; then desktop=true; fi
+            if grep -qE "$macos_paths" <<< "$changed"; then macos=true; fi
             if ! grep -qE "$web|$app|$checks" <<< "$changed"; then build=false; fi
           elif [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
-            desktop=true
+            desktop=true; macos=true
           fi
-          echo "build=$build deploy=$deploy android=$android publish=$publish desktop=$desktop"
-          { echo "build=$build"; echo "deploy=$deploy"; echo "android=$android"; echo "publish=$publish"; echo "desktop=$desktop"; } >> "$GITHUB_OUTPUT"
+          echo "build=$build deploy=$deploy android=$android publish=$publish desktop=$desktop macos=$macos"
+          { echo "build=$build"; echo "deploy=$deploy"; echo "android=$android"; echo "publish=$publish"; echo "desktop=$desktop"; echo "macos=$macos"; } >> "$GITHUB_OUTPUT"
 
       - name: Version — the next semantic release, or a build-only marker
         id: ver
@@ -425,6 +435,60 @@ jobs:
         run: |
           if [ -n "${KEYS-}" ]; then rm -rf "$KEYS"; fi
           if [ -n "${LOCK-}" ]; then rm -rf "$LOCK"; fi
+
+  # The macOS desktop shell (desktop-macos/): its tests, then Iris.app, ad-hoc signed, zipped as an
+  # artifact; nothing is published. It runs on the Mac behind `mouseion-macos`, on the host (no
+  # Docker) as the runner's own user, with Xcode's Swift. SwiftPM's build stays warm in that user's
+  # ~/.cache between runs. The app opens IRIS_DESKTOP_URL, the deployment's web app, so the artifact
+  # is the app to install (desktop-macos/README.md); a train builds it too, as a check.
+  macos:
+    runs-on: mouseion-macos
+    needs: [plan]
+    if: needs.plan.outputs.macos == 'true'
+    timeout-minutes: 60
+    env:
+      IRIS_URL: ${{ vars.IRIS_DESKTOP_URL }}
+      # The Mac is a 24 GB laptop shared with long builds (a Chromium compile): keep SwiftPM to a
+      # few compile jobs and the job at a low priority.
+      SWIFT_JOBS: 4
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tools
+        run: |
+          set -euo pipefail
+          if [ -z "$IRIS_URL" ]; then
+            echo "the repo variable IRIS_DESKTOP_URL is not set: the app would not know which Iris to open" >&2
+            exit 1
+          fi
+          sw_vers
+          xcodebuild -version
+          swift --version
+          echo "BUILD_DIR=$HOME/.cache/build/iris/macos-ci" >> "$GITHUB_ENV"
+
+      - name: Test the shell's core
+        working-directory: desktop-macos
+        run: nice -n 10 swift test --jobs "$SWIFT_JOBS" --scratch-path "$BUILD_DIR/test"
+
+      - name: Build Iris.app
+        env:
+          IRIS_VERSION: 0.1.0
+          IRIS_BUILD_NUMBER: ${{ github.run_number }}
+        run: |
+          set -euo pipefail
+          OUT_DIR="$RUNNER_TEMP/iris-macos" nice -n 10 desktop-macos/build.sh
+          app="$RUNNER_TEMP/iris-macos/Iris.app"
+          /usr/libexec/PlistBuddy -c 'Print :IrisURL' -c 'Print :CFBundleIdentifier' -c 'Print :CFBundleVersion' "$app/Contents/Info.plist"
+          lipo -archs "$app/Contents/MacOS/Iris"
+          codesign -dv "$app" 2>&1 | grep -E '^(Identifier|Signature|CodeDirectory)'
+          # ditto keeps the signature and the bundle's structure intact.
+          ditto -c -k --keepParent "$app" "Iris-macos-0.1.0-${GITHUB_RUN_NUMBER}-${GITHUB_SHA::7}.zip"
+          rm -rf "$RUNNER_TEMP/iris-macos"
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: iris-macos
+          path: Iris-macos-*.zip
 
   deploy:
     needs: [plan, bundle]

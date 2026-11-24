@@ -208,6 +208,27 @@ final class BridgeChecksTests: XCTestCase {
         XCTAssertNil(BridgeChecks.notification(.object(n)), "a PNG declared as a JPEG")
         n["icon"] = .string(Images.dataURL(Data([0xFF, 0xD8, 0xFF, 0xDA, 0, 2, 1, 2]), mime: "image/jpeg"))
         XCTAssertNil(BridgeChecks.notification(.object(n)), "a JPEG without a frame header")
+        // Whole images only.
+        let png = Images.png(width: 16, height: 16, padding: 40)
+        n["icon"] = .string(Images.dataURL(png.prefix(png.count - 12)))
+        XCTAssertNil(BridgeChecks.notification(.object(n)), "a PNG without IEND")
+        n["icon"] = .string(Images.dataURL(png.prefix(50)))
+        XCTAssertNil(BridgeChecks.notification(.object(n)), "a PNG cut in its IDAT")
+        n["icon"] = .string(Images.dataURL(png + Data([0])))
+        XCTAssertNil(BridgeChecks.notification(.object(n)), "bytes after IEND")
+        var badCrc = png
+        badCrc[40] ^= 0xFF
+        n["icon"] = .string(Images.dataURL(badCrc))
+        XCTAssertNil(BridgeChecks.notification(.object(n)), "a PNG chunk with a bad CRC")
+        var noData = Data([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])
+        noData.append(Images.chunk("IHDR", [0, 0, 0, 16, 0, 0, 0, 16, 8, 6, 0, 0, 0]))
+        noData.append(Images.chunk("IEND", []))
+        n["icon"] = .string(Images.dataURL(noData))
+        XCTAssertNil(BridgeChecks.notification(.object(n)), "a PNG without IDAT")
+        n["icon"] = .string(Images.dataURL(Images.jpeg(width: 16, height: 16, end: false), mime: "image/jpeg"))
+        XCTAssertNil(BridgeChecks.notification(.object(n)), "a JPEG without its end marker")
+        n["icon"] = .string(Images.dataURL(Images.jpeg(width: 16, height: 16, scan: false), mime: "image/jpeg"))
+        XCTAssertNil(BridgeChecks.notification(.object(n)), "a JPEG without a scan")
     }
 
     func testCloseNotificationsChecksTheRoom() {
@@ -229,20 +250,28 @@ final class BridgeChecksTests: XCTestCase {
 
 /// Image bytes with just enough of a header for the checks (the app decodes the real thing).
 enum Images {
-    static func png(width: Int, height: Int, padding: Int = 0) -> Data {
-        var d = Data([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 13])
-        d.append(contentsOf: Array("IHDR".utf8))
-        d.append(contentsOf: be32(width) + be32(height) + [8, 6, 0, 0, 0] + [0, 0, 0, 0])
-        d.append(Data(count: padding))
+    /// A PNG whose chunks are whole (IHDR, IDAT, IEND, good CRCs); its IDAT holds `padding` bytes
+    /// that are not image data, which only the app's decoder notices.
+    static func png(width: Int, height: Int, padding: Int = 0, idat: [UInt8]? = nil) -> Data {
+        var d = Data([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])
+        d.append(chunk("IHDR", be32(width) + be32(height) + [8, 6, 0, 0, 0]))
+        d.append(chunk("IDAT", idat ?? [UInt8](repeating: 0, count: max(padding, 1))))
+        d.append(chunk("IEND", []))
         return d
     }
 
-    static func jpeg(width: Int, height: Int) -> Data {
+    static func chunk(_ type: String, _ body: [UInt8]) -> Data {
+        let typed = Array(type.utf8) + body
+        return Data(be32(body.count) + typed + be32(Int(ImageHeader.crc32(typed[...]))))
+    }
+
+    static func jpeg(width: Int, height: Int, end: Bool = true, scan: Bool = true) -> Data {
         var d = Data([0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10])
         d.append(contentsOf: Array("JFIF".utf8) + [0, 1, 1, 0, 0, 1, 0, 1, 0, 0])
         d.append(contentsOf: [0xFF, 0xC0, 0x00, 0x11, 0x08, UInt8(height >> 8), UInt8(height & 0xFF), UInt8(width >> 8), UInt8(width & 0xFF), 3])
         d.append(contentsOf: [1, 0x22, 0, 2, 0x11, 1, 3, 0x11, 1])
-        d.append(contentsOf: [0xFF, 0xD9])
+        if scan { d.append(contentsOf: [0xFF, 0xDA, 0x00, 0x08, 0x01, 0x01, 0x00, 0x00, 0x3F, 0x00, 0x12, 0x34]) }
+        if end { d.append(contentsOf: [0xFF, 0xD9]) }
         return d
     }
 
