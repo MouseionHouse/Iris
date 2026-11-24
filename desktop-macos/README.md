@@ -52,8 +52,8 @@ ARCHS="arm64 x86_64" IRIS_URL=… ./build.sh             # universal (Apple Sili
 
 `build.sh` wraps the SwiftPM binary in `Iris.app` (bundle id `house.mouseion.iris`, macOS 13 or
 later), writes the `Info.plist` (`IrisURL`, the `matrix` URL scheme, version from `IRIS_VERSION`
-and `IRIS_BUILD_NUMBER`), makes the icon and signs the app ad hoc. Notarization and an updater are
-later tickets. The core's tests also run on Linux: `nix-shell -p swift swiftpm --run 'swift test'`.
+and `IRIS_BUILD_NUMBER`), makes the icon and signs the app ad hoc. CI signs it again with a Developer ID and notarizes
+it once the organization has the secrets (below); an updater is a later ticket. The core's tests also run on Linux: `nix-shell -p swift swiftpm --run 'swift test'`.
 
 End-to-end checks need a test build and a logged-in desktop session, because they open a window.
 CI's runner user has no session, so these are run by hand:
@@ -90,13 +90,19 @@ variable `IRIS_DESKTOP_URL` (version 0.1.0, build number = run number) as one un
 (Apple Silicon and Intel; the job fails if a slice is missing), and uploads it zipped
 (`ditto`) as the artifact `iris-macos`.
 
+Between the build and the zip, mouseion/common's `macos-sign` action signs it with the
+`mouseion` organization's Developer ID (hardened runtime, `Iris.entitlements`), notarizes the
+zip and staples the app. Until those secrets exist it says so in one line and the app stays ad-hoc
+signed. Setting them up is mouseion/common's `docs/macos-signing.md`.
+
 ## Install
 
 1. Download the `iris-macos` artifact from a CI run and unzip it twice: the artifact, then
    `Iris-macos-….zip`.
 2. Move `Iris.app` to `/Applications` or `~/Applications`. Notifications need the app in an
    Applications folder.
-3. The app is ad-hoc signed, so the first time macOS refuses to open it. Open it once, then go to
+3. Until CI signs with a Developer ID (the job's log says which), the app is ad-hoc signed, so
+   the first time macOS refuses to open it. Open it once, then go to
    System Settings → Privacy & Security and click **Open Anyway**.
    From a terminal, `xattr -dr com.apple.quarantine /Applications/Iris.app` does the same.
 4. Allow notifications when Iris asks.
