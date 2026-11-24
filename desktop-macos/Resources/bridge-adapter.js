@@ -11,6 +11,40 @@ function invoke(method, args) {
   return post({ method: method, args: JSON.stringify(args || []) });
 }
 
+// The shell shows Iris's notifications (irisDesktop.notify), so the page's notification permission
+// reads "granted", as the Linux shell grants it: Settings → Notifications then offers its switch,
+// not an Enable button WKWebView could not honour.
+if (window.Notification) {
+  Object.defineProperty(window.Notification, 'permission', {
+    get: function () {
+      return 'granted';
+    },
+    configurable: true,
+  });
+  window.Notification.requestPermission = function (callback) {
+    if (typeof callback === 'function') callback('granted');
+    return Promise.resolve('granted');
+  };
+}
+if (navigator.permissions && navigator.permissions.query) {
+  var query = navigator.permissions.query.bind(navigator.permissions);
+  navigator.permissions.query = function (descriptor) {
+    if (descriptor && descriptor.name === 'notifications') {
+      return Promise.resolve({
+        name: 'notifications',
+        state: 'granted',
+        onchange: null,
+        addEventListener: function () {},
+        removeEventListener: function () {},
+        dispatchEvent: function () {
+          return false;
+        },
+      });
+    }
+    return query(descriptor);
+  };
+}
+
 var handlers = {};
 var latest = {};
 // Only state (the colour scheme) is replayed to a handler added late; a click or a reply is an

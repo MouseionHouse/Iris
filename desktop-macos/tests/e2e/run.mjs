@@ -43,6 +43,9 @@ const outcome = async (p) => { try { await p; return 'ok'; } catch (e) { return 
 (async () => {
   const d = window.irisDesktop;
   report('bridge', { present: typeof d, frozen: d ? Object.isFrozen(d) : null });
+  let perm = 'n/a';
+  try { perm = (await navigator.permissions.query({ name: 'notifications' })).state; } catch (e) { perm = 'error'; }
+  report('webNotification', { api: 'Notification' in window, permission: window.Notification ? Notification.permission : null, query: perm });
   if (!d) return;
   d.on('colorScheme', (p) => report('colorScheme', p));
   const linkDelay = Number(new URLSearchParams(location.search).get('linkDelay') || 0);
@@ -207,6 +210,12 @@ try {
     bridge?.present === 'object' && bridge?.frozen === true,
     JSON.stringify(bridge)
   );
+  const wn = lastReport('webNotification');
+  check(
+    "the page's notification permission reads granted, as on Linux",
+    wn?.permission === 'granted' && wn?.query === 'granted',
+    JSON.stringify(wn)
+  );
   check(
     'version() answers',
     typeof lastReport('version') === 'string' && lastReport('version').length > 0
@@ -217,7 +226,7 @@ try {
     su?.good === 'ok' && su?.highAboveTotal === 'rejected' && su?.string === 'rejected',
     JSON.stringify(su)
   );
-  check('the Dock badge says 3', read(stateLog).includes('IRIS_STATE badge=3 highlight=1'));
+  check('the shell set the badge to 3', read(stateLog).includes('IRIS_STATE badge=3 highlight=1'));
   const nt = lastReport('notify');
   check(
     'notify takes good ones, refuses bad (an icon that does not decode included)',

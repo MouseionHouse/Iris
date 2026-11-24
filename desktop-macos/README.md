@@ -22,6 +22,8 @@ mouseion/iris#109. The spike that showed the web app works in WebKit: #107.
     sent as `reply`. At most 5 per room stay up, the same `id` replaces one, and all are removed
     at quit.
   - `colorScheme` follows the system's light or dark appearance.
+  - The page's notification permission reads granted, as the Linux shell grants it, so Iris's
+    notification setting shows its switch.
   - `openLink`: `matrix:` links come in through `CFBundleURLTypes`, are parsed by the Linux rules
     and are held until the page listens.
 - Web Inspector: Safari → Develop → _this Mac_ → Iris.
@@ -64,7 +66,7 @@ node tests/e2e/run.mjs ~/Applications/"Iris Test.app"
 `tests/e2e/run.mjs` serves two local origins and runs the test build against them. It checks the
 bridge on the allowed origin and its absence in a frame from the other, `setUnread` and the badge,
 `notify` and `closeNotifications` with their refusals (including an icon that doesn't decode), and
-`colorScheme`. It checks that links and `window.open` go to the opener and `file:` isn't opened,
+`colorScheme`, and that the page's notification permission reads granted. It checks that links and `window.open` go to the opener and `file:` isn't opened,
 that `matrix:` links arrive on a cold start and while running and a bad one is dropped, and that
 there's one instance. It also checks that localStorage survives a relaunch and that the offline page
 clears by itself. A test build has `IRIS_SHELL_TEST_HOOKS` and reads these environment variables:

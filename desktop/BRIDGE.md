@@ -138,6 +138,9 @@ Not part of the bridge, but the same on both:
 - Main-frame navigation stays on the Iris origin. Anything else, `target=_blank` and `window.open`
   go to the default browser, and only `http:`, `https:` and `mailto:` links are handed out.
 - Camera, microphone, screen sharing and location are refused (desktop calls stay off).
+- The page's own notification permission reads `granted` (the shell shows the notifications), so
+  Settings → Notifications offers its switch. Linux grants the web permission; macOS reports it
+  from the adapter, since WKWebView offers an app no way to grant it.
 - An offline page ("Iris can't reach the server", Retry) that also retries by itself, every 15 s and
   when the network comes back.
 - Downloads go to `~/Downloads`.

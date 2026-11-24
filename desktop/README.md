@@ -3,6 +3,8 @@
 A Qt 6 WebEngine + KDE Frameworks 6 shell around an Iris web app, whose URL the build takes
 (`IRIS_URL`, required; the Nix package's `url`). The web app is the product; this holds only what a browser cannot do on Plasma. Design: mouseion/iris#63.
 
+The bridge's contract, which the macOS shell (`desktop-macos/`) follows too, is [`BRIDGE.md`](BRIDGE.md).
+
 This skeleton (#64) opens Iris in a locked-down view: one instance, a persistent profile, other
 origins open in the default browser, camera/microphone/screen/location refused, an offline page with
 Retry, and the `window.irisDesktop` bridge (offered on the Iris origin only).
