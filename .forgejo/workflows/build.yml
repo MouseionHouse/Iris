@@ -178,7 +178,7 @@ jobs:
           # The Linux desktop shell: its Nix package and the artwork it embeds.
           desktop_paths='^(desktop/|branding/|scripts/iris-icons\.py$|\.forgejo/workflows/build\.yml$)'
           # The macOS desktop shell, and the bridge contract it shares with the Linux one.
-          macos_paths='^(desktop-macos/|desktop/BRIDGE\.md$|\.forgejo/workflows/build\.yml$)'
+          macos_paths='^(desktop-macos/|desktop/BRIDGE\.md$|\.forgejo/actions/macos-sign/|\.forgejo/workflows/build\.yml$)'
 
           # `build` is false when the change touches no web, app or checks path (a desktop-only push
           # or train). "Run workflow" always builds.
