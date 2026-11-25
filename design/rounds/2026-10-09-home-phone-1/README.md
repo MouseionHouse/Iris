@@ -1,6 +1,6 @@
 # Home on a phone, round 1 (2026-10-09)
 
-The owner asked to redesign the Home page to make it more mobile friendly. This round asks one question: **what shape should Home take on a phone?** It is a prototype, not the build.
+This round redesigns the Home page for phones. It asks one question: **what shape should Home take on a phone?** It is a prototype, not the build.
 
 - **Open it:** `npx vite --host 0.0.0.0 --port 4894`, then `/mock-home-phone.html`. On a desktop it shows the four side by side. On a phone, or with `?variant=now|a|b|c`, it shows one full screen with a strip on top to flip between them. `?dark` and `?light` override the system setting.
 - **The code:** `src/mock/home-phone.tsx`. Real folds components and the app's own unread badge, on fake rooms. Sections fold, the filters in B work, and + opens the create sheet. Nothing is wired to a server.

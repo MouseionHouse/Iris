@@ -118,3 +118,5 @@ https://cinny.in
 Cinny is licensed under the GNU Affero General Public License, Version 3 of the License (AGPL-3.0-only). You may obtain a copy of the License at https://www.gnu.org/licenses/agpl-3.0.html
 
 Changes made for Iris are under the same license. The source for the running app is this repo.
+
+The license covers the code, not the names. Iris, Mouseion and Odyssey, and their marks in `branding/` and `design/house/`, are not licensed for reuse: a fork should use its own name and mark.

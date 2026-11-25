@@ -664,8 +664,8 @@ jobs:
     timeout-minutes: 60
     env:
       IRIS_URL: ${{ vars.IRIS_DESKTOP_URL }}
-      # The Mac is a 24 GB laptop shared with long builds (a Chromium compile): keep SwiftPM to a
-      # few compile jobs and the job at a low priority.
+      # The Mac runner is shared with other long builds: keep SwiftPM to a few compile jobs and
+      # the job at a low priority.
       SWIFT_JOBS: 4
     steps:
       - uses: actions/checkout@v4
