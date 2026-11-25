@@ -17,7 +17,7 @@ inputs:
     required: false
     default: ''
   package:
-    description: "What to make from the signed app and notarize: zip, dmg or none (the app alone, notarized through a temporary zip)."
+    description: 'What to make from the signed app and notarize: zip, dmg or none (the app alone, notarized through a temporary zip).'
     required: false
     default: zip
   output:
