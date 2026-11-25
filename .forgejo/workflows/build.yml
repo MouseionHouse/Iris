@@ -281,6 +281,10 @@ jobs:
   # signature check fails on it too.
   guard:
     runs-on: mouseion-docker
+    # The same tools on every runner of the lane, whose hosts differ: git, ssh-keygen, curl, bash
+    # and Node (for actions/checkout). Pinned by digest.
+    container:
+      image: node:22-bookworm@sha256:7c400d78797d8cbe3f6bb21d2227b86af4cd24b0014cc9f62ff989cc16de988e
     defaults:
       run:
         shell: bash
@@ -309,7 +313,7 @@ jobs:
           dir=$(mktemp -d)
           curl -fsSL -o "$dir/gitleaks.tar.gz" \
             "https://github.com/gitleaks/gitleaks/releases/download/v$GITLEAKS_VERSION/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
-          echo "$GITLEAKS_SHA256  $dir/gitleaks.tar.gz" | sha256sum -c --quiet -
+          echo "$GITLEAKS_SHA256  $dir/gitleaks.tar.gz" | sha256sum -c -
           tar -xzf "$dir/gitleaks.tar.gz" -C "$dir" gitleaks
           "$dir/gitleaks" version
           echo "GITLEAKS=$dir/gitleaks" >> "$GITHUB_ENV"
@@ -394,6 +398,9 @@ jobs:
     needs: [guard]
     if: (github.event_name == 'push' && github.ref == 'refs/heads/dev') || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish_dry_run == 'true')
     runs-on: mouseion-docker
+    # As for `guard`.
+    container:
+      image: node:22-bookworm@sha256:7c400d78797d8cbe3f6bb21d2227b86af4cd24b0014cc9f62ff989cc16de988e
     defaults:
       run:
         shell: bash

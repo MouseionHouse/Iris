@@ -32,7 +32,7 @@ for name in PUBLIC_EMAIL ALLOWED_SIGNERS_FILE PRIVATE_STRINGS_FILE PATTERNS GITL
     exit 2
   fi
 done
-for tool in git awk grep jq; do
+for tool in git awk grep sed ssh-keygen; do
   command -v "$tool" >/dev/null || { echo "publish-guard: $tool is not installed" >&2; exit 2; }
 done
 if ! git show-ref --quiet --verify refs/cinny/dev; then
@@ -100,7 +100,7 @@ git -c core.quotePath=false log --no-walk=unsorted --stdin -p --cc -U0 --no-colo
   --no-renames --no-textconv --format=$'\x01%H' <"$work/all" |
   LC_ALL=C awk -v where="$work/where" -v text="$work/text" '
     function emit(loc, s) { print commit "\t" loc >> where; print s >> text }
-    /^\x01/ { commit = substr($0, 2); hunk = 0; next }
+    substr($0, 1, 1) == "\001" { commit = substr($0, 2); hunk = 0; next }
     /^diff / { hunk = 0; file = ""; next }
     !hunk && /^\+\+\+ / { file = substr($0, 5); sub(/^b\//, "", file); next }
     /^@@/ {
@@ -124,14 +124,14 @@ git -c core.quotePath=false log --no-walk=unsorted --stdin -p --cc -U0 --no-colo
 git -c core.quotePath=false log --no-walk=unsorted --stdin --name-only --no-renames \
   --format=$'\x01%H' <"$work/all" |
   LC_ALL=C awk -v where="$work/where" -v text="$work/text" '
-    /^\x01/ { commit = substr($0, 2); next }
+    substr($0, 1, 1) == "\001" { commit = substr($0, 2); next }
     NF { print commit "\t" $0 " (the path)" >> where; print >> text }
   '
 
 # Messages and identities.
 git log --no-walk=unsorted --stdin --format=$'\x01%H%n%B' <"$work/all" |
   LC_ALL=C awk -v where="$work/where" -v text="$work/text" '
-    /^\x01/ { commit = substr($0, 2); n = 0; next }
+    substr($0, 1, 1) == "\001" { commit = substr($0, 2); n = 0; next }
     { n++; print commit "\tthe message, line " n >> where; print >> text }
   '
 git log --no-walk=unsorted --stdin --format='%H%x09%an%x09%ae%x09%cn%x09%ce' <"$work/all" |
@@ -174,17 +174,20 @@ done <<<"$PATTERNS"
 # secret could hold a private string.
 log_opts="$head"
 if [ -n "$base" ]; then log_opts="$base..$head"; fi
+printf '%s\n' '{{ range . }}{{ .RuleID }}{{ "\t" }}{{ .Commit }}{{ "\t" }}{{ .File }}{{ "\t" }}{{ .StartLine }}' \
+  '{{ end }}' >"$work/gitleaks.tmpl"
 set +e
-"$GITLEAKS" git --no-banner --redact=100 --log-level error --exit-code 3 \
-  --log-opts="$log_opts" --report-format json --report-path "$work/gitleaks.json" .
+"$GITLEAKS" git --no-banner --redact=100 --log-level error --exit-code 3 --log-opts="$log_opts" \
+  --report-format template --report-template "$work/gitleaks.tmpl" --report-path "$work/gitleaks.tsv" .
 status=$?
 set -e
 case $status in
   0) ;;
   3)
     while IFS=$'\t' read -r rule sha file line; do
+      [ -n "$rule" ] || continue
       finding "gitleaks $rule" "$sha" "$file:$line"
-    done < <(jq -r '.[] | [.RuleID, .Commit, .File, (.StartLine | tostring)] | @tsv' "$work/gitleaks.json")
+    done <"$work/gitleaks.tsv"
     ;;
   *)
     echo "publish-guard: gitleaks failed (exit $status)" >&2
