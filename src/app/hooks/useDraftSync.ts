@@ -82,7 +82,7 @@ const replaceContent = (editor: Editor, msg: Descendant[] | undefined) => {
 };
 
 /**
- * Keeps a room's composer and reply bar in step with its synced draft (mouseion/iris#60).
+ * Keeps a room's composer and reply bar in step with its synced draft.
  *
  * The composer saves 1.5 s after it stops changing, and at once when the room is left or the page
  * is hidden; `flush` saves now (after a send). A draft from elsewhere replaces the composer only

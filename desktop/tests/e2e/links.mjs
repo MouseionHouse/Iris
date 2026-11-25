@@ -1,4 +1,4 @@
-// End-to-end checks for matrix: links (mouseion/iris#69): the shell offscreen with a throwaway
+// End-to-end checks for matrix: links: the shell offscreen with a throwaway
 // profile on a private session bus, a page that subscribes to openLink late (as the app does after
 // it has signed in), driven over the Chrome DevTools Protocol. Nothing reaches the real desktop.
 //   run by run.sh, inside dbus-run-session:  IRIS_BIN=<build>/iris node links.mjs

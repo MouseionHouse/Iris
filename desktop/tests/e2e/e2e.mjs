@@ -443,7 +443,7 @@ try {
   );
   check('tray tooltip starts as plain Iris', /"Iris" ""$/.test(item('ToolTip')), item('ToolTip'));
   await page.evaluate(() => window.irisDesktop.setUnread({ total: 3, highlight: 0 }));
-  // A mention is marked the KDE way (#83): Status NeedsAttention and a theme emblem as the overlay,
+  // A mention is marked the KDE way: Status NeedsAttention and a theme emblem as the overlay,
   // over the unchanged app icon, which is also the attention icon.
   const unmarked = () =>
     item('Status') === 's "Active"' &&

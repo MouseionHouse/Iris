@@ -1,4 +1,4 @@
-// Screenshots of /mock-schedule.html (mouseion/iris#87), and a few checks on the way.
+// Screenshots of /mock-schedule.html, and a few checks on the way.
 //
 //   npx vite --port 5187 &
 //   node scripts/mock-schedule-shots.mjs <dir with playwright-core> <out dir> [http://localhost:5187]
@@ -199,7 +199,7 @@ for (const theme of ['light', 'dark']) {
   await page.context().close();
 }
 
-// power levels (mouseion/iris#94): an encrypted room's composer needs m.room.encrypted, a plain
+// power levels: an encrypted room's composer needs m.room.encrypted, a plain
 // room's m.room.message; without it there is no composer, so nothing to send or schedule with
 for (const [query, allowed] of [
   ['no-encrypted', false],

@@ -1,4 +1,4 @@
-// End-to-end checks for notifications (mouseion/iris#68): the shell offscreen, a fake
+// End-to-end checks for notifications: the shell offscreen, a fake
 // org.freedesktop.Notifications (tests/fakenotifyd) on the private session bus, a page driving
 // irisDesktop over the Chrome DevTools Protocol. Nothing reaches the real desktop.
 //   run by run.sh, inside dbus-run-session:  IRIS_BIN=<build>/iris node notifications.mjs

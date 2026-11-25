@@ -2,7 +2,7 @@
  * The Iris desktop shell (`desktop/`, a Qt WebEngine app for KDE) offers the page a small bridge,
  * `window.irisDesktop`, only on the Iris origin. This is its typed wrapper. Outside the shell the
  * object does not exist and everything here does nothing, so the browser, Hub-framed and Android
- * builds behave as before. The contract is in mouseion/iris#63.
+ * builds behave as before. The contract is in desktop/BRIDGE.md.
  *
  * Kept free of imports from the app so it can be unit tested on its own (`npm test`).
  */

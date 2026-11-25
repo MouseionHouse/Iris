@@ -1,4 +1,4 @@
-// Iris only: scheduling on touch, in the action sheet messages use (mouseion/iris#87).
+// Iris only: scheduling on touch, in the action sheet messages use.
 import React from 'react';
 import { Box, Header, Text, config } from 'folds';
 import { BottomSheet, BottomSheetMenu } from '../../../components/bottom-sheet';

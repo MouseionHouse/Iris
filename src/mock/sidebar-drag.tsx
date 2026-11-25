@@ -1,4 +1,4 @@
-// Dragging in Home's sidebar (mouseion/iris#50), for checking it without a homeserver: the app's
+// Dragging in Home's sidebar, for checking it without a homeserver: the app's
 // own section header and drag code over fake sections and stand-in rows. A fake Sidebar keeps the
 // sections and each room's tag, and logs every `save` and `moveRoom` call to window.__calls.
 //
@@ -161,7 +161,7 @@ function App() {
                     last={i === view.rooms.length - 1}
                   >
                     {/* A link with an avatar image, as RoomNavItem renders a row: both are
-                        drag sources of their own in a browser (#52). */}
+                        drag sources of their own in a browser. */}
                     <a
                       href={`#/home/${r.roomId}`}
                       data-room={r.name}

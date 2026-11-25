@@ -174,7 +174,7 @@ int main(int argc, char *argv[])
     auto *state = new WindowState(window);
     state->restore();
 
-    // Tray, close-to-tray and the global shortcut (mouseion/iris#67).
+    // Tray, close-to-tray and the global shortcut.
     closeToTray = new CloseToTray(window);
     auto *tray = new Tray(window, window);
     QObject::connect(tray, &Tray::quitRequested, &app, quitShell);
@@ -195,7 +195,7 @@ int main(int argc, char *argv[])
     });
 #endif
 
-    // matrix: links (mouseion/iris#69), from the command line and from a second launch: parsed here,
+    // matrix: links, from the command line and from a second launch: parsed here,
     // dropped (and logged) if they do not parse, otherwise shown by the page. A link shows the window
     // even when it was started hidden. The bridge queues them until the page is up.
     auto showWindow = [window] {

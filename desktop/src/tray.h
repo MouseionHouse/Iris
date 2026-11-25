@@ -10,7 +10,7 @@ class QWindow;
 
 // The tray icon (a StatusNotifierItem): click shows or hides the window, the menu has Show Iris
 // and Quit, the tooltip follows the unread state the bridge reports. A mention marks the item as
-// Konversation does, with NeedsAttention, plus a theme emblem over the app icon (#83).
+// Konversation does, with NeedsAttention, plus a theme emblem over the app icon.
 class Tray : public QObject
 {
     Q_OBJECT

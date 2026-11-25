@@ -1,4 +1,4 @@
-// Scheduled messages (mouseion/iris#87), for checking without a homeserver: the real composer
+// Scheduled messages, for checking without a homeserver: the real composer
 // (RoomComposer and RoomInput, with its split send button, picker, time bar and list of scheduled messages) over an
 // in-memory delayed-events store that behaves as Synapse 1.165 does, with a 7-day limit.
 //
@@ -6,8 +6,8 @@
 // override the system setting, ?plain makes the room unencrypted, ?unsupported is a server
 // without MSC4140 (and seeds nothing), ?empty seeds nothing, ?limit=1 sets the server's limit to an
 // hour (default 7 days). ?no-encrypted makes m.room.encrypted need power 50, ?no-message the same
-// for m.room.message; Hector has 0, so the first leaves him no composer in the encrypted room
-// (mouseion/iris#94). window.__schedule is the store:
+// for m.room.message; Hector has 0, so the first leaves him no composer in the encrypted room.
+// window.__schedule is the store:
 // its `requests` counts every call. Not part of the app build.
 import React, { useMemo, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
