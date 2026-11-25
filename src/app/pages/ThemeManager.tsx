@@ -45,7 +45,7 @@ export function UnAuthRouteThemeManager() {
     }
 
     // Paint the page background / theme-color / status bar to match (safe-area +
-    // edge-to-edge chrome, mobile/WRAPPER-PLAN.md Phase 3).
+    // edge-to-edge chrome, mobile/README.md, "Edge-to-edge and the theme").
     applyThemeChrome(theme);
   }, [systemThemeKind, hubTheme]);
 
@@ -69,7 +69,7 @@ export function AuthRouteThemeManager({ children }: { children: ReactNode }) {
     }
 
     // Paint the page background / theme-color / status bar to match (safe-area +
-    // edge-to-edge chrome, mobile/WRAPPER-PLAN.md Phase 3).
+    // edge-to-edge chrome, mobile/README.md, "Edge-to-edge and the theme").
     applyThemeChrome(activeTheme);
   }, [activeTheme, monochromeMode]);
 

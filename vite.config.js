@@ -10,7 +10,7 @@ import buildConfig from './build.config.ts';
 
 // There is one build. The Capacitor Android wrapper embeds the same bundle with
 // config.mobile.json in place of config.json (scripts/mobile-bundle.js, npm run build:mobile),
-// so nothing here depends on the target. See mobile/WRAPPER-PLAN.md.
+// so nothing here depends on the target. See mobile/README.md, "What it is".
 // vite-plugin-static-copy keeps each file's path from the project root; `stripBase` drops that
 // many leading directories (`true`: all of them) so the files land where the app looks for them.
 function copyFiles() {

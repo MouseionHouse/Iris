@@ -3,7 +3,7 @@ import { atom, useSetAtom } from 'jotai';
 import { useEffect } from 'react';
 
 /**
- * Android text share bridge (mobile/WRAPPER-PLAN.md, Phase 2).
+ * Android text share bridge (mobile/README.md, "Sharing into Iris").
  *
  * The native `MouseionShare` plugin (MouseionSharePlugin.java) makes the app a text share
  * target two ways: the app itself in the share sheet, and per-chat targets (Direct Share

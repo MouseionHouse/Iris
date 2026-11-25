@@ -87,8 +87,8 @@ function EmailNotification() {
 }
 
 /**
- * The Android app's notifications (mobile/WRAPPER-PLAN.md): the WebView cannot notify while the app
- * is closed, so messages arrive through a UnifiedPush app (ntfy) instead.
+ * The Android app's notifications (mobile/README.md, "Push notifications"): the WebView cannot
+ * notify while the app is closed, so messages arrive through a UnifiedPush app (ntfy) instead.
  */
 function PushNotification() {
   const mx = useMatrixClient();

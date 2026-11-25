@@ -11,7 +11,7 @@ import org.unifiedpush.android.connector.data.PushMessage;
  * at ntfy's Matrix gateway with format event_id_only, so each message names one event;
  * PushNotifier fetches and shows it.
  *
- * The pusher itself is owned by the web app (mobile/WRAPPER-PLAN.md, "Bridge contract"): a new
+ * The pusher itself is owned by the web app (mobile/README.md, "Push notifications"): a new
  * endpoint is stored here and handed to the web app, which registers it with setPusher on the
  * event and again at every start.
  */

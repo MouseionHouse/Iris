@@ -22,7 +22,7 @@ import com.getcapacitor.annotation.PermissionCallback;
 import org.unifiedpush.android.connector.UnifiedPush;
 
 /**
- * The "MouseionPush" bridge (mobile/WRAPPER-PLAN.md, "Bridge contract"): lets the web app turn
+ * The "MouseionPush" bridge (mobile/README.md, "Bridge contract"): lets the web app turn
  * UnifiedPush on and off, hands it the endpoint so it can own the Matrix pusher, stores the
  * session the push service fetches events with, and reports notification taps.
  *
