@@ -1,6 +1,6 @@
 <h1><img src="branding/iris-mark-on-light.svg" alt="" width="44" height="44" align="top"> Iris</h1>
 
-Iris is a [Matrix](https://matrix.org) client, forked from [Cinny](https://cinny.in) 4.12.6. It follows Cinny, on 4.12.8 now, and adds what one household, Mouseion, wanted from its chat. It runs in the browser, as an Android app and as a KDE Plasma desktop app.
+Iris is a [Matrix](https://matrix.org) client, forked from [Cinny](https://cinny.in) 4.12.6. It follows Cinny, on 4.12.8 now, and adds what one household, Mouseion, wanted from its chat. It runs in the browser, as an Android app, as a KDE Plasma desktop app and as a macOS app.
 
 - **Issues:** [github.com/MouseionHouse/Iris/issues](https://github.com/MouseionHouse/Iris/issues)
 - **Pull requests:** [github.com/MouseionHouse/Iris/pulls](https://github.com/MouseionHouse/Iris/pulls), see [`CONTRIBUTING.md`](CONTRIBUTING.md)
@@ -15,6 +15,7 @@ Iris is a [Matrix](https://matrix.org) client, forked from [Cinny](https://cinny
 - **An image editor.** Crop, rotate and draw on an image before you send it.
 - **The emoji and sticker board.** Add stickers to a pack, and manage stickers and packs, from the sticker board.
 - **A KDE desktop shell.** A Qt WebEngine and KDE Frameworks window around the web app, with KDE notifications you can reply to inline, an unread count on the taskbar, a tray icon and `matrix:` links. See [`desktop/README.md`](desktop/README.md).
+- **A macOS shell.** A native Swift window around the web app, with notifications you can reply to, an unread badge on the Dock icon and `matrix:` links. See [`desktop-macos/README.md`](desktop-macos/README.md).
 - **Its own look.** The iris mark, and the Iris light and Iris dark themes.
 
 Optionally, Iris can live inside a hub: a page that frames other apps. When a hub you name at build time frames it, the two talk over `postMessage`: the hub sets the theme and receives the unread counts. Without one, the bridge stays off. See [`src/app/hub/`](src/app/hub).
