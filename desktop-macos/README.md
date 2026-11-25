@@ -2,8 +2,7 @@
 
 A small native Swift shell around the Iris web app: one window with a `WKWebView` on the live web app
 at `IRIS_URL` (never bundled assets), the Mac counterpart of the Linux Qt/KDE shell in `desktop/`.
-The web app is the product; this holds only what a browser can't do on a Mac. Ticket:
-mouseion/iris#109. The spike that showed the web app works in WebKit: #107.
+The web app is the product; this holds only what a browser can't do on a Mac.
 
 - One window and one instance. The data store is persistent (`~/Library/WebKit/house.mouseion.iris`),
   so login, IndexedDB and the service worker survive a relaunch. Closing the window keeps Iris
@@ -52,8 +51,9 @@ ARCHS="arm64 x86_64" IRIS_URL=… ./build.sh             # universal (Apple Sili
 
 `build.sh` wraps the SwiftPM binary in `Iris.app` (bundle id `house.mouseion.iris`, macOS 13 or
 later), writes the `Info.plist` (`IrisURL`, the `matrix` URL scheme, version from `IRIS_VERSION`
-and `IRIS_BUILD_NUMBER`), makes the icon and signs the app ad hoc. CI signs it again with a Developer ID and notarizes
-it once the organization has the secrets (below); an updater is a later ticket. The core's tests also run on Linux: `nix-shell -p swift swiftpm --run 'swift test'`.
+and `IRIS_BUILD_NUMBER`), makes the icon and signs the app ad hoc. To sign it with a Developer ID and notarize it, see
+[Signing](#signing). There is no updater yet. The core's tests also run on Linux:
+`nix-shell -p swift swiftpm --run 'swift test'`.
 
 End-to-end checks need a test build and a logged-in desktop session, because they open a window.
 CI's runner user has no session, so these are run by hand:
@@ -81,28 +81,35 @@ and never what a message says:
 log show --last 10m --predicate 'subsystem == "house.mouseion.iris"'
 ```
 
-## CI
+## Signing
 
-`.forgejo/workflows/build.yml` has a `macos` job on the `mouseion-macos` runner, a Mac whose jobs
-run on the host with Xcode. It runs when `desktop-macos/`, `desktop/BRIDGE.md` or the workflow
-change, and from "Run workflow". It runs the core's tests, builds `Iris.app` for the URL in the repo
-variable `IRIS_DESKTOP_URL` (version 0.1.0, build number = run number) as one universal app
-(Apple Silicon and Intel; the job fails if a slice is missing), and uploads it zipped
-(`ditto`) as the artifact `iris-macos`.
+An ad-hoc signed app runs on the Mac that built it, but macOS warns about it anywhere else. To
+give it to other people, sign it with an Apple Developer ID and notarize it.
 
-Between the build and the zip, mouseion/common's `macos-sign` action signs it with the
-`mouseion` organization's Developer ID (hardened runtime, `Iris.entitlements`), notarizes the
-zip and staples the app. Until those secrets exist it says so in one line and the app stays ad-hoc
-signed. Setting them up is mouseion/common's `docs/macos-signing.md`.
+`.forgejo/actions/macos-sign` does this on a Mac, and the maintainer's CI uses it after
+`build.sh`. It is a composite action around `macos-sign.sh`, which you can also run by hand with
+the same inputs as `MS_*` environment variables (see `action.yml`). It needs:
+
+- `app`: the `Iris.app` to sign, and `entitlements`: `desktop-macos/Iris.entitlements`;
+- a Developer ID Application certificate with its private key, exported as a `.p12` and
+  base64-encoded, and the `.p12`'s password;
+- for notarization, an App Store Connect API key: the `.p8` file base64-encoded, its key ID and
+  its issuer ID;
+- optionally, your Apple team ID, so a certificate from another team is refused.
+
+It imports the certificate into a keychain that lasts only for the step, signs with the hardened
+runtime, zips the app, notarizes and staples it, and checks the result. Without a certificate it
+changes nothing and says so, and the app stays ad-hoc signed; without a notary key it signs but
+does not notarize. Keep the certificate, its password and the key in your CI's secret store,
+never in the repository.
 
 ## Install
 
-1. Download the `iris-macos` artifact from a CI run and unzip it twice: the artifact, then
-   `Iris-macos-….zip`.
-2. Move `Iris.app` to `/Applications` or `~/Applications`. Notifications need the app in an
-   Applications folder.
-3. Until CI signs with a Developer ID (the job's log says which), the app is ad-hoc signed, so
-   the first time macOS refuses to open it. Open it once, then go to
+1. Build `Iris.app` for your Iris's URL as in [Build and test](#build-and-test-on-a-mac-with-xcode),
+   with `OUT_DIR=~/Applications`, or move it to `/Applications` or `~/Applications`
+   afterwards. Notifications need the app in an Applications folder.
+2. An app you built yourself opens without a warning on that Mac. An ad-hoc signed app copied
+   from another Mac is refused the first time: open it once, then go to
    System Settings → Privacy & Security and click **Open Anyway**.
    From a terminal, `xattr -dr com.apple.quarantine /Applications/Iris.app` does the same.
-4. Allow notifications when Iris asks.
+3. Allow notifications when Iris asks.

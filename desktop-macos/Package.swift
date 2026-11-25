@@ -1,5 +1,5 @@
 // swift-tools-version:5.9
-// The Iris macOS shell (mouseion/iris#109). `build.sh` builds the app target and wraps it in
+// The Iris macOS shell. `build.sh` builds the app target and wraps it in
 // Iris.app; `swift test` runs the core's tests (they also run on Linux: the core is Foundation only).
 import PackageDescription
 

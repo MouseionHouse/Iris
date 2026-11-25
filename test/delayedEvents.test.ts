@@ -1,4 +1,4 @@
-// Run with `npm test`. Scheduled messages over MSC4140 delayed events (mouseion/iris#87).
+// Run with `npm test`. Scheduled messages over MSC4140 delayed events.
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {

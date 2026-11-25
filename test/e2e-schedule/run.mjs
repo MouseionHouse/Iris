@@ -1,4 +1,4 @@
-// End to end check of scheduled messages (mouseion/iris#87) against a local Synapse with MSC4140
+// End to end check of scheduled messages against a local Synapse with MSC4140
 // switched on (./synapse.sh up). Two users, alice and bob, each a matrix-js-sdk client with rust
 // crypto, drive the same functions Iris uses (src/app/utils/delayedEvents.ts).
 //

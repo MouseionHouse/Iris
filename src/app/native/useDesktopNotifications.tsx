@@ -31,8 +31,7 @@ import { sendDesktopReply } from './desktopReply';
 
 /**
  * Shows a room (and an event in it): an invitation opens the invitations, anything else the room
- * where it lives. The one handler for a click on a desktop notification, and for `matrix:` links
- * (mouseion/iris#69).
+ * where it lives. The one handler for a click on a desktop notification, and for `matrix:` links.
  */
 export const useDesktopOpenRoom = (): ((target: DesktopOpenRoom) => void) => {
   const mx = useMatrixClient();
@@ -48,7 +47,7 @@ export const useDesktopOpenRoom = (): ((target: DesktopOpenRoom) => void) => {
 };
 
 /**
- * Opens a `matrix:` link (mouseion/iris#69) where a `matrix.to` link clicked in Iris would go; see
+ * Opens a `matrix:` link where a `matrix.to` link clicked in Iris would go; see
  * `routeDesktopLink`. A known room goes through `useDesktopOpenRoom`, the one handler shared with
  * notification clicks.
  */

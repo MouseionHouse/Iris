@@ -1,15 +1,15 @@
 # Iris desktop
 
 A Qt 6 WebEngine + KDE Frameworks 6 shell around an Iris web app, whose URL the build takes
-(`IRIS_URL`, required; the Nix package's `url`). The web app is the product; this holds only what a browser cannot do on Plasma. Design: mouseion/iris#63.
+(`IRIS_URL`, required; the Nix package's `url`). The web app is the product; this holds only what a browser cannot do on Plasma.
 
 The bridge's contract, which the macOS shell (`desktop-macos/`) follows too, is [`BRIDGE.md`](BRIDGE.md).
 
-This skeleton (#64) opens Iris in a locked-down view: one instance, a persistent profile, other
+The shell opens Iris in a locked-down view: one instance, a persistent profile, other
 origins open in the default browser, camera/microphone/screen/location refused, an offline page with
 Retry, and the `window.irisDesktop` bridge (offered on the Iris origin only).
 
-The bridge so far (#66): `version()`, `setUnread({ total, highlight })` and the `colorScheme { dark }` event.
+The bridge: `version()`, `setUnread({ total, highlight })` and the `colorScheme { dark }` event.
 `setUnread` validates its arguments (whole numbers, `0 <= highlight <= total <= 1000000`; rejects otherwise)
 and `src/badge.*` broadcasts the `com.canonical.Unity.LauncherEntry.Update` signal for
 `application://house.mouseion.iris.desktop` (`count`, `count-visible` false at 0), which Plasma draws on the
@@ -17,7 +17,7 @@ taskbar icon; it is sent again when a page loads. `highlight` is kept on the bri
 comes from `src/colorscheme.*` (Qt's colour scheme hint, else the window background's lightness) and is replayed
 to handlers added late. Web side: `src/app/native/desktop.ts`, `useDesktopBridge.ts`.
 
-Notifications (#68): `notify({ id, roomId, eventId?, title, body, icon?, canReply? })` and
+Notifications: `notify({ id, roomId, eventId?, title, body, icon?, canReply? })` and
 `closeNotifications({ roomId })` go in; `openRoom { roomId, eventId? }` and `reply { roomId, eventId?, text }` come
 out (one-shot events, not replayed to late handlers). `src/notifier.*` makes a `KNotification` of the
 `message` event of component `house.mouseion.iris` (so System Settings → Notifications lists Iris and Do Not
@@ -33,9 +33,9 @@ HTML. A reply is cut at 16000 units. The web side is `src/app/native/desktop.ts`
 links will reuse, plus the click/reply/read-rule handlers) and the delivery switch in
 `src/app/pages/client/ClientNonUIFeatures.tsx`.
 
-The tray (#67): `src/tray.*` is a `KStatusNotifierItem` (click toggles the window; menu Show Iris / Quit; tooltip
+The tray: `src/tray.*` is a `KStatusNotifierItem` (click toggles the window; menu Show Iris / Quit; tooltip
 "Iris: N unread"; the icon is always the app icon). While `highlight > 0` the item is marked as Konversation
-marks one (#83): status `NeedsAttention`, which Plasma pulses and keeps out of the hidden-items popup, and the
+marks one: status `NeedsAttention`, which Plasma pulses and keeps out of the hidden-items popup, and the
 theme's `emblem-important` (Breeze: an orange square with a "!") as the overlay; the attention icon is the app icon
 itself. NeoChat marks nothing in its tray. `src/closetotray.*` turns a close into a hide, so Iris keeps syncing;
 only Quit (tray menu or Ctrl+Q), SIGTERM/SIGINT or the end of the session really close it. The first hide shows
@@ -45,7 +45,7 @@ notification; `Notifier` is per room, with a click and a reply, which this is no
 URI). `src/globalshortcut.*` registers the KGlobalAccel action "Show or hide Iris" with no default key; set it in System
 Settings -> Shortcuts -> Iris. The tray needs a `QApplication` (its menu is a `QMenu`).
 
-`matrix:` links (#69): `house.mouseion.iris.desktop` declares `MimeType=x-scheme-handler/matrix;` and
+`matrix:` links: `house.mouseion.iris.desktop` declares `MimeType=x-scheme-handler/matrix;` and
 `Exec=iris %u`, so `xdg-open 'matrix:r/<alias>'` starts Iris or, if it runs, hands the link to it
 (`KDBusService::activateRequested`). `src/matrixuri.*` parses the Matrix spec's `matrix:` URI scheme and
 nothing else: `roomid/<id>`, `r/<alias>`, `u/<user>`, `/e/<event>` after a room, `?via=` (repeatable, at most 10)

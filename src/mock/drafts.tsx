@@ -1,4 +1,4 @@
-// Drafts that follow the account (mouseion/iris#60), for checking without a homeserver: two
+// Drafts that follow the account, for checking without a homeserver: two
 // "devices", each the real composer (CustomEditor + useDraftSync) with its own jotai store, over
 // one in-memory draft store that echoes every write after a delay, as sync would. Under each
 // composer are the room's desktop row (the real pencil) and phone row (the real RoomRow).

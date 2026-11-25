@@ -1,7 +1,7 @@
 # The `irisDesktop` bridge
 
 The contract between the Iris web app and the desktop shells around it: the Linux Qt/KDE shell
-(`desktop/`, design mouseion/iris#63) and the macOS Swift shell (`desktop-macos/`, mouseion/iris#109).
+(`desktop/`) and the macOS Swift shell (`desktop-macos/`).
 Both follow this page; a change to the bridge changes this page, both shells and their tests together.
 The web side is `src/app/native/desktop.ts` (the typed wrapper; outside a shell every call does
 nothing) and the hooks beside it.

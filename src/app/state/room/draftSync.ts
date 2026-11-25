@@ -4,7 +4,7 @@ import { BlockType } from '../../components/editor/types';
 import { IReplyDraft } from './roomInputDrafts';
 
 /*
- * Composer drafts that follow the account (mouseion/iris#60). Each room's draft is the
+ * Composer drafts that follow the account. Each room's draft is the
  * `house.mouseion.draft` room account-data event, so every device of the user sees the same one,
  * the way `house.mouseion.sidebar` carries the sidebar's sections.
  *

@@ -1,6 +1,6 @@
 # Scheduled messages, end to end
 
-Checks scheduled messages (issue #87) against a real Synapse with MSC4140 switched on. Two users, alice and bob, each a matrix-js-sdk client with rust crypto, drive the same functions Iris uses (`src/app/utils/delayedEvents.ts`). It is not run in CI.
+Checks scheduled messages against a real Synapse with MSC4140 switched on. Two users, alice and bob, each a matrix-js-sdk client with rust crypto, drive the same functions Iris uses (`src/app/utils/delayedEvents.ts`). It is not run in CI.
 
 Docker and Node 24 are all it needs:
 

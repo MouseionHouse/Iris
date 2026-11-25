@@ -11,7 +11,7 @@ inline constexpr QLatin1StringView origin{IRIS_SHELL_ORIGIN};
 inline constexpr QLatin1StringView appId{"house.mouseion.iris"};
 inline constexpr QLatin1StringView displayName{"Iris"};
 inline constexpr QLatin1StringView iconName{"house.mouseion.iris"};
-// The theme emblem the tray draws over the icon while something mentions you (#83).
+// The theme emblem the tray draws over the icon while something mentions you.
 inline constexpr QLatin1StringView mentionOverlayIconName{"emblem-important"};
 inline constexpr QLatin1StringView desktopFileName{"house.mouseion.iris"};
 // QCoreApplication name and domain: KDBusService derives its D-Bus name from them

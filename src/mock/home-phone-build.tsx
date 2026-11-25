@@ -1,4 +1,4 @@
-// The build of Home on a phone (mouseion/iris#22), for checking its look without a homeserver:
+// The build of Home on a phone, for checking its look without a homeserver:
 // the app's own row, section header, chip row, + button and sheets, on fake rooms. The pieces
 // that read a Matrix room are left out; what they render is what is here.
 //

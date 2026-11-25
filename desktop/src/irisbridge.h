@@ -12,7 +12,7 @@
 class NavigationPolicy;
 class QWebChannel;
 
-// What the page can call: window.irisDesktop. Methods come from the contract in mouseion/iris#63;
+// What the page can call: window.irisDesktop. Methods come from the contract in desktop/BRIDGE.md;
 // arguments come from a page we do not control, so each one is checked here.
 class IrisBridge : public QObject
 {
@@ -48,7 +48,7 @@ public:
     static bool validEventId(const QString &id);
 
     int unreadTotal() const { return m_total; }
-    // Kept for the tray (mouseion/iris#67); nothing shows it yet.
+    // Kept for the tray; nothing shows it yet.
     int unreadHighlight() const { return m_highlight; }
 
     // Native -> web colorScheme { dark }; remembered for latestEvents().
@@ -56,7 +56,7 @@ public:
     // Native -> web, not remembered: a notification was clicked / replied to.
     void openRoom(const QString &roomId, const QString &eventId);
     void reply(const QString &roomId, const QString &eventId, const QString &text);
-    // Native -> web, a matrix: link (mouseion/iris#69), event `openLink`. A link is an occurrence
+    // Native -> web, a matrix: link, event `openLink`. A link is an occurrence
     // that must not be lost: it is queued until the page's adapter has asked for the pending links
     // (takePendingLinks), then emitted at once. At most maxPendingLinks wait; the oldest go.
     static constexpr int maxPendingLinks = 8;

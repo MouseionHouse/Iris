@@ -29,11 +29,33 @@ A pull request should:
 
 - do one thing, and say what and why;
 - name the issue it fixes, if there is one;
-- pass `npm test`, `npm run typecheck`, `npm run lint` and `npm run build` (CI runs all four, and
-  the pre-commit hook the first three);
+- pass the checks below;
 - use [conventional commits](https://www.conventionalcommits.org) (`npm run commit` helps).
 
 [`HACKING.md`](HACKING.md) has how to build and run Iris.
+
+### Checks
+
+GitHub runs these on every pull request (`.github/workflows/check.yml`). Run them yourself
+first, with the Node version in `.node-version`:
+
+```sh
+npm ci
+npm run typecheck
+npm run lint
+npm test
+npm run build
+```
+
+The pre-commit hook runs the typecheck, and ESLint and Prettier on the files you stage.
+`npm run fix:prettier` fixes formatting.
+
+### How a pull request is merged
+
+Iris's real CI, and every merge, happen on the maintainer's own forge, which publishes `dev` to
+GitHub. So a pull request is not merged on GitHub: once it is approved, its commits are brought
+over to the forge, checked and merged there, and come back to GitHub with the next publish. The
+pull request is then closed with a note saying so, and you stay the author of your commits.
 
 By opening a pull request you agree that your work is offered under the project's license,
 AGPL-3.0-only.
