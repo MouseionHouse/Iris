@@ -18,7 +18,7 @@ import {
 } from './pushBridge';
 
 /**
- * Android push bridge (mobile/WRAPPER-PLAN.md, "Bridge contract"). A WebView does not run while
+ * Android push bridge (mobile/README.md, "Bridge contract"). A WebView does not run while
  * the app is in the background, so without this the phone only learns of a message when the app
  * is opened. The native `MouseionPush` plugin receives UnifiedPush (ntfy) messages, fetches the
  * event with the session stored here and posts the notification; the web app owns the Matrix

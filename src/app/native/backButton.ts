@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { editableActiveElement } from '../utils/dom';
 
 /**
- * Android back button / back gesture (mobile/WRAPPER-PLAN.md).
+ * Android back button / back gesture (mobile/README.md, "Back button and gesture").
  *
  * Back first closes what is open on top of the page: an action sheet, a menu, a dialog,
  * the emoji board. Only with nothing open it goes back in the history, and at the start

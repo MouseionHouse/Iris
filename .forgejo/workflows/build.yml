@@ -9,7 +9,7 @@
 # the web client, and exports what the Android project needs from them as an artifact: the same
 # build with the mobile config.json (scripts/mobile-bundle.js), synced by Capacitor, plus
 # Capacitor's Android libraries. `apk` unpacks that over a checkout and runs Gradle, with no Node
-# step of its own: see mobile/WRAPPER-PLAN.md.
+# step of its own: see mobile/README.md, "Releases".
 #
 # What a push does is decided in `plan`, from the paths it changes:
 #
@@ -233,9 +233,9 @@ jobs:
               IFS=. read -r lmajor lminor _ <<< "${latest#mobile-v}"
             fi
             if [[ -z "$latest" ]] || (( lmajor == 0 && lminor < 4 )); then
-              # First release of the Capacitor wrapper (mobile/WRAPPER-PLAN.md). An older native
-              # app reached 0.3.0, and one of its early tags is a clean mobile-v0.1.1, so the
-              # wrapper starts at 0.4.0 rather than bumping that.
+              # First release of the Capacitor wrapper (mobile/README.md, "Releases"). An older
+              # native app reached 0.3.0, and one of its early tags is a clean mobile-v0.1.1, so
+              # the wrapper starts at 0.4.0 rather than bumping that.
               next="0.4.0"
             else
               msgs="$(git log --format=%B "$latest..HEAD")"

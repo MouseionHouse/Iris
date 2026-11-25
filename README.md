@@ -43,7 +43,7 @@ docker build -t iris .
 docker run -p 8080:80 iris
 ```
 
-**Android:** `npm run build:mobile` makes the mobile bundle, `npx cap sync android` copies it into the Android project, and Gradle builds the app from [`mobile/android/`](mobile/android) (`./gradlew assembleDebug`).
+**Android:** `npm run build:mobile` makes the mobile bundle, `npx cap sync android` copies it into the Android project, and Gradle builds the app from [`mobile/android/`](mobile/android) (`./gradlew assembleDebug`). [`mobile/README.md`](mobile/README.md) has the details: how the app is put together, the bridge between the web app and native code, push, and releases.
 
 **Desktop:** the KDE shell is a CMake project, with a Nix package; [`desktop/README.md`](desktop/README.md) has both.
 
