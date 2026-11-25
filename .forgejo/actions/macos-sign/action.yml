@@ -1,0 +1,92 @@
+# Copied from mouseion/common, actions/macos-sign at 8e4cad7a87312f4c3954c6fb8840341bdb5f9b23
+# (macos-sign-v1.0.0), without its README. A change upstream reaches Iris only when it is copied
+# here again.
+name: macos-sign
+description: >-
+  Sign a macOS .app with a Developer ID and the hardened runtime, package it as a zip or dmg,
+  notarize and staple it, and check it, from secrets imported into a keychain that lives only
+  for this step. Without a certificate it changes nothing and says so (the app stays ad-hoc
+  signed); without a notary key it signs and skips notarization. Runs on the Mac
+  (`mouseion-macos`), on the host.
+inputs:
+  app:
+    description: Path to the .app to sign.
+    required: true
+  entitlements:
+    description: Entitlements plist for the app's executables (the main one, helpers, nested apps).
+    required: false
+    default: ''
+  package:
+    description: 'What to make from the signed app and notarize: zip, dmg or none (the app alone, notarized through a temporary zip).'
+    required: false
+    default: zip
+  output:
+    description: Where the package goes. Default beside the app, <Name>.zip or <Name>.dmg.
+    required: false
+    default: ''
+  volume-name:
+    description: The dmg's volume name. Default the app's name.
+    required: false
+    default: ''
+  identity:
+    description: The signing identity, a name or SHA-1. Default the certificate's Developer ID Application identity.
+    required: false
+    default: ''
+  p12-base64:
+    description: secrets.APPLE_DEVELOPER_ID_P12_BASE64, the Developer ID Application certificate with its key. Empty = stay ad-hoc.
+    required: false
+    default: ''
+  p12-password:
+    description: secrets.APPLE_DEVELOPER_ID_P12_PASSWORD.
+    required: false
+    default: ''
+  notary-key-p8-base64:
+    description: secrets.APPLE_NOTARY_KEY_P8_BASE64, an App Store Connect API key. Empty = no notarization.
+    required: false
+    default: ''
+  notary-key-id:
+    description: secrets.APPLE_NOTARY_KEY_ID.
+    required: false
+    default: ''
+  notary-issuer-id:
+    description: secrets.APPLE_NOTARY_ISSUER_ID.
+    required: false
+    default: ''
+  team-id:
+    description: vars.APPLE_TEAM_ID. If set, the identity must belong to this team.
+    required: false
+    default: ''
+outputs:
+  signed:
+    description: "'true' when the app was signed with the certificate, 'false' when it was left ad-hoc."
+    value: ${{ steps.sign.outputs.signed }}
+  notarized:
+    description: "'true' when Apple accepted it and the ticket is stapled."
+    value: ${{ steps.sign.outputs.notarized }}
+  package:
+    description: Path to the zip or dmg made from the signed app (empty when not signed or package is none).
+    value: ${{ steps.sign.outputs.package }}
+  identity:
+    description: The identity the app was signed with.
+    value: ${{ steps.sign.outputs.identity }}
+runs:
+  using: composite
+  steps:
+    - name: Sign, notarize and check
+      id: sign
+      shell: bash
+      # Inputs reach the script as env, never spliced into the command line.
+      env:
+        MS_APP: ${{ inputs.app }}
+        MS_ENTITLEMENTS: ${{ inputs.entitlements }}
+        MS_PACKAGE: ${{ inputs.package }}
+        MS_OUTPUT: ${{ inputs.output }}
+        MS_VOLUME_NAME: ${{ inputs.volume-name }}
+        MS_IDENTITY: ${{ inputs.identity }}
+        MS_P12_BASE64: ${{ inputs.p12-base64 }}
+        MS_P12_PASSWORD: ${{ inputs.p12-password }}
+        MS_NOTARY_KEY_P8_BASE64: ${{ inputs.notary-key-p8-base64 }}
+        MS_NOTARY_KEY_ID: ${{ inputs.notary-key-id }}
+        MS_NOTARY_ISSUER_ID: ${{ inputs.notary-issuer-id }}
+        MS_TEAM_ID: ${{ inputs.team-id }}
+      run: bash "${{ github.action_path }}/macos-sign.sh"
