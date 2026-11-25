@@ -4,6 +4,13 @@
 #                    └── apk ── publish-fdroid   (RELEASE_BRANCH: the Android app, into an F-Droid repo)
 #   plan ── desktop                              (check only: the Nix package of the Linux desktop shell)
 #   plan ── macos                                (the macOS desktop shell: tests, and Iris.app as an artifact)
+#   guard ── publish                             (every run: the new commits checked; RELEASE_BRANCH: dev, public)
+#
+# `guard` checks every commit that is new in a run for anything that must not be public, and fails
+# the run if it finds one: a branch's commits since dev, a train's since the commit it was built
+# on, a push to dev's since the previous head. A failing `guard` fails the train, so such a commit
+# never reaches dev. `publish` then pushes dev, and only dev, to the public repo (PUBLISH_REMOTE).
+# The two are described above the jobs.
 #
 # `bundle` runs the one `npm ci` and `vite build` of a push, inside the Docker image that serves
 # the web client, and exports what the Android project needs from them as an artifact: the same
@@ -66,52 +73,35 @@
 #   FORGE_KNOWN_HOSTS    the known_hosts line(s) of that URL's ssh host
 #   IRIS_DESKTOP_URL     the Iris web app the macOS shell opens, https://host[:port]
 #   IRIS_*               the build settings (README, "Configure it")
+#   PUBLISH_ALLOWED_SIGNERS  the ssh allowed-signers line of the key every Iris commit is signed with
+#   PUBLISH_REMOTE       the public repo's ssh URL, which `publish` pushes dev to
+#   PUBLISH_KNOWN_HOSTS  the known_hosts lines of that URL's ssh host
 #
 # Secrets: the registry token is the organization secret REGISTRY_TOKEN. Signing material is the
 # repo secrets HOUSE_MOUSEION_CHAT_{KEYSTORE_BASE64,KEYSTORE_PASSWORD,KEY_ALIAS,KEY_PASSWORD}; the
 # keystore is decoded into a private temp dir and removed afterwards. NIX_CONFIG_READ_KEY is the
-# desktop check's read-only ssh key.
+# desktop check's read-only ssh key. IRIS_PRIVATE_STRINGS is `guard`'s list of private strings, one
+# per line, and PUBLISH_DEPLOY_KEY the private half of a write deploy key on the public repo alone.
 name: build
 
 on:
+  # Every push, whatever it changes: `guard` checks every new commit, and a push to dev that
+  # changes only the README is published like any other. `plan` decides what gets built.
   push:
     branches: ['**']
-    # Every path `plan` knows about; keep the two in step.
-    paths:
-      [
-        'src/**',
-        'public/**',
-        'index.html',
-        'config.json',
-        'config.mobile.json',
-        'vite.config.js',
-        'build.config.ts',
-        'tsconfig.json',
-        'capacitor.config.ts',
-        'package.json',
-        'package-lock.json',
-        '.npmrc',
-        '.dockerignore',
-        'Dockerfile',
-        'docker-nginx.conf',
-        'scripts/mobile-bundle.js',
-        'scripts/nginx-conf.js',
-        'test/**',
-        'eslint.config.js',
-        '.prettierrc.json',
-        '.prettierignore',
-        'mobile/**',
-        'desktop/**',
-        'branding/**',
-        'scripts/iris-icons.py',
-        'desktop-macos/**',
-        '.forgejo/actions/**',
-        '.forgejo/workflows/build.yml',
-      ]
   # Turns the forge's merge queue on for dev. Takes `branches:` only, no `paths:`.
   merge_group:
     branches: [dev]
   workflow_dispatch:
+    inputs:
+      publish_dry_run:
+        description: 'Run publish with --dry-run: every check, and the push, without sending anything'
+        type: boolean
+        default: false
+      guard_selftest:
+        description: 'Proves the private-strings check: guard adds a commit with the first string, and must fail'
+        type: boolean
+        default: false
 
 # On a branch a newer push makes an older run moot. On dev every run finishes: a release is not
 # cancelled half-published, and deploys land in the order of the pushes. A train's run finishes
@@ -162,6 +152,8 @@ jobs:
         env:
           BEFORE: ${{ github.event.before }}
           BASE: ${{ github.event.merge_group.base_sha }}
+          PUBLISH_DRY_RUN: ${{ github.event.inputs.publish_dry_run }}
+          GUARD_SELFTEST: ${{ github.event.inputs.guard_selftest }}
         run: |
           set -euo pipefail
           # Served by the web client.
@@ -183,7 +175,10 @@ jobs:
           # `build` is false when the change touches no web, app or checks path (a desktop-only push
           # or train). "Run workflow" always builds.
           build=true; deploy=false; android=false; publish=false; desktop=false; macos=false
-          if [[ "$GITHUB_EVENT_NAME" == "merge_group" ]]; then
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" && ( "$PUBLISH_DRY_RUN" == "true" || "$GUARD_SELFTEST" == "true" ) ]]; then
+            # A run to test `guard` or `publish`: nothing else.
+            build=false
+          elif [[ "$GITHUB_EVENT_NAME" == "merge_group" ]]; then
             # A train: what it brings in since the commit of RELEASE_BRANCH it was built on.
             # Without that commit, everything counts. Never a deploy or a release.
             if [[ ! "$BASE" =~ ^[0-9a-f]+$ ]] || ! changed="$(git diff --name-only "$BASE" "$GITHUB_SHA" 2>/dev/null)"; then
@@ -260,6 +255,226 @@ jobs:
             echo "name=0.0.0-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
           fi
           echo "code=${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+
+  # The publish guard, on every run (.forgejo/scripts/publish-guard.sh has the checks). The commits
+  # it checks are those new in the run: a branch's since dev (`origin/dev..HEAD`), a train's since
+  # the commit of dev it was built on (`merge_group.base_sha..sha`, which takes in the merge commits
+  # the queue built), a push to dev's since the previous head (`before..sha`). Without a usable
+  # base, every commit. It fails when:
+  #
+  # - an Iris commit's author or committer email is not PUBLIC_EMAIL, or the commit is not signed
+  #   by the key in PUBLISH_ALLOWED_SIGNERS. Cinny's commits (reachable from Cinny's dev or tags,
+  #   fetched below) are exempt from these two, so a Cinny sync passes;
+  # - an added line, a path, a commit message or an author or committer holds a line of the secret
+  #   IRIS_PRIVATE_STRINGS (fixed strings, without case). The log names the commit, the file and
+  #   the line, never the text;
+  # - the same holds a match of PATTERNS below, which are public knowledge as patterns: a tailnet
+  #   address (in 100.64/10), a host under the house domain (the bare domain is allowed), and
+  #   three strings, written here as bracket expressions so that this file does not match them;
+  # - gitleaks, pinned below, finds a secret in the new commits.
+  #
+  # Without the secret or the variable it fails and says which. It never passes by skipping.
+  #
+  # "Run workflow" with guard_selftest proves the private-strings check, on any branch: the job
+  # commits the list's first string to guard-selftest.txt in its own workspace (never pushed), and
+  # must then fail, naming that file and line and not the string. That commit is unsigned, so the
+  # signature check fails on it too.
+  guard:
+    runs-on: mouseion-docker
+    # The same tools on every runner of the lane, whose hosts differ: git, ssh-keygen, curl, bash
+    # and Node (for actions/checkout). Pinned by digest.
+    container:
+      image: node:22-bookworm@sha256:7c400d78797d8cbe3f6bb21d2227b86af4cd24b0014cc9f62ff989cc16de988e
+    defaults:
+      run:
+        shell: bash
+    env:
+      GITLEAKS_VERSION: 8.30.1
+      GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # As in `plan`: a train's commit is on no branch, so its history comes in the next step.
+          fetch-depth: ${{ github.event_name == 'merge_group' && 1 || 0 }}
+
+      - name: History of a train
+        if: github.event_name == 'merge_group'
+        run: git fetch --unshallow --no-tags origin '+refs/heads/*:refs/remotes/origin/*'
+
+      # Cinny's commits, under refs/cinny/, apart from Iris's own branches and tags.
+      - name: Cinny's history
+        run: |
+          git fetch --quiet --no-tags https://github.com/cinnyapp/cinny.git \
+            '+refs/heads/dev:refs/cinny/dev' '+refs/tags/*:refs/cinny/tags/*'
+
+      - name: gitleaks
+        run: |
+          set -euo pipefail
+          dir=$(mktemp -d)
+          curl -fsSL -o "$dir/gitleaks.tar.gz" \
+            "https://github.com/gitleaks/gitleaks/releases/download/v$GITLEAKS_VERSION/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "$GITLEAKS_SHA256  $dir/gitleaks.tar.gz" | sha256sum -c -
+          tar -xzf "$dir/gitleaks.tar.gz" -C "$dir" gitleaks
+          "$dir/gitleaks" version
+          echo "GITLEAKS=$dir/gitleaks" >> "$GITHUB_ENV"
+
+      - name: The new commits
+        env:
+          BEFORE: ${{ github.event.before }}
+          BASE: ${{ github.event.merge_group.base_sha }}
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" == "merge_group" ]]; then
+            base=$BASE
+          elif [[ "$GITHUB_EVENT_NAME" == "push" && "$GITHUB_REF" == "refs/heads/$RELEASE_BRANCH" ]]; then
+            base=$BEFORE
+          else
+            git fetch --quiet --no-tags origin "+refs/heads/$RELEASE_BRANCH:refs/remotes/origin/$RELEASE_BRANCH"
+            base=$(git rev-parse "refs/remotes/origin/$RELEASE_BRANCH")
+          fi
+          if [[ ! "$base" =~ ^[0-9a-f]{40}$ || "$base" =~ ^0+$ ]] || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+            echo "no usable base (\"$base\"): every commit is checked"
+            base=""
+          fi
+          echo "checking ${base:-the start}..$GITHUB_SHA"
+          echo "GUARD_BASE=$base" >> "$GITHUB_ENV"
+
+      - name: Guard the new commits
+        env:
+          PRIVATE_STRINGS: ${{ secrets.IRIS_PRIVATE_STRINGS }}
+          ALLOWED_SIGNERS: ${{ vars.PUBLISH_ALLOWED_SIGNERS }}
+          PUBLIC_EMAIL: 5069711+jgibson02@users.noreply.github.com
+          SELFTEST: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.guard_selftest == 'true' }}
+          PATTERNS: |
+            (^|[^0-9.])100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.[0-9]{1,3}\.[0-9]{1,3}([^0-9]|$)
+            [a-z0-9_-]\.mouseion\.house
+            john[g]ibson
+            guilty[s]park
+            /m[n]t/
+        run: |
+          set -euo pipefail
+          missing=0
+          if [ -z "$PRIVATE_STRINGS" ]; then
+            echo "the secret IRIS_PRIVATE_STRINGS is not set: the private strings cannot be checked" >&2
+            missing=1
+          fi
+          if [ -z "$ALLOWED_SIGNERS" ]; then
+            echo "the repo variable PUBLISH_ALLOWED_SIGNERS is not set: the signatures cannot be checked" >&2
+            missing=1
+          fi
+          if [ "$missing" != 0 ]; then exit 1; fi
+
+          lists=$(mktemp -d -p /dev/shm iris-guard.XXXXXX)
+          trap 'rm -rf "$lists"' EXIT
+          (umask 077; printf '%s\n' "$PRIVATE_STRINGS" > "$lists/strings")
+          printf '%s\n' "$ALLOWED_SIGNERS" > "$lists/allowed_signers"
+          unset PRIVATE_STRINGS
+
+          head=$GITHUB_SHA
+          if [ "$SELFTEST" = true ]; then
+            { tr -d '\r' < "$lists/strings" | grep -v '^[[:space:]]*$' || true; } | sed -n 1p >> guard-selftest.txt
+            git add guard-selftest.txt
+            git -c user.name='John Gibson' -c user.email="$PUBLIC_EMAIL" -c commit.gpgsign=false \
+              commit --quiet --no-verify -m 'test: the publish guard self-test'
+            head=$(git rev-parse HEAD)
+            echo "self-test: commit $head adds the first private string at guard-selftest.txt:$(wc -l < guard-selftest.txt); guard must fail"
+          fi
+
+          ALLOWED_SIGNERS_FILE="$lists/allowed_signers" PRIVATE_STRINGS_FILE="$lists/strings" \
+            bash .forgejo/scripts/publish-guard.sh "$GUARD_BASE" "$head"
+
+  # Publishes dev to the public repo (PUBLISH_REMOTE), on a push to dev and after `guard` passed:
+  # never for a train, a branch or "Run workflow". It pushes refs/heads/dev and nothing else, with
+  # --no-follow-tags, over ssh with the deploy key PUBLISH_DEPLOY_KEY (write access to that one
+  # repo) and only the host keys in PUBLISH_KNOWN_HOSTS. The key is a 0600 file under /dev/shm,
+  # removed at the end even when a step fails. Before pushing it checks that the public dev is an
+  # ancestor of the new one, and refuses otherwise: a force-push would leave the old commits
+  # reachable there. After pushing it checks that the public dev is the new commit and that the
+  # public repo has no tags.
+  #
+  # "Run workflow" with publish_dry_run runs all of it on any branch, the push with --dry-run, so
+  # that nothing is sent: the way to test it before a merge.
+  publish:
+    needs: [guard]
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/dev') || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish_dry_run == 'true')
+    runs-on: mouseion-docker
+    # As for `guard`.
+    container:
+      image: node:22-bookworm@sha256:7c400d78797d8cbe3f6bb21d2227b86af4cd24b0014cc9f62ff989cc16de988e
+    defaults:
+      run:
+        shell: bash
+    env:
+      REMOTE: ${{ vars.PUBLISH_REMOTE }}
+      DRY_RUN: ${{ github.event_name != 'push' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The ancestry check needs the history.
+          fetch-depth: 0
+
+      - name: Key
+        env:
+          DEPLOY_KEY: ${{ secrets.PUBLISH_DEPLOY_KEY }}
+          KNOWN_HOSTS: ${{ vars.PUBLISH_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          missing=0
+          if [ -z "$DEPLOY_KEY" ]; then echo "the secret PUBLISH_DEPLOY_KEY is not set" >&2; missing=1; fi
+          if [ -z "$REMOTE" ]; then echo "the repo variable PUBLISH_REMOTE is not set" >&2; missing=1; fi
+          if [ -z "$KNOWN_HOSTS" ]; then echo "the repo variable PUBLISH_KNOWN_HOSTS is not set" >&2; missing=1; fi
+          if [ "$missing" != 0 ]; then exit 1; fi
+          keys=$(mktemp -d -p /dev/shm iris-publish.XXXXXX)
+          (umask 077; printf '%s\n' "$DEPLOY_KEY" > "$keys/deploy")
+          printf '%s\n' "$KNOWN_HOSTS" > "$keys/known_hosts"
+          ssh_options="-o IdentitiesOnly=yes -o IdentityAgent=none -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$keys/known_hosts"
+          {
+            echo "KEYS=$keys"
+            echo "GIT_SSH_COMMAND=ssh -i $keys/deploy $ssh_options"
+          } >> "$GITHUB_ENV"
+
+      - name: Push dev
+        run: |
+          set -euo pipefail
+          # What is pushed is this run's commit, as refs/heads/dev. On a push to dev the checkout
+          # is that branch already; on a dry run from another branch this makes it.
+          git update-ref refs/heads/dev "$GITHUB_SHA"
+
+          public=$(git ls-remote "$REMOTE" refs/heads/dev | cut -f1)
+          if [ -z "$public" ]; then
+            echo "the public repo has no dev: this is its first"
+          else
+            git fetch --quiet --no-tags "$REMOTE" "+refs/heads/dev:refs/public/dev"
+            if ! git merge-base --is-ancestor refs/public/dev "$GITHUB_SHA"; then
+              echo "the public dev ($public) is not an ancestor of $GITHUB_SHA: refusing, since only a force-push could publish this, and the old commits would stay reachable there" >&2
+              exit 1
+            fi
+            echo "the public dev is $public, an ancestor of $GITHUB_SHA ($(git rev-list --count "$public..$GITHUB_SHA") new commits)"
+          fi
+
+          flags=(--no-follow-tags --porcelain)
+          if [ "$DRY_RUN" = true ]; then flags+=(--dry-run); echo "a dry run: nothing is sent"; fi
+          git push "${flags[@]}" "$REMOTE" refs/heads/dev:refs/heads/dev
+
+      - name: Check the public repo
+        run: |
+          set -euo pipefail
+          refs=$(git ls-remote "$REMOTE")
+          dev=$(awk '$2 == "refs/heads/dev" { print $1 }' <<< "$refs")
+          tags=$(awk '$2 ~ /^refs\/tags\// { n++ } END { print n + 0 }' <<< "$refs")
+          others=$(awk '$2 != "refs/heads/dev" && $2 != "HEAD" && $2 !~ /^refs\/tags\// { n++ } END { print n + 0 }' <<< "$refs")
+          echo "the public repo: dev at ${dev:-nothing}, $tags tags, $others other refs"
+          status=0
+          if [ "$tags" != 0 ]; then echo "the public repo has tags: nothing here pushes them, so they came from elsewhere" >&2; status=1; fi
+          if [ "$DRY_RUN" != true ] && [ "$dev" != "$GITHUB_SHA" ]; then
+            echo "the public dev is not $GITHUB_SHA after the push" >&2
+            status=1
+          fi
+          exit "$status"
+
+      - name: Remove the key
+        if: always()
+        run: if [ -n "${KEYS-}" ]; then rm -rf "$KEYS"; fi
 
   bundle:
     needs: [plan]

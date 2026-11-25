@@ -93,6 +93,15 @@ Iris has its own design: the name, the mark and the colors, worked out in the ro
 
 The mark stands alone. With the name, it sits beside it, never above. The deep rounded square behind it is for app icons only.
 
+## CI and publishing
+
+Iris is developed on a private forge, and its CI ([`.forgejo/workflows/build.yml`](.forgejo/workflows/build.yml)) builds and checks every push. The trunk is `dev`. Pull requests reach it through the forge's merge queue, which tests each train of them before it lands.
+
+This repo on GitHub is a copy of `dev`, and only of `dev`. CI publishes it, in two jobs:
+
+- **`guard`** runs on every push and every train, and checks the commits that are new in it ([`.forgejo/scripts/publish-guard.sh`](.forgejo/scripts/publish-guard.sh)). It fails when an Iris commit is not by the public identity or not signed by its key (Cinny's own commits are exempt), when an added line, a path, a commit message or an identity holds one of a private list of strings, a tailnet address or a host name from the household's network, or when gitleaks finds a secret. A train that fails it never reaches `dev`.
+- **`publish`** runs after `guard` on each push to `dev`. It pushes `dev` to GitHub and nothing else: no tags and no other branches. It refuses unless GitHub's `dev` is an ancestor of the new one, so history here is never rewritten.
+
 ## Following Cinny
 
 Upstream is [cinnyapp/cinny](https://github.com/cinnyapp/cinny). Iris is based on Cinny 4.12.8, and follows its releases. A bug that is Cinny's belongs [upstream](https://github.com/cinnyapp/cinny/issues).
