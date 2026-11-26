@@ -1,0 +1,622 @@
+# Iris: a public release, on GitHub Releases, made from the forge by hand.
+#
+#   plan ──┬── web ── apk ──┐
+#          │                └── release            (builds, scans, tags, and sends the release)
+#          └── macos ───────────── attach-macos    (only with IRIS_RELEASE_DESKTOP_URL; never waited for)
+#
+# A release starts only from "Run workflow" on this file, with the version as its input; nothing
+# starts one by itself. "Dry run", on by default, builds and checks everything and prints what it
+# would send, and sends nothing: no tag on the forge or on GitHub, no release. A real release
+# runs from dev only, on a commit that `publish` (build.yml) has already put on the public dev.
+# docs/releasing.md is the how-to.
+#
+# The version: one input, `version`, X.Y.Z, or empty for the next one from the commit messages.
+# The scheme is .forgejo/scripts/iris-version.sh, which the household's Android builds use too:
+# one line of versions, and the version must be above every one before it. Every file and the tag
+# carry the same X.Y.Z. The Android version code is the run number, which the forge numbers across
+# every workflow of the repo, so it is above every household build before it.
+#
+# What is released, each built from the repo's public defaults only, and none of what the
+# household's own build adds (build.yml, `bundle` and `macos`):
+#
+#   iris-web-X.Y.Z.tar.gz    the web app (dist/, from the same Dockerfile as the household's image),
+#                            with the repo's config.json and no hub origins (no HUB_ORIGINS or
+#                            HUB_PREVIEW_PATTERN build arguments)
+#   iris-android-X.Y.Z.apk   the Android app, release-signed and R8-minified as the household's,
+#                            with the repo's config.mobile.json, not IRIS_CONFIG_MOBILE_JSON
+#   iris-macos-X.Y.Z.zip     the macOS app, signed and notarized, opening IRIS_RELEASE_DESKTOP_URL
+#                            (a public Iris web app) instead of IRIS_DESKTOP_URL. Only when that
+#                            variable is set, and attached after the release when the Mac has
+#                            built it: the release never waits for the Mac
+#   SHA256SUMS               the files' SHA-256 sums
+#
+# Before anything is sent, every file is unpacked and scanned (.forgejo/scripts/release-scan.sh)
+# with the publish guard's lists (the secret IRIS_PRIVATE_STRINGS, publish-patterns.txt and
+# gitleaks), and with the household's own settings and the runner's workspace path. A hit stops
+# the release. Every run first plants the first private string in a throwaway copy of the files,
+# and the scan must catch it, or the run stops.
+#
+# The notes are docs/releases/X.Y.Z.md, what someone using Iris notices; a real
+# release stops without one. The release's body is the notes, then the files with their sizes and
+# SHA-256 sums.
+#
+# On GitHub (the repo of PUBLISH_REMOTE): the release is made as a draft, the files uploaded, and
+# then published, so a failure halfway leaves only a draft. GitHub makes the tag vX.Y.Z, on the
+# commit, when the release is published; `publish` allows exactly such tags. The forge gets the
+# annotated tag vX.Y.Z, "Iris vX.Y.Z", first, which the next version counts from (#101).
+#
+# Settings, besides build.yml's (ANDROID_BUILD_IMAGE, PUBLISH_REMOTE, the signing secrets, the
+# Apple secrets and IRIS_PRIVATE_STRINGS):
+#
+#   IRIS_GITHUB_RELEASE_TOKEN   secret: a fine-grained GitHub token for the public repo alone, with
+#                               the Contents permission, read and write. Only a real release reads it
+#   IRIS_RELEASE_DESKTOP_URL    variable, optional: the public Iris web app the released macOS app
+#                               opens, https://host. Unset, a release has no macOS app
+name: release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'The version, X.Y.Z. Empty: the next one, from the commits since the last'
+        type: string
+        required: false
+        default: ''
+      dry_run:
+        description: 'Dry run: build and check everything, and send nothing'
+        type: boolean
+        default: true
+
+# One release at a time, and never cancelled halfway.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: mouseion-docker
+    defaults:
+      run:
+        shell: bash
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+      tag: ${{ steps.ver.outputs.tag }}
+      code: ${{ steps.ver.outputs.code }}
+      dry_run: ${{ steps.ver.outputs.dry_run }}
+      repo: ${{ steps.public.outputs.repo }}
+      macos: ${{ steps.ver.outputs.macos }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Every tag: the version is counted from them.
+          fetch-depth: 0
+
+      - name: The version script's tests
+        run: bash .forgejo/scripts/iris-version.test.sh
+
+      - name: Version
+        id: ver
+        env:
+          WANT: ${{ github.event.inputs.version }}
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
+          MACOS_URL: ${{ vars.IRIS_RELEASE_DESKTOP_URL }}
+        run: |
+          set -euo pipefail
+          git fetch --tags --force > /dev/null 2>&1 || true
+          if [ "$DRY_RUN" != false ]; then DRY_RUN=true; fi
+          if [ "$DRY_RUN" = false ] && [ "$GITHUB_REF" != refs/heads/dev ]; then
+            echo "a release is made from dev; this run is on $GITHUB_REF. Run it from dev, or as a dry run" >&2
+            exit 1
+          fi
+          last=$(bash .forgejo/scripts/iris-version.sh last)
+          version=${WANT:-$(bash .forgejo/scripts/iris-version.sh next)}
+          version=${version#v}
+          bash .forgejo/scripts/iris-version.sh check "$version" "$GITHUB_SHA"
+          notes="docs/releases/$version.md"
+          if [ ! -s "$notes" ]; then
+            if [ "$DRY_RUN" = false ]; then
+              echo "there are no notes for $version: write $notes first (docs/releasing.md)" >&2
+              exit 1
+            fi
+            echo "::warning::there are no notes for $version ($notes): a real release would stop here"
+          fi
+          macos=false
+          if [ -n "$MACOS_URL" ]; then macos=true; fi
+          echo "the latest Iris version: ${last:-none}"
+          echo "this release: Iris $version, the tag v$version, version code $GITHUB_RUN_NUMBER, at $GITHUB_SHA"
+          echo "dry run: $DRY_RUN; macOS app: $macos"
+          {
+            echo "version=$version"
+            echo "tag=v$version"
+            echo "code=$GITHUB_RUN_NUMBER"
+            echo "dry_run=$DRY_RUN"
+            echo "macos=$macos"
+          } >> "$GITHUB_OUTPUT"
+
+      # Read over https, with no key: the public repo is public.
+      - name: The public repo
+        id: public
+        env:
+          REMOTE: ${{ vars.PUBLISH_REMOTE }}
+          DRY_RUN: ${{ steps.ver.outputs.dry_run }}
+          TAG: ${{ steps.ver.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if [ -z "$REMOTE" ]; then echo "the repo variable PUBLISH_REMOTE is not set" >&2; exit 1; fi
+          repo=$(sed -E 's#^.*github\.com[:/]##; s#\.git$##' <<< "$REMOTE")
+          if [[ ! "$repo" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
+            echo "PUBLISH_REMOTE does not name a GitHub repo" >&2
+            exit 1
+          fi
+          echo "repo=$repo" >> "$GITHUB_OUTPUT"
+          url="https://github.com/$repo.git"
+          stop=0
+          git fetch --quiet --no-tags "$url" "+refs/heads/dev:refs/public/dev"
+          if git merge-base --is-ancestor "$GITHUB_SHA" refs/public/dev; then
+            echo "$GITHUB_SHA is on the public dev"
+          else
+            echo "$GITHUB_SHA is not on the public dev (at $(git rev-parse refs/public/dev)): only a commit already there may be released" >&2
+            stop=1
+          fi
+          at=$(git ls-remote "$url" "refs/tags/$TAG" "refs/tags/$TAG^{}" | tail -n1 | cut -f1)
+          if [ -n "$at" ]; then
+            echo "the public repo already has the tag $TAG, at $at" >&2
+            stop=1
+          fi
+          if [ "$stop" = 1 ]; then
+            if [ "$DRY_RUN" = false ]; then exit 1; fi
+            echo "::warning::a real release would stop here; a dry run goes on"
+          fi
+
+  # The web app, and the Android project's inputs, from the Dockerfile with nothing of the
+  # household's: no build arguments, and the repo's own config.json and config.mobile.json.
+  web:
+    needs: [plan]
+    runs-on: mouseion-build
+    env:
+      VERSION: ${{ needs.plan.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: The public defaults
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code HEAD -- config.json config.mobile.json
+          echo "config.json and config.mobile.json are the repo's own"
+
+      - name: Build the web app
+        shell: bash
+        run: |
+          set -euo pipefail
+          image="iris-release:${GITHUB_RUN_NUMBER}"
+          echo "IMAGE_LOCAL=$image" >> "$GITHUB_ENV"
+          # A local image only: it is never tagged for a registry or pushed.
+          docker buildx build --platform linux/amd64 --load --tag "$image" .
+          cid=$(docker create "$image")
+          trap 'docker rm "$cid" >/dev/null' EXIT
+          dir="iris-web-$VERSION"
+          rm -rf out && mkdir out
+          docker cp "$cid:/app/." "out/$dir"
+          cmp "out/$dir/config.json" config.json
+          test -f "out/$dir/index.html"
+          # The same bytes for the same commit: fixed order, owner and times, no gzip timestamp.
+          tar --sort=name --owner=0 --group=0 --numeric-owner --mtime="@$(git log -1 --format=%ct)" \
+            -C out -cf - "$dir" | gzip -9n > "$dir.tar.gz"
+          ls -l "$dir.tar.gz"
+
+      - name: Export the Android inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker buildx build --platform linux/amd64 --target android --output type=local,dest=android-inputs .
+          cmp android-inputs/mobile/android/app/src/main/assets/public/config.json config.mobile.json
+          tar -czf android-inputs.tgz -C android-inputs .
+
+      - name: Remove the image
+        if: always()
+        shell: bash
+        run: if [ -n "${IMAGE_LOCAL-}" ]; then docker rmi "$IMAGE_LOCAL" >/dev/null || true; fi
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: release-web
+          path: iris-web-${{ needs.plan.outputs.version }}.tar.gz
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: release-android-inputs
+          path: android-inputs.tgz
+
+  # As build.yml's `apk` on a household release, with the public config: signed, minified, and the
+  # unit tests first.
+  apk:
+    needs: [plan, web]
+    runs-on: mouseion-docker
+    container:
+      image: ${{ vars.ANDROID_BUILD_IMAGE }}
+      volumes:
+        - forge-gradle-cache:/gradle-cache
+    defaults:
+      run:
+        shell: bash
+    env:
+      GRADLE_USER_HOME: /gradle-cache
+      JAVA_HOME: /opt/java/jdk21
+      VERSION: ${{ needs.plan.outputs.version }}
+      CODE: ${{ needs.plan.outputs.code }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v3
+        with:
+          name: release-android-inputs
+          path: ./android-inputs
+
+      - name: Android inputs (into the Android project)
+        run: |
+          set -euo pipefail
+          tar -xzf android-inputs/android-inputs.tgz
+          rm -r android-inputs
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          cmp mobile/android/app/src/main/assets/public/config.json <(git show HEAD:config.mobile.json)
+          echo "the app's config.json is the repo's config.mobile.json"
+          printf 'sdk.dir=%s\n' "$ANDROID_HOME" > mobile/android/local.properties
+
+      - name: Decode signing keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.HOUSE_MOUSEION_CHAT_KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          if [ -z "$KEYSTORE_BASE64" ]; then echo "the signing keystore secret is not set" >&2; exit 1; fi
+          d="$(mktemp -d)"; chmod 700 "$d"
+          printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$d/release.jks"
+          chmod 600 "$d/release.jks"
+          echo "MOUSEION_KEYSTORE_PATH=$d/release.jks" >> "$GITHUB_ENV"
+
+      - name: Unit tests and release APK
+        working-directory: mobile/android
+        env:
+          MOUSEION_KEYSTORE_PASSWORD: ${{ secrets.HOUSE_MOUSEION_CHAT_KEYSTORE_PASSWORD }}
+          MOUSEION_KEY_ALIAS: ${{ secrets.HOUSE_MOUSEION_CHAT_KEY_ALIAS }}
+          MOUSEION_KEY_PASSWORD: ${{ secrets.HOUSE_MOUSEION_CHAT_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          ./gradlew --no-daemon --console=plain :app:testReleaseUnitTest :app:assembleRelease \
+            -PmouseionMinify=true -PversionCode="$CODE" -PmouseionVersionName="$VERSION"
+          apk=$(find app/build/outputs/apk/release -name '*.apk' | head -1)
+          cp "$apk" "../../iris-android-$VERSION.apk"
+          tools=$(ls -1d "$ANDROID_HOME"/build-tools/* | sort -V | tail -n1)
+          "$tools/apksigner" verify --print-certs "../../iris-android-$VERSION.apk" | grep -E "certificate DN|SHA-256"
+          "$tools/aapt2" dump badging "../../iris-android-$VERSION.apk" | head -n1
+          gzip -c app/build/outputs/mapping/release/mapping.txt > "../../iris-android-mapping-$VERSION.txt.gz"
+
+      - name: Remove keystore
+        if: always()
+        run: if [ -n "${MOUSEION_KEYSTORE_PATH-}" ]; then rm -rf "$(dirname "$MOUSEION_KEYSTORE_PATH")"; fi
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: release-apk
+          path: iris-android-${{ needs.plan.outputs.version }}.apk
+
+      # For decoding a release's crash reports; not a release file.
+      - uses: actions/upload-artifact@v3
+        with:
+          name: release-mapping
+          path: iris-android-mapping-${{ needs.plan.outputs.version }}.txt.gz
+
+  # Scans the files, then sends them: the forge tag, and the GitHub release. In a dry run it prints
+  # all of it, tries the forge tag's push with --dry-run, and sends nothing.
+  release:
+    needs: [plan, web, apk]
+    runs-on: mouseion-docker
+    # As build.yml's `guard`: git, curl, ssh, node, pinned by digest.
+    container:
+      image: node:22-bookworm@sha256:7c400d78797d8cbe3f6bb21d2227b86af4cd24b0014cc9f62ff989cc16de988e
+    defaults:
+      run:
+        shell: bash
+    env:
+      VERSION: ${{ needs.plan.outputs.version }}
+      TAG: ${{ needs.plan.outputs.tag }}
+      REPO: ${{ needs.plan.outputs.repo }}
+      DRY_RUN: ${{ needs.plan.outputs.dry_run }}
+      GITLEAKS_VERSION: 8.30.1
+      GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v3
+        with:
+          name: release-web
+          path: ./files
+
+      - uses: actions/download-artifact@v3
+        with:
+          name: release-apk
+          path: ./files
+
+      - name: gitleaks
+        run: |
+          set -euo pipefail
+          dir=$(mktemp -d)
+          curl -fsSL -o "$dir/gitleaks.tar.gz" \
+            "https://github.com/gitleaks/gitleaks/releases/download/v$GITLEAKS_VERSION/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "$GITLEAKS_SHA256  $dir/gitleaks.tar.gz" | sha256sum -c -
+          tar -xzf "$dir/gitleaks.tar.gz" -C "$dir" gitleaks
+          echo "GITLEAKS=$dir/gitleaks" >> "$GITHUB_ENV"
+
+      - name: The lists
+        env:
+          PRIVATE_STRINGS: ${{ secrets.IRIS_PRIVATE_STRINGS }}
+          HUB_ORIGINS: ${{ vars.IRIS_HUB_ORIGINS }}
+          DESKTOP_URL: ${{ vars.IRIS_DESKTOP_URL }}
+          CONFIG_MOBILE_JSON: ${{ vars.IRIS_CONFIG_MOBILE_JSON }}
+        run: |
+          set -euo pipefail
+          lists=$(mktemp -d -p /dev/shm iris-release.XXXXXX)
+          echo "LISTS=$lists" >> "$GITHUB_ENV"
+          bash .forgejo/scripts/release-lists.sh "$lists"
+
+      # The scan must catch the first private string, planted in a throwaway copy of the files.
+      - name: The scan catches a planted string
+        run: |
+          set -euo pipefail
+          planted=$(mktemp -d)
+          cp files/* "$planted/"
+          { tr -d '\r' < "$LISTS/strings" | grep -v '^[[:space:]]*$' || true; } | sed -n 1p > "$planted/planted-string-test.txt"
+          export PATTERNS=$(grep -v -e '^#' -e '^[[:space:]]*$' .forgejo/scripts/publish-patterns.txt)
+          set +e
+          PRIVATE_STRINGS_FILE="$LISTS/strings" EXTRA_STRINGS_FILE="$LISTS/extra" \
+            bash .forgejo/scripts/release-scan.sh "$planted" > scan-test.log 2>&1
+          status=$?
+          set -e
+          rm -rf "$planted"
+          cat scan-test.log
+          if [ "$status" != 1 ] || ! grep -q '^FAIL: private string: planted-string-test.txt/planted-string-test.txt:1$' scan-test.log; then
+            echo "the scan did not catch the string planted in planted-string-test.txt (exit $status): it cannot be trusted" >&2
+            exit 1
+          fi
+          echo "the scan caught the planted string, in planted-string-test.txt, line 1"
+
+      - name: Scan the release files
+        run: |
+          set -euo pipefail
+          export PATTERNS=$(grep -v -e '^#' -e '^[[:space:]]*$' .forgejo/scripts/publish-patterns.txt)
+          PRIVATE_STRINGS_FILE="$LISTS/strings" EXTRA_STRINGS_FILE="$LISTS/extra" \
+            bash .forgejo/scripts/release-scan.sh files
+
+      - name: What would be sent
+        run: |
+          set -euo pipefail
+          bash .forgejo/scripts/release-body.sh "$VERSION" files out
+          echo "== the tag: $TAG, on $GITHUB_SHA"
+          echo "== the release (POST https://api.github.com/repos/$REPO/releases):"
+          cat out/release.json
+          echo
+          echo "== its body:"
+          cat out/body.md
+          echo "== its files:"
+          (cd files && for f in *; do printf '%s\t%s bytes\tsha256 %s\n' "$f" "$(stat -c %s "$f")" "$(sha256sum "$f" | cut -d' ' -f1)"; done)
+
+      # The forge's tag first: the next version counts from it, and a release run again after a
+      # failure on GitHub finds it and goes on (iris-version.sh check).
+      - name: Tag the forge
+        run: |
+          set -euo pipefail
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          if git ls-remote --exit-code origin "refs/tags/$TAG" >/dev/null; then
+            echo "$TAG is already on the forge, at $(git rev-parse "refs/tags/$TAG^{commit}")"
+            exit 0
+          fi
+          git -c user.name=mouseion-ci -c user.email=ci@mouseion.house tag -a "$TAG" -m "Iris $TAG" "$GITHUB_SHA"
+          if [ "$DRY_RUN" = true ]; then
+            git push --dry-run --porcelain origin "refs/tags/$TAG"
+            echo "a dry run: the forge would get $TAG, and gets nothing"
+          else
+            git push --porcelain origin "refs/tags/$TAG"
+            echo "tagged $GITHUB_SHA $TAG on the forge"
+          fi
+
+      - name: Release on GitHub
+        env:
+          TOKEN: ${{ secrets.IRIS_GITHUB_RELEASE_TOKEN }}
+        run: |
+          set -euo pipefail
+          api="https://api.github.com/repos/$REPO"
+          if [ "$DRY_RUN" = true ]; then
+            if [ -n "$TOKEN" ]; then echo "IRIS_GITHUB_RELEASE_TOKEN is set"; else echo "IRIS_GITHUB_RELEASE_TOKEN is not set: a real release would stop here"; fi
+            echo "a dry run would send, and sends nothing:"
+            echo "  POST $api/releases (out/release.json, as a draft)"
+            for f in files/*; do echo "  POST https://uploads.github.com/repos/$REPO/releases/<id>/assets?name=$(basename "$f")"; done
+            echo "  PATCH $api/releases/<id> {\"draft\": false}: published, and GitHub tags $GITHUB_SHA $TAG"
+            exit 0
+          fi
+          if [ -z "$TOKEN" ]; then echo "the secret IRIS_GITHUB_RELEASE_TOKEN is not set" >&2; exit 1; fi
+          (umask 077; printf 'header = "Authorization: Bearer %s"\n' "$TOKEN" > "$LISTS/curl")
+          unset TOKEN
+          gh() {
+            curl -sS --config "$LISTS/curl" -H 'Accept: application/vnd.github+json' \
+              -H 'X-GitHub-Api-Version: 2022-11-28' -o "$LISTS/response" -w '%{http_code}' "$@"
+          }
+          code=$(gh "$api/releases/tags/$TAG")
+          if [ "$code" != 404 ]; then echo "GitHub already has a release for $TAG (HTTP $code)" >&2; exit 1; fi
+          code=$(gh -X POST --data-binary @out/release.json "$api/releases")
+          if [ "$code" != 201 ]; then echo "GitHub refused the release (HTTP $code): $(node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1])).message)' "$LISTS/response")" >&2; exit 1; fi
+          id=$(node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1])).id)' "$LISTS/response")
+          echo "draft release $id"
+          for f in files/*; do
+            name=$(basename "$f")
+            code=$(gh -X POST -H 'Content-Type: application/octet-stream' --data-binary @"$f" \
+              "https://uploads.github.com/repos/$REPO/releases/$id/assets?name=$name")
+            if [ "$code" != 201 ]; then echo "GitHub refused $name (HTTP $code); the draft $id stays, for deleting" >&2; exit 1; fi
+            echo "uploaded $name"
+          done
+          code=$(gh -X PATCH --data '{"draft":false}' "$api/releases/$id")
+          if [ "$code" != 200 ]; then echo "GitHub did not publish the draft $id (HTTP $code)" >&2; exit 1; fi
+          node -e 'const r = JSON.parse(require("fs").readFileSync(process.argv[1])); console.log(`published ${r.html_url}, ${r.assets.length} files`)' "$LISTS/response"
+
+      - name: Remove the lists
+        if: always()
+        run: if [ -n "${LISTS-}" ]; then rm -rf "$LISTS"; fi
+
+  # The macOS app opening IRIS_RELEASE_DESKTOP_URL, as build.yml's `macos` builds it, and it must be
+  # notarized. Nothing waits for it: `attach-macos` adds it to the release once the Mac has built it.
+  macos:
+    needs: [plan]
+    if: needs.plan.outputs.macos == 'true'
+    runs-on: mouseion-macos
+    timeout-minutes: 60
+    env:
+      IRIS_URL: ${{ vars.IRIS_RELEASE_DESKTOP_URL }}
+      VERSION: ${{ needs.plan.outputs.version }}
+      SWIFT_JOBS: 4
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Iris.app
+        env:
+          IRIS_BUILD_NUMBER: ${{ needs.plan.outputs.code }}
+          ARCHS: arm64 x86_64
+        run: |
+          set -euo pipefail
+          echo "BUILD_DIR=$HOME/.cache/build/iris/macos-release" >> "$GITHUB_ENV"
+          BUILD_DIR="$HOME/.cache/build/iris/macos-release" IRIS_VERSION="$VERSION" \
+            OUT_DIR="$RUNNER_TEMP/iris-release" nice -n 10 desktop-macos/build.sh
+          app="$RUNNER_TEMP/iris-release/Iris.app"
+          archs=$(lipo -archs "$app/Contents/MacOS/Iris"); echo "$archs"
+          for a in $ARCHS; do case " $archs " in *" $a "*) ;; *) echo "Iris.app has no $a slice" >&2; exit 1;; esac; done
+
+      - name: Sign and notarize Iris.app
+        id: sign
+        uses: ./.forgejo/actions/macos-sign
+        with:
+          app: ${{ runner.temp }}/iris-release/Iris.app
+          entitlements: desktop-macos/Iris.entitlements
+          package: zip
+          output: iris-macos-${{ needs.plan.outputs.version }}.zip
+          p12-base64: ${{ secrets.APPLE_DEVELOPER_ID_P12_BASE64 }}
+          p12-password: ${{ secrets.APPLE_DEVELOPER_ID_P12_PASSWORD }}
+          notary-key-p8-base64: ${{ secrets.APPLE_NOTARY_KEY_P8_BASE64 }}
+          notary-key-id: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+          notary-issuer-id: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
+          team-id: ${{ vars.APPLE_TEAM_ID }}
+
+      - name: Notarized
+        env:
+          NOTARIZED: ${{ steps.sign.outputs.notarized }}
+        run: |
+          set -euo pipefail
+          rm -rf "$RUNNER_TEMP/iris-release"
+          if [ "$NOTARIZED" != true ]; then echo "Iris.app is not notarized: a release has no macOS app without it" >&2; exit 1; fi
+          ls -l "iris-macos-$VERSION.zip"
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: release-macos
+          path: iris-macos-${{ needs.plan.outputs.version }}.zip
+
+  # Scans the macOS app as `release` scans its files, and adds it to the published release, with its
+  # line in the body and SHA256SUMS.
+  attach-macos:
+    needs: [plan, release, macos]
+    if: needs.macos.result == 'success' && needs.release.result == 'success'
+    runs-on: mouseion-docker
+    container:
+      image: node:22-bookworm@sha256:7c400d78797d8cbe3f6bb21d2227b86af4cd24b0014cc9f62ff989cc16de988e
+    defaults:
+      run:
+        shell: bash
+    env:
+      VERSION: ${{ needs.plan.outputs.version }}
+      TAG: ${{ needs.plan.outputs.tag }}
+      REPO: ${{ needs.plan.outputs.repo }}
+      DRY_RUN: ${{ needs.plan.outputs.dry_run }}
+      GITLEAKS_VERSION: 8.30.1
+      GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v3
+        with:
+          name: release-macos
+          path: ./mac
+
+      - uses: actions/download-artifact@v3
+        with:
+          name: release-web
+          path: ./files
+
+      - uses: actions/download-artifact@v3
+        with:
+          name: release-apk
+          path: ./files
+
+      - name: Scan the macOS app
+        env:
+          PRIVATE_STRINGS: ${{ secrets.IRIS_PRIVATE_STRINGS }}
+          HUB_ORIGINS: ${{ vars.IRIS_HUB_ORIGINS }}
+          DESKTOP_URL: ${{ vars.IRIS_DESKTOP_URL }}
+          CONFIG_MOBILE_JSON: ${{ vars.IRIS_CONFIG_MOBILE_JSON }}
+        run: |
+          set -euo pipefail
+          dir=$(mktemp -d)
+          curl -fsSL -o "$dir/gitleaks.tar.gz" \
+            "https://github.com/gitleaks/gitleaks/releases/download/v$GITLEAKS_VERSION/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "$GITLEAKS_SHA256  $dir/gitleaks.tar.gz" | sha256sum -c -
+          tar -xzf "$dir/gitleaks.tar.gz" -C "$dir" gitleaks
+          lists=$(mktemp -d -p /dev/shm iris-release.XXXXXX)
+          trap 'rm -rf "$lists"' EXIT
+          bash .forgejo/scripts/release-lists.sh "$lists"
+          PATTERNS=$(grep -v -e '^#' -e '^[[:space:]]*$' .forgejo/scripts/publish-patterns.txt) GITLEAKS="$dir/gitleaks" \
+            PRIVATE_STRINGS_FILE="$lists/strings" EXTRA_STRINGS_FILE="$lists/extra" \
+            bash .forgejo/scripts/release-scan.sh mac
+
+      - name: Attach it on GitHub
+        env:
+          TOKEN: ${{ secrets.IRIS_GITHUB_RELEASE_TOKEN }}
+        run: |
+          set -euo pipefail
+          cp mac/* files/
+          bash .forgejo/scripts/release-body.sh "$VERSION" files out
+          f="iris-macos-$VERSION.zip"
+          echo "iris-macos: $(stat -c %s "files/$f") bytes, sha256 $(sha256sum "files/$f" | cut -d' ' -f1)"
+          api="https://api.github.com/repos/$REPO"
+          if [ "$DRY_RUN" = true ]; then
+            echo "a dry run would send, and sends nothing:"
+            echo "  POST https://uploads.github.com/repos/$REPO/releases/<id>/assets?name=$f"
+            echo "  SHA256SUMS replaced by:"; cat files/SHA256SUMS
+            echo "  PATCH $api/releases/<id>, the body:"; cat out/body.md
+            exit 0
+          fi
+          if [ -z "$TOKEN" ]; then echo "the secret IRIS_GITHUB_RELEASE_TOKEN is not set" >&2; exit 1; fi
+          keys=$(mktemp -d -p /dev/shm iris-release.XXXXXX)
+          trap 'rm -rf "$keys"' EXIT
+          (umask 077; printf 'header = "Authorization: Bearer %s"\n' "$TOKEN" > "$keys/curl")
+          unset TOKEN
+          gh() {
+            curl -sS --config "$keys/curl" -H 'Accept: application/vnd.github+json' \
+              -H 'X-GitHub-Api-Version: 2022-11-28' -o "$keys/response" -w '%{http_code}' "$@"
+          }
+          field() { node -e "const r = JSON.parse(require('fs').readFileSync(process.argv[1])); console.log($1)" "$keys/response"; }
+          code=$(gh "$api/releases/tags/$TAG")
+          if [ "$code" != 200 ]; then echo "GitHub has no release for $TAG (HTTP $code)" >&2; exit 1; fi
+          id=$(field 'r.id')
+          sums=$(field '(r.assets.find(a => a.name === "SHA256SUMS") || {}).id || ""')
+          if [ -n "$sums" ]; then
+            code=$(gh -X DELETE "$api/releases/assets/$sums")
+            if [ "$code" != 204 ]; then echo "GitHub did not remove the old SHA256SUMS (HTTP $code)" >&2; exit 1; fi
+          fi
+          for name in "$f" SHA256SUMS; do
+            code=$(gh -X POST -H 'Content-Type: application/octet-stream' --data-binary @"files/$name" \
+              "https://uploads.github.com/repos/$REPO/releases/$id/assets?name=$name")
+            if [ "$code" != 201 ]; then echo "GitHub refused $name (HTTP $code)" >&2; exit 1; fi
+            echo "uploaded $name"
+          done
+          node -e 'const b = require("fs").readFileSync(process.argv[1], "utf8"); process.stdout.write(JSON.stringify({ body: b }))' out/body.md > out/patch.json
+          code=$(gh -X PATCH --data-binary @out/patch.json "$api/releases/$id")
+          if [ "$code" != 200 ]; then echo "GitHub did not take the new body (HTTP $code)" >&2; exit 1; fi
+          echo "the macOS app is on the release"
