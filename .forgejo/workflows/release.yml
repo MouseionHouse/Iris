@@ -21,9 +21,10 @@
 #
 #   iris-web-X.Y.Z.tar.gz    the web app (dist/, from the same Dockerfile as the household's image),
 #                            with the repo's config.json and no hub origins (no HUB_ORIGINS or
-#                            HUB_PREVIEW_PATTERN build arguments)
+#                            HUB_PREVIEW_PATTERN build arguments), and without its source maps
 #   iris-android-X.Y.Z.apk   the Android app, release-signed and R8-minified as the household's,
-#                            with the repo's config.mobile.json, not IRIS_CONFIG_MOBILE_JSON
+#                            with the repo's config.mobile.json, not IRIS_CONFIG_MOBILE_JSON, and
+#                            no source maps
 #   iris-macos-X.Y.Z.zip     the macOS app, signed and notarized, opening IRIS_RELEASE_DESKTOP_URL
 #                            (a public Iris web app) instead of IRIS_DESKTOP_URL. Only when that
 #                            variable is set, and attached after the release when the Mac has
@@ -198,6 +199,9 @@ jobs:
           dir="iris-web-$VERSION"
           rm -rf out && mkdir out
           docker cp "$cid:/app/." "out/$dir"
+          # No source maps: the source is public already, and the maps of the packages Iris ships
+          # (element-call's among them) carry their own builds' text, which the scan cannot vouch for.
+          find "out/$dir" -name '*.map' -type f -print -delete | wc -l | sed 's/$/ source maps left out/'
           cmp "out/$dir/config.json" config.json
           test -f "out/$dir/index.html"
           # The same bytes for the same commit: fixed order, owner and times, no gzip timestamp.
@@ -211,6 +215,8 @@ jobs:
           set -euo pipefail
           docker buildx build --platform linux/amd64 --target android --output type=local,dest=android-inputs .
           cmp android-inputs/mobile/android/app/src/main/assets/public/config.json config.mobile.json
+          # As for the web app: no source maps in the app.
+          find android-inputs/mobile/android/app/src/main/assets/public -name '*.map' -type f -print -delete | wc -l | sed 's/$/ source maps left out/'
           tar -czf android-inputs.tgz -C android-inputs .
 
       - name: Remove the image
