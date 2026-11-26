@@ -151,8 +151,14 @@ security import "$work/id.p12" -k "$kc" -f pkcs12 -P "${MS_P12_PASSWORD:-}" -T /
 	die "the certificate would not import: is APPLE_DEVELOPER_ID_P12_PASSWORD its password?"
 rm -f "$work/id.p12"
 # The intermediate a Developer ID Application certificate is issued under (Apple's, public),
-# for when the Mac has no copy: codesign needs the whole chain.
-security import "$here/DeveloperIDG2CA.cer" -k "$kc" >/dev/null
+# for when the Mac has no copy: codesign needs the whole chain. A .p12 exported with its chain
+# brings the intermediate itself, and then the keychain has it already: that is no failure.
+if ! intermediate_import="$(security import "$here/DeveloperIDG2CA.cer" -k "$kc" 2>&1)"; then
+	case $intermediate_import in
+		*"already exists in the keychain"*) log "the intermediate came with the certificate" ;;
+		*) die "Apple's intermediate would not import: $intermediate_import" ;;
+	esac
+fi
 # Lets codesign use the key without a dialog, which nobody would answer.
 security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$kc_pw" "$kc" >/dev/null
 # codesign finds identities, and builds their chains, through the search list.
