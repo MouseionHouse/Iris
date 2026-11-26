@@ -1,9 +1,18 @@
-<h1><img src="branding/iris-mark-on-light.svg" alt="" width="44" height="44" align="top"> Iris</h1>
+<div align="center">
+
+<h1><picture><source media="(prefers-color-scheme: dark)" srcset="branding/iris-mark-on-dark.svg"><img src="branding/iris-mark-on-light.svg" alt="" width="44" height="44" align="top"></picture> Iris</h1>
+
+<p>A Matrix client built on Cinny, with Home sections, synced drafts and scheduled messages</p>
+
+<p><a href="#what-iris-adds-to-cinny">What Iris adds</a> · <a href="#build-and-run">Build and run</a> · <a href="https://github.com/MouseionHouse/Iris/issues">Issues</a> · <a href="https://github.com/MouseionHouse/Iris/pulls">Pull requests</a> · <a href="CONTRIBUTING.md">Contributing</a></p>
+
+<p><a href="https://github.com/MouseionHouse/Iris/actions/workflows/check.yml"><img src="https://img.shields.io/github/actions/workflow/status/MouseionHouse/Iris/check.yml?branch=dev&amp;label=check" alt="check workflow status"></a> <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0--only-blue" alt="License: AGPL-3.0-only"></a> <a href="https://github.com/cinnyapp/cinny"><img src="https://img.shields.io/badge/Cinny-4.12.8-8556cf" alt="Based on Cinny 4.12.8"></a> <img src="https://img.shields.io/badge/platforms-web%20%7C%20Android%20%7C%20KDE%20Plasma%20%7C%20macOS-5f9a88" alt="Platforms: web, Android, KDE Plasma, macOS"></p>
+
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/pictures/hero-dark.png"><img src="docs/pictures/hero-light.png" width="900" alt="Iris on a wide screen and on a phone. On the wide screen, Home lists its sections (Starred, Clubs, Neighbours, Chats and Rooms) beside the Saturday picnic room, with a picnic picture and three scheduled messages. In front, the phone shows Home's list of chats with unread counts and a draft."></picture>
+
+</div>
 
 Iris is a [Matrix](https://matrix.org) client, forked from [Cinny](https://cinny.in) 4.12.6. It follows Cinny, on 4.12.8 now, and adds what one household, Mouseion, wanted from its chat. It runs in the browser, as an Android app, as a KDE Plasma desktop app and as a macOS app.
-
-- **Issues:** [github.com/MouseionHouse/Iris/issues](https://github.com/MouseionHouse/Iris/issues)
-- **Pull requests:** [github.com/MouseionHouse/Iris/pulls](https://github.com/MouseionHouse/Iris/pulls), see [`CONTRIBUTING.md`](CONTRIBUTING.md)
 
 ## What Iris adds to Cinny
 
@@ -18,9 +27,29 @@ Iris is a [Matrix](https://matrix.org) client, forked from [Cinny](https://cinny
 - **A macOS shell.** A native Swift window around the web app, with notifications you can reply to, an unread badge on the Dock icon and `matrix:` links. See [`desktop-macos/README.md`](desktop-macos/README.md).
 - **Its own look.** The iris mark, and the Iris light and Iris dark themes.
 
+<table>
+<tr>
+<td align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/pictures/desktop-scheduled-dark.png"><img src="docs/pictures/desktop-scheduled-light.png" width="300" alt="The Saturday picnic room with its three scheduled messages open above the composer, each with the time it sends and buttons to edit it, send it now or delete it"></picture><br>Scheduled messages</td>
+<td align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/pictures/desktop-draft-dark.png"><img src="docs/pictures/desktop-draft-light.png" width="300" alt="A chat with Patroclus, with an unsent message waiting in the composer"></picture><br>A synced draft</td>
+<td align="center" rowspan="2"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/pictures/phone-conversation-dark.png"><img src="docs/pictures/phone-conversation-light.png" width="190" alt="A conversation on a phone, with a sticker, a reaction, and the composer at the bottom"></picture><br>A conversation on a phone</td>
+</tr>
+<tr>
+<td align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/pictures/desktop-image-editor-dark.png"><img src="docs/pictures/desktop-image-editor-light.png" width="300" alt="The image editor open on a picnic picture, with a crop frame over it, Crop and Draw at the bottom left, and Rotate and Reset at the bottom right"></picture><br>The image editor</td>
+<td align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/pictures/desktop-stickers-dark.png"><img src="docs/pictures/desktop-stickers-light.png" width="300" alt="The sticker board open beside a conversation, showing a pack of six stickers: a cup, a heart, a watermelon, a plant, a star and a sun"></picture><br>The sticker board</td>
+</tr>
+</table>
+
 Optionally, Iris can live inside a hub: a page that frames other apps. When a hub you name at build time frames it, the two talk over `postMessage`: the hub sets the theme and receives the unread counts. Without one, the bridge stays off. See [`src/app/hub/`](src/app/hub).
 
 Everything else is Cinny.
+
+## How it is made
+
+Iris is maintained by John Gibson. Most of its code is written by AI agents working under his direction. Cinny does not accept AI-written code, so nothing here is offered to Cinny as code.
+
+## The name
+
+Iris is Homer's messenger in the Iliad, who carries word between the gods and to men. It is also the flower, which is the mark.
 
 ## Build and run
 
@@ -73,14 +102,6 @@ docker build -t iris \
 
 The Android app's ID, `house.mouseion.iris`, and the `house.mouseion.*` account-data types Iris stores are part of the app, not settings.
 
-## The name
-
-Iris is Homer's messenger in the Iliad, who carries word between the gods and to men. It is also the flower, which is the mark.
-
-## How it is made
-
-Iris is maintained by John Gibson. Most of its code is written by AI agents working under his direction. Cinny does not accept AI-written code, so nothing here is offered to Cinny as code.
-
 ## Design
 
 Iris has its own design: the name, the mark and the colors, worked out in the rounds kept under [`design/`](design).
@@ -91,6 +112,7 @@ Iris has its own design: the name, the mark and the colors, worked out in the ro
 - [`src/colors.css.ts`](src/colors.css.ts): the Iris light and Iris dark themes.
 - [`src/app/components/iris-lockup/`](src/app/components/iris-lockup): the mark beside the name, the one way the two are shown together.
 - `/mock-brand.html` on the dev server: all of the above on real controls, on both grounds.
+- [`docs/pictures/`](docs/pictures): the pictures in this README, from the real app. [`test/e2e-app/README.md`](test/e2e-app/README.md#the-readme-pictures) says how to take them again; the desktop ones are then scaled to 1440 pixels wide, and all but the main picture shrunk with `pngquant`, then `oxipng`.
 
 The mark stands alone. With the name, it sits beside it, never above. The deep rounded square behind it is for app icons only.
 
