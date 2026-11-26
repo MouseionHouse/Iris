@@ -15,12 +15,22 @@ git config commit.gpgsign false
 git config tag.gpgsign false
 
 fails=0
+# The script's stderr, shown under a failure.
+errors=$(mktemp)
+trap 'rm -rf "$repo" "$errors"' EXIT
 expect() { # expect <what> <want> <got>
-  if [ "$2" = "$3" ]; then echo "ok: $1"; else echo "FAIL: $1: wanted \"$2\", got \"$3\""; fails=$((fails + 1)); fi
+  if [ "$2" = "$3" ]; then
+    echo "ok: $1"
+  else
+    echo "FAIL: $1: wanted \"$2\", got \"$3\""
+    sed 's/^/  /' "$errors"
+    fails=$((fails + 1))
+  fi
+  : >"$errors"
 }
 commit() { git commit -q --allow-empty -m "$1"; }
-v() { bash "$script" "$@" 2>/dev/null; }
-allowed() { if bash "$script" check "$@" 2>/dev/null; then echo yes; else echo no; fi; }
+v() { bash "$script" "$@" 2>>"$errors"; }
+allowed() { if bash "$script" check "$@" 2>>"$errors"; then echo yes; else echo no; fi; }
 
 commit 'initial commit'
 expect 'no tags: last is empty' '' "$(v last)"
