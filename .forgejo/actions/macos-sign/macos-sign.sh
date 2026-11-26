@@ -11,8 +11,15 @@
 # deleted, with every decoded file. A run killed outright (SIGKILL) leaves it behind: the next
 # run sweeps it (drop_ours).
 #
+# With MS_RUN it signs nothing itself: it sets up the keychain (and a notarytool profile from the
+# API key), runs that command for the caller's own signing, and cleans up. For apps that sign
+# themselves, such as Chromium with its sign_chrome.py.
+#
 # Environment (README.md says more):
-#   MS_APP                      the .app (required)
+#   MS_APP                      the .app (required, unless MS_RUN)
+#   MS_RUN                      a command (bash) to run while the keychain exists, in place of the
+#                               signing here; it gets MACOS_SIGN_IDENTITY, MACOS_SIGN_IDENTITY_SHA1,
+#                               MACOS_SIGN_KEYCHAIN and MACOS_NOTARY_PROFILE (empty without a key)
 #   MS_ENTITLEMENTS             plist for the app's executables (optional)
 #   MS_PACKAGE                  zip (default), dmg or none
 #   MS_OUTPUT                   the package's path (default beside the app: <Name>.zip/.dmg)
@@ -44,24 +51,34 @@ p8_b64="${MS_NOTARY_KEY_P8_BASE64:-}"
 key_id="${MS_NOTARY_KEY_ID:-}"
 issuer="${MS_NOTARY_ISSUER_ID:-}"
 team_id="${MS_TEAM_ID:-}"
+run="${MS_RUN:-}"
 
-[[ -n "$app" ]] || die "no app given (MS_APP)"
-app="${app%/}"
-[[ -d "$app" && "$app" == *.app ]] || die "$app is not an .app bundle"
-case "$package" in zip | dmg | none) ;; *) die "package is \"$package\": zip, dmg or none" ;; esac
-if [[ -n "$entitlements" ]]; then
-	[[ -f "$entitlements" ]] || die "no entitlements file at $entitlements"
-	plutil -lint "$entitlements" >/dev/null || die "$entitlements is not a valid plist"
+if [[ -n "$run" ]]; then
+	# the keychain only: what to sign, and how, is the command's
+	[[ -z "$app" ]] || die "app and run go one or the other: run signs for itself"
+else
+	[[ -n "$app" ]] || die "no app given (MS_APP)"
+	app="${app%/}"
+	[[ -d "$app" && "$app" == *.app ]] || die "$app is not an .app bundle"
+	case "$package" in zip | dmg | none) ;; *) die "package is \"$package\": zip, dmg or none" ;; esac
+	if [[ -n "$entitlements" ]]; then
+		[[ -f "$entitlements" ]] || die "no entitlements file at $entitlements"
+		plutil -lint "$entitlements" >/dev/null || die "$entitlements is not a valid plist"
+	fi
+	name="$(basename "$app" .app)"
+	if [[ -z "$out" && "$package" != none ]]; then out="$(dirname "$app")/$name.$package"; fi
 fi
-name="$(basename "$app" .app)"
-if [[ -z "$out" && "$package" != none ]]; then out="$(dirname "$app")/$name.$package"; fi
 
 output signed false
 output notarized false
 output package ""
 
 if [[ -z "$p12_b64" ]]; then
-	log "no Developer ID certificate (APPLE_DEVELOPER_ID_P12_BASE64 is not set): $name.app stays ad-hoc signed"
+	if [[ -n "$run" ]]; then
+		log "no Developer ID certificate (APPLE_DEVELOPER_ID_P12_BASE64 is not set): the command is not run, and nothing is signed"
+	else
+		log "no Developer ID certificate (APPLE_DEVELOPER_ID_P12_BASE64 is not set): $name.app stays ad-hoc signed"
+	fi
 	exit 0
 fi
 notarize=true
@@ -74,6 +91,8 @@ fi
 # --- the keychain ------------------------------------------------------------------------
 
 # The user's keychain search list, one path per line.
+# (Its readers use grep without -q: under pipefail, -q stopping early can kill the writer with
+# SIGPIPE and turn a match into a miss.)
 search_list() { security list-keychains -d user | sed -e 's/^[[:space:]]*"//' -e 's/"[[:space:]]*$//'; }
 
 ours() { [[ "$1" == */macos-sign.*/signing.keychain-db ]]; }
@@ -100,7 +119,7 @@ drop_ours() {
 		security list-keychains -d user -s "${rest[@]}"
 	else
 		security list-keychains -d user -s
-		if search_list | grep -q "$ours_re"; then
+		if search_list | grep "$ours_re" >/dev/null; then
 			security list-keychains -d user -s /Library/Keychains/System.keychain
 		fi
 	fi
@@ -115,7 +134,7 @@ cleanup() {
 	drop_ours
 	if [[ -n "$work" ]]; then rm -rf "$work"; fi
 	if [[ -n "$kc" ]]; then
-		if [[ -e "$kc" ]] || search_list | grep -qxF "$kc"; then
+		if [[ -e "$kc" ]] || search_list | grep -xF "$kc" >/dev/null; then
 			echo "macos-sign: the keychain $kc is still there" >&2
 			status=1
 		else
@@ -128,7 +147,7 @@ trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM HUP
 
-if search_list | grep -q "$ours_re"; then
+if search_list | grep "$ours_re" >/dev/null; then
 	log "removing keychains an earlier run left on the search list"
 	drop_ours
 fi
@@ -150,14 +169,14 @@ printf '%s' "$p12_b64" | tr -d ' \t\r\n' | base64 -D >"$work/id.p12"
 security import "$work/id.p12" -k "$kc" -f pkcs12 -P "${MS_P12_PASSWORD:-}" -T /usr/bin/codesign >/dev/null ||
 	die "the certificate would not import: is APPLE_DEVELOPER_ID_P12_PASSWORD its password?"
 rm -f "$work/id.p12"
-# The intermediate a Developer ID Application certificate is issued under (Apple's, public),
-# for when the Mac has no copy: codesign needs the whole chain. A .p12 exported with its chain
-# brings the intermediate itself, and then the keychain has it already: that is no failure.
-if ! intermediate_import="$(security import "$here/DeveloperIDG2CA.cer" -k "$kc" 2>&1)"; then
-	case $intermediate_import in
-		*"already exists in the keychain"*) log "the intermediate came with the certificate" ;;
-		*) die "Apple's intermediate would not import: $intermediate_import" ;;
-	esac
+# The intermediate a Developer ID Application certificate is issued under (Apple's, public).
+# codesign needs the whole chain, but on macOS 27 it does not take the intermediate from this
+# keychain: the Mac must have it in the System keychain (checked below; #77). Kept here for the
+# Macs that still look in it. A .p12 can carry it already (the org's does: run 33441), and then
+# `security` refuses it as "already exists in the keychain": that is fine, anything else is not.
+if ! err="$(security import "$here/DeveloperIDG2CA.cer" -k "$kc" 2>&1 >/dev/null)"; then
+	grep -F 'already exists' <<<"$err" >/dev/null || die "Apple's intermediate would not import: $err"
+	log "Apple's Developer ID G2 intermediate is on the Mac already"
 fi
 # Lets codesign use the key without a dialog, which nobody would answer.
 security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$kc_pw" "$kc" >/dev/null
@@ -190,10 +209,48 @@ if [[ -n "$team_id" && "$identity" != *"($team_id)" ]]; then
 	die "the identity \"$identity\" is not of the team $team_id (APPLE_TEAM_ID)"
 fi
 log "codesign identity: $identity ($hash)"
+# A Developer ID whose chain does not build to Apple Root CA is not valid, and codesign stops at
+# the first file with "unable to build chain to self-signed root" and errSecInternalComponent.
+# Said here, with the cause: the Mac lacks Apple's intermediate in its System keychain (or the
+# certificate has expired or been revoked).
+if [[ $developer_id == true ]]; then
+	if ! security find-identity -v -p codesigning "$kc" | grep -F "$hash" >/dev/null; then
+		die "the identity's chain does not build to Apple Root CA, so codesign would fail (errSecInternalComponent): add Apple's Developer ID G2 intermediate to the Mac's System keychain (sudo security add-certificates -k /Library/Keychains/System.keychain $here/DeveloperIDG2CA.cer, once, as an admin), or check that the certificate has not expired or been revoked"
+	fi
+	log "the identity's chain builds to Apple Root CA"
+fi
 if [[ $developer_id == false ]]; then
 	log "not a Developer ID Application identity: fine for a test, but Apple will not notarize it"
 fi
 output identity "$identity"
+
+# --- or the caller's command, in the keychain's lifetime ---------------------------------
+
+if [[ -n "$run" ]]; then
+	profile=""
+	if [[ $notarize == true ]]; then
+		p8="$work/AuthKey_$key_id.p8"
+		printf '%s' "$p8_b64" | tr -d ' \t\r\n' | base64 -D >"$p8"
+		[[ -s "$p8" ]] || die "APPLE_NOTARY_KEY_P8_BASE64 decodes to nothing"
+		# In the keychain, so it goes with it. store-credentials asks Apple whether the key works.
+		profile=macos-sign
+		xcrun notarytool store-credentials "$profile" --key "$p8" --key-id "$key_id" --issuer "$issuer" \
+			--keychain "$kc" >/dev/null || die "notarytool would not store the API key (APPLE_NOTARY_KEY_*)"
+		rm -f "$p8"
+		log "notary profile \"$profile\" in the keychain"
+	else
+		log "no App Store Connect API key (APPLE_NOTARY_KEY_*): the command gets no notary profile"
+	fi
+	log "running the command with the keychain"
+	status=0
+	MACOS_SIGN_IDENTITY="$identity" MACOS_SIGN_IDENTITY_SHA1="$hash" MACOS_SIGN_KEYCHAIN="$kc" \
+		MACOS_NOTARY_PROFILE="$profile" bash -c "$run" || status=$?
+	[[ $status == 0 ]] || die "the command failed (exit $status)"
+	output signed true
+	if [[ -n "$profile" ]]; then output notarized true; fi
+	log "the command finished"
+	exit 0
+fi
 
 # A secure timestamp is what notarization asks for; Apple's server stamps Developer ID only.
 if [[ $developer_id == true ]]; then timestamp=(--timestamp); else timestamp=(--timestamp=none); fi
@@ -204,8 +261,8 @@ sign() { codesign --force --sign "$hash" --keychain "$kc" "${timestamp[@]}" "$@"
 # Finder metadata and resource forks make codesign refuse a bundle.
 xattr -cr "$app"
 
-is_macho() { file -b "$1" | grep -q 'Mach-O'; }
-is_executable_macho() { file -b "$1" | grep -q 'Mach-O.*executable'; }
+is_macho() { file -b "$1" | grep 'Mach-O' >/dev/null; }
+is_executable_macho() { file -b "$1" | grep 'Mach-O.*executable' >/dev/null; }
 
 # Everything inside Contents that holds code: nested bundles and loose Mach-O files.
 items=()
