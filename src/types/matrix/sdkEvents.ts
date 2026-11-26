@@ -2,6 +2,7 @@
 // matrix-js-sdk types getAccountData, setAccountData, sendStateEvent and the rest by these
 // interfaces, so an event type missing here does not type-check. Add new ones here.
 import type { SyncedDraft } from '../../app/state/room/draftSync';
+import type { SealedDraftContent } from '../../app/state/room/sealedDrafts';
 import type { SidebarSection } from '../../app/state/sidebar';
 import type { InCinnySpacesContent } from '../../app/hooks/useSidebarItems';
 import type { IRecentEmojiContent } from '../../app/plugins/recent-emoji';
@@ -23,8 +24,8 @@ declare module 'matrix-js-sdk/lib/@types/event' {
   }
 
   interface RoomAccountDataEvents {
-    // DRAFT_EVENT_TYPE
-    'house.mouseion.draft': SyncedDraft;
+    // DRAFT_EVENT_TYPE: sealed in encrypted rooms
+    'house.mouseion.draft': SyncedDraft | SealedDraftContent;
   }
 
   interface StateEvents {

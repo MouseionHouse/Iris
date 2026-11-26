@@ -1,7 +1,16 @@
-import { MatrixClient, MatrixEvent, RoomEvent } from 'matrix-js-sdk';
+import {
+  EventType,
+  MatrixClient,
+  MatrixEvent,
+  Room,
+  RoomEvent,
+  RoomStateEvent,
+} from 'matrix-js-sdk';
+import { CryptoEvent } from 'matrix-js-sdk/lib/crypto-api';
 import { Descendant, Element, Text } from 'slate';
 import { BlockType } from '../../components/editor/types';
 import { IReplyDraft } from './roomInputDrafts';
+import { DraftAccountData, createSealedDraftStore } from './sealedDrafts';
 
 /*
  * Composer drafts that follow the account. Each room's draft is the
@@ -9,6 +18,9 @@ import { IReplyDraft } from './roomInputDrafts';
  * the way `house.mouseion.sidebar` carries the sidebar's sections.
  *
  * A cleared draft keeps its `ts` and `device` and drops `msg` and `reply`: nothing is deleted.
+ *
+ * In an encrypted room the event is the draft sealed, so the server can't read it: see
+ * sealedDrafts.ts.
  */
 
 export const DRAFT_EVENT_TYPE = 'house.mouseion.draft';
@@ -63,18 +75,6 @@ export const draftKey = (msg: Descendant[] | undefined, reply: IReplyDraft | und
 export const hasDraft = (draft: SyncedDraft | undefined): draft is SyncedDraft =>
   !!draft && (!isEmptyMsg(draft.msg) || !!draft.reply);
 
-export const parseDraft = (content: unknown): SyncedDraft | undefined => {
-  if (!content || typeof content !== 'object') return undefined;
-  const { ts, device, msg, reply } = content as Partial<SyncedDraft>;
-  if (typeof ts !== 'number') return undefined;
-  return {
-    ts,
-    device: typeof device === 'string' ? device : '',
-    msg: Array.isArray(msg) ? msg : undefined,
-    reply: reply && typeof reply.eventId === 'string' ? reply : undefined,
-  };
-};
-
 /** Blocks made of lines: their lines are joined with a space. */
 const LINE_CONTAINERS: string[] = [
   BlockType.BlockQuote,
@@ -106,28 +106,58 @@ export const draftText = (msg: Descendant[] | undefined): string =>
 // ---------------------------------------------------------------------------------------------
 // Stores
 
-/** Drafts in the user's room account data. */
-export const createMatrixDraftStore = (mx: MatrixClient): DraftStore => ({
+const matrixStores = new WeakMap<MatrixClient, DraftStore>();
+
+/** The account as the sealed store sees it. */
+const matrixAccountData = (mx: MatrixClient): DraftAccountData => ({
   device: mx.getDeviceId() ?? '',
-  get: (roomId) => parseDraft(mx.getRoom(roomId)?.getAccountData(DRAFT_EVENT_TYPE)?.getContent()),
-  put: async (roomId, draft) => {
-    await mx.setRoomAccountData(roomId, DRAFT_EVENT_TYPE, draft);
+  rooms: () => mx.getRooms().map((room) => room.roomId),
+  isEncrypted: (roomId) => mx.getRoom(roomId)?.hasEncryptionStateEvent() ?? false,
+  read: (roomId) => mx.getRoom(roomId)?.getAccountData(DRAFT_EVENT_TYPE)?.getContent(),
+  write: async (roomId, content) => {
+    await mx.setRoomAccountData(roomId, DRAFT_EVENT_TYPE, content);
   },
-  // on the room, not the client: every row of the room list listens
-  subscribe: (roomId, onDraft) => {
-    const room = mx.getRoom(roomId);
-    if (!room) return () => undefined;
-    const handleAccountData = (event: MatrixEvent) => {
-      if (event.getType() !== DRAFT_EVENT_TYPE) return;
-      const draft = parseDraft(event.getContent());
-      if (draft) onDraft(draft);
+  onArrive: (listener) => {
+    const handleAccountData = (event: MatrixEvent, room: Room) => {
+      if (event.getType() === DRAFT_EVENT_TYPE) listener(room.roomId, event.getContent());
     };
-    room.on(RoomEvent.AccountData, handleAccountData);
+    mx.on(RoomEvent.AccountData, handleAccountData);
     return () => {
-      room.removeListener(RoomEvent.AccountData, handleAccountData);
+      mx.removeListener(RoomEvent.AccountData, handleAccountData);
+    };
+  },
+  onEncrypted: (listener) => {
+    const handleState = (event: MatrixEvent) => {
+      const roomId = event.getRoomId();
+      if (event.getType() === EventType.RoomEncryption && roomId) listener(roomId);
+    };
+    mx.on(RoomStateEvent.Events, handleState);
+    return () => {
+      mx.removeListener(RoomStateEvent.Events, handleState);
+    };
+  },
+  backupKey: async () => (await mx.getCrypto()?.getSessionBackupPrivateKey()) ?? null,
+  onBackupKey: (listener) => {
+    mx.on(CryptoEvent.KeyBackupDecryptionKeyCached, listener);
+    return () => {
+      mx.removeListener(CryptoEvent.KeyBackupDecryptionKeyCached, listener);
     };
   },
 });
+
+/**
+ * Drafts in the user's room account data: as they are in unencrypted rooms, sealed in encrypted
+ * ones (sealedDrafts.ts). One store per client, so every row of the room list shares what it
+ * has opened.
+ */
+export const createMatrixDraftStore = (mx: MatrixClient): DraftStore => {
+  let store = matrixStores.get(mx);
+  if (!store) {
+    store = createSealedDraftStore(matrixAccountData(mx));
+    matrixStores.set(mx, store);
+  }
+  return store;
+};
 
 /** What several in-memory stores share, standing in for the homeserver. */
 export type MemoryDraftHub = {

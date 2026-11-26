@@ -26,6 +26,26 @@ A step fails on a wrong URL or a missing element, and also on any page error or 
 
 It prints `PASS` or `FAIL` per step, keeps a screenshot of each walk step in the screenshot directory, and exits 1 if any step failed. Each run sends one message to `#general`; nothing else changes between runs.
 
+## Drafts
+
+`drafts.mjs` checks that a draft follows the account between two devices, and that in an encrypted room the server holds it sealed. It needs no seed:
+
+```sh
+test/e2e-schedule/synapse.sh up
+npx vite build --outDir /tmp/iris-dist
+npx vite preview --outDir /tmp/iris-dist --port 5189 &
+CHROME=$(which google-chrome) node test/e2e-app/drafts.mjs <playwright-core dir> /tmp/iris-e2e-shots http://localhost:5189
+```
+
+Each run registers a new `hector-<time>` and makes two rooms, Troy (encrypted) and Agora (not). Hector signs in on two devices, each a browser of its own: the first sets up device verification, which makes the key backup, and the second verifies with the recovery key, as a user would, so both hold the backup key the drafts key comes from. It checks:
+
+- a readable draft left in Troy from before drafts were sealed is gone from the server once the first device starts (that device has no backup key yet, so it leaves an empty draft);
+- a draft typed on the first device in each room appears in the second device's composer;
+- the server's copy of Troy's draft, fetched raw, is sealed and holds no word of the draft, while Agora's is the draft as it was;
+- a readable draft written into Troy while both run (as an older Iris would) is sealed again, and reaches the second device.
+
+It prints `PASS` or `FAIL` per step, keeps a `.failed.png` of where a step stopped, and exits 1 if any failed. It takes under a minute.
+
 ## The README pictures
 
 `showcase-seed.mjs` and `showcase-capture.mjs` take the pictures of Iris for the README from the real app: a production build, signed in as Hector on the same local Synapse, with a made-up account worth photographing. They are not a test and are not run in CI.
