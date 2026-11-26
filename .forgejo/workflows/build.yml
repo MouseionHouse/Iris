@@ -889,13 +889,14 @@ jobs:
       # run: nothing here or in publish-fdroid needs it, and a failure must not hold back the
       # F-Droid publish. The job runs in a container whose user does not own the workspace, and
       # actions/checkout trusts the workspace only during its own step, so git refused it ("not in
-      # a git directory") until it is trusted here. The push uses the token checkout left behind.
+      # a git directory") until it is trusted here, for this step. The push uses the token checkout left behind.
       - name: Tag this release in git (best-effort)
         if: needs.plan.outputs.publish == 'true' && github.event_name != 'merge_group'
         continue-on-error: true
         run: |
           set -euo pipefail
-          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          # Trusted for this step alone, as command-line config: the image may have no home to write to.
+          export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.directory GIT_CONFIG_VALUE_0="$GITHUB_WORKSPACE"
           tag="mobile-v$VERSION_NAME"
           if git ls-remote --exit-code origin "refs/tags/$tag" >/dev/null; then
             echo "$tag is already on the forge"

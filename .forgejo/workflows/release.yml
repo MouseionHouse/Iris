@@ -258,7 +258,8 @@ jobs:
           set -euo pipefail
           tar -xzf android-inputs/android-inputs.tgz
           rm -r android-inputs
-          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          # Trusted for this step alone, as command-line config: the image may have no home to write to.
+          export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.directory GIT_CONFIG_VALUE_0="$GITHUB_WORKSPACE"
           cmp mobile/android/app/src/main/assets/public/config.json <(git show HEAD:config.mobile.json)
           echo "the app's config.json is the repo's config.mobile.json"
           printf 'sdk.dir=%s\n' "$ANDROID_HOME" > mobile/android/local.properties
@@ -407,7 +408,8 @@ jobs:
       - name: Tag the forge
         run: |
           set -euo pipefail
-          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          # Trusted for this step alone, as command-line config: the image may have no home to write to.
+          export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.directory GIT_CONFIG_VALUE_0="$GITHUB_WORKSPACE"
           if git ls-remote --exit-code origin "refs/tags/$TAG" >/dev/null; then
             echo "$TAG is already on the forge, at $(git rev-parse "refs/tags/$TAG^{commit}")"
             exit 0
