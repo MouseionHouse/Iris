@@ -29,13 +29,13 @@ Iris is a [Matrix](https://matrix.org) client, forked from [Cinny](https://cinny
 
 <table>
 <tr>
-<td align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/pictures/desktop-scheduled-dark.png"><img src="docs/pictures/desktop-scheduled-light.png" width="300" alt="The Saturday picnic room with its three scheduled messages open above the composer, each with the time it sends and buttons to edit it, send it now or delete it"></picture><br>Scheduled messages</td>
-<td align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/pictures/desktop-draft-dark.png"><img src="docs/pictures/desktop-draft-light.png" width="300" alt="A chat with Patroclus, with an unsent message waiting in the composer"></picture><br>A synced draft</td>
+<td align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/pictures/desktop-scheduled-dark.png"><img src="docs/pictures/desktop-scheduled-light.png" width="300" alt="The list of three scheduled messages open above the composer, each with the day and time it sends"></picture><br>Scheduled messages</td>
+<td align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/pictures/desktop-draft-dark.png"><img src="docs/pictures/desktop-draft-light.png" width="300" alt="The end of a chat with Patroclus, with the unsent message “Bring the spare pump too, mine's” waiting in the composer"></picture><br>A synced draft</td>
 <td align="center" rowspan="2"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/pictures/phone-conversation-dark.png"><img src="docs/pictures/phone-conversation-light.png" width="190" alt="A conversation on a phone, with a sticker, a reaction, and the composer at the bottom"></picture><br>A conversation on a phone</td>
 </tr>
 <tr>
-<td align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/pictures/desktop-image-editor-dark.png"><img src="docs/pictures/desktop-image-editor-light.png" width="300" alt="The image editor open on a picnic picture, with a crop frame over it, Crop and Draw at the bottom left, and Rotate and Reset at the bottom right"></picture><br>The image editor</td>
-<td align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/pictures/desktop-stickers-dark.png"><img src="docs/pictures/desktop-stickers-light.png" width="300" alt="The sticker board open beside a conversation, showing a pack of six stickers: a cup, a heart, a watermelon, a plant, a star and a sun"></picture><br>The sticker board</td>
+<td align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/pictures/desktop-image-editor-dark.png"><img src="docs/pictures/desktop-image-editor-light.png" width="300" alt="The image editor, titled Edit image, open on a picnic picture with a crop frame over it: Crop and Draw at the bottom left, Rotate and Reset at the bottom right, and Done at the top right"></picture><br>The image editor</td>
+<td align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/pictures/desktop-stickers-dark.png"><img src="docs/pictures/desktop-stickers-light.png" width="210" alt="The sticker board open above the composer, showing the Doodles pack of six stickers: a cup, a heart, a watermelon, a plant, a star and a sun"></picture><br>The sticker board</td>
 </tr>
 </table>
 
@@ -112,7 +112,7 @@ Iris has its own design: the name, the mark and the colors, worked out in the ro
 - [`src/colors.css.ts`](src/colors.css.ts): the Iris light and Iris dark themes.
 - [`src/app/components/iris-lockup/`](src/app/components/iris-lockup): the mark beside the name, the one way the two are shown together.
 - `/mock-brand.html` on the dev server: all of the above on real controls, on both grounds.
-- [`docs/pictures/`](docs/pictures): the pictures in this README, from the real app. [`test/e2e-app/README.md`](test/e2e-app/README.md#the-readme-pictures) says how to take them again; the desktop ones are then scaled to 1440 pixels wide, and all but the main picture shrunk with `pngquant`, then `oxipng`.
+- [`docs/pictures/`](docs/pictures): the pictures in this README, from the real app. [`test/e2e-app/README.md`](test/e2e-app/README.md#the-readme-pictures) says how to take them again; the desktop ones are then cropped to their feature by `test/e2e-app/showcase-crop.mjs` and scaled to at most 1440 pixels wide, and all but the main picture shrunk with `pngquant`, then `oxipng`.
 
 The mark stands alone. With the name, it sits beside it, never above. The deep rounded square behind it is for app icons only.
 
