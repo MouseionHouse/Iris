@@ -289,7 +289,7 @@ jobs:
           cp "$apk" "../../iris-android-$VERSION.apk"
           tools=$(ls -1d "$ANDROID_HOME"/build-tools/* | sort -V | tail -n1)
           "$tools/apksigner" verify --print-certs "../../iris-android-$VERSION.apk" | grep -E "certificate DN|SHA-256"
-          "$tools/aapt2" dump badging "../../iris-android-$VERSION.apk" | head -n1
+          "$tools/aapt2" dump badging "../../iris-android-$VERSION.apk" | sed -n 1p
           gzip -c app/build/outputs/mapping/release/mapping.txt > "../../iris-android-mapping-$VERSION.txt.gz"
 
       - name: Remove keystore
