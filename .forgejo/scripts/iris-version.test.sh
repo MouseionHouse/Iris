@@ -23,7 +23,7 @@ expect() { # expect <what> <want> <got>
     echo "ok: $1"
   else
     echo "FAIL: $1: wanted \"$2\", got \"$3\""
-    sed 's/^/  /' "$errors"
+    while IFS= read -r line; do echo "  $line"; done <"$errors"
     fails=$((fails + 1))
   fi
   : >"$errors"

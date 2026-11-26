@@ -28,58 +28,83 @@ set -euo pipefail
 
 semver='^[0-9]+\.[0-9]+\.[0-9]+$'
 
-# Every Iris version tag, one "X.Y.Z<TAB>tag<TAB>commit" line each. `skip` names a tag to leave out.
+# Plain bash and git from here on: the runners of the `plan` lane differ, and a host's own sort,
+# cut or awk may not be the one this was written for.
+
+# Every Iris version tag, one "X.Y.Z<TAB>tag" line each. `skip` names a tag to leave out.
 versions() {
-  local skip=${1-}
-  git for-each-ref refs/tags --format='%(refname:strip=2)%09%(objecttype)%09%(contents:subject)%09%(*objectname)%(objectname)' |
-    while IFS=$'\t' read -r name type subject commit; do
-      [ "$name" != "$skip" ] || continue
-      commit=${commit:0:40}
-      case $name in
-        mobile-v*) v=${name#mobile-v} ;;
-        v*)
-          # Cinny's tags are lightweight; an Iris release is annotated, "Iris vX.Y.Z".
-          [ "$type" = tag ] || continue
-          case $subject in "Iris $name" | "Iris $name "*) ;; *) continue ;; esac
-          v=${name#v}
-          ;;
-        *) continue ;;
-      esac
-      [[ $v =~ $semver ]] || continue
-      printf '%s\t%s\t%s\n' "$v" "$name" "$commit"
-    done
+  local skip=${1-} name type subject v
+  while IFS=$'\t' read -r name type subject; do
+    [ "$name" != "$skip" ] || continue
+    case $name in
+      mobile-v*) v=${name#mobile-v} ;;
+      v*)
+        # Cinny's tags are lightweight; an Iris release is annotated, "Iris vX.Y.Z".
+        [ "$type" = tag ] || continue
+        case $subject in "Iris $name" | "Iris $name "*) ;; *) continue ;; esac
+        v=${name#v}
+        ;;
+      *) continue ;;
+    esac
+    [[ $v =~ $semver ]] || continue
+    printf '%s\t%s\n' "$v" "$name"
+  done < <(git for-each-ref refs/tags --format='%(refname:strip=2)%09%(objecttype)%09%(contents:subject)')
 }
 
-latest() { versions "${1-}" | sort -t$'\t' -k1,1V | tail -n1; }
-
-# Is $1 above $2? Both X.Y.Z.
+# Is X.Y.Z $1 above X.Y.Z $2?
 above() {
-  [ "$1" != "$2" ] && [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | tail -n1)" = "$1" ]
+  local a b
+  IFS=. read -r -a a <<<"$1"
+  IFS=. read -r -a b <<<"$2"
+  for i in 0 1 2; do
+    if ((10#${a[i]} > 10#${b[i]})); then return 0; fi
+    if ((10#${a[i]} < 10#${b[i]})); then return 1; fi
+  done
+  return 1
+}
+
+# The latest Iris version tag, "X.Y.Z<TAB>tag", or nothing.
+latest() {
+  local best='' line
+  while IFS= read -r line; do
+    if [ -z "$best" ] || above "${line%%$'\t'*}" "${best%%$'\t'*}"; then best=$line; fi
+  done < <(versions "${1-}")
+  if [ -n "$best" ]; then printf '%s\n' "$best"; fi
 }
 
 cmd=${1-}
 case $cmd in
   last)
-    latest | cut -f1
+    line=$(latest)
+    echo "${line%%$'\t'*}"
     ;;
   next)
     rev=${2:-HEAD}
     line=$(latest)
-    last=$(cut -f1 <<<"$line")
-    tag=$(cut -f2 <<<"$line")
+    last=${line%%$'\t'*}
+    tag=${line#*$'\t'}
     if [ -z "$last" ] || ! above "$last" 0.3.999; then
       echo 0.4.0
       exit 0
     fi
-    msgs=$(git log --format=%B "$tag..$rev")
     IFS=. read -r major minor patch <<<"$last"
-    if grep -qiE '^BREAKING CHANGE:' <<<"$msgs" || grep -qE '^[a-zA-Z]+(\([^)]*\))?!:' <<<"$msgs"; then
-      echo "$((major + 1)).0.0"
-    elif grep -qE '^feat(\([^)]*\))?:' <<<"$msgs"; then
-      echo "$major.$((minor + 1)).0"
-    else
-      echo "$major.$minor.$((patch + 1))"
-    fi
+    bump=patch
+    breaking='^[Bb][Rr][Ee][Aa][Kk][Ii][Nn][Gg] [Cc][Hh][Aa][Nn][Gg][Ee]:'
+    bang='^[a-zA-Z]+(\([^)]*\))?!:'
+    feat='^feat(\([^)]*\))?:'
+    while IFS= read -r msg; do
+      if [[ $msg =~ $breaking || $msg =~ $bang ]]; then
+        bump=major
+        break
+      elif [[ $msg =~ $feat ]]; then
+        bump=minor
+      fi
+    done < <(git log --format=%B "$tag..$rev")
+    case $bump in
+      major) echo "$((major + 1)).0.0" ;;
+      minor) echo "$major.$((minor + 1)).0" ;;
+      patch) echo "$major.$minor.$((patch + 1))" ;;
+    esac
     ;;
   check)
     want=${2?usage: iris-version.sh check <X.Y.Z> [<rev>]}
@@ -91,7 +116,10 @@ case $cmd in
     tag="v$want"
     if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
       at=$(git rev-parse "refs/tags/$tag^{commit}")
-      own=$(versions | awk -F'\t' -v t="$tag" '$2 == t' | head -n1)
+      own=''
+      while IFS= read -r line; do
+        if [ "${line#*$'\t'}" = "$tag" ]; then own=$line; fi
+      done < <(versions)
       if [ -z "$own" ]; then
         echo "the tag $tag is already taken, and not by an Iris release (Cinny has tags of that form)" >&2
         exit 1
@@ -102,7 +130,8 @@ case $cmd in
       fi
       # The same release, run again: compared with the versions before it.
     fi
-    last=$(latest "$tag" | cut -f1)
+    line=$(latest "$tag")
+    last=${line%%$'\t'*}
     if [ -n "$last" ] && ! above "$want" "$last"; then
       echo "$want is not above the latest Iris version, $last" >&2
       exit 1
