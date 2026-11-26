@@ -50,6 +50,14 @@ CHROME=$(which google-chrome) node test/e2e-app/showcase-compose.mjs <playwright
 
 The first writes `hero-<a|b|c>-<light|dark>.png`, three placements of the phone (described at the top of the script); the second makes one of them again and also writes it as `hero-light.png` and `hero-dark.png`. The background is transparent, so each suits GitHub's light or dark page.
 
+The README's small pictures of scheduled messages, the draft, the image editor and the sticker board are cut from the desktop captures, each to the part of the window that shows its feature, so their text can still be read at the size the README shows them:
+
+```sh
+CHROME=$(which google-chrome) node test/e2e-app/showcase-crop.mjs <playwright-core dir> ~/.cache/build/iris/a/shots
+```
+
+It writes `<picture>-crop-<light|dark>.png` beside each, at the same device scale factor of 2, with the same box for light and dark; the boxes are at the top of the script. In `docs/pictures/` they keep their names without `-crop`. Each picture there is scaled to at most 1440 pixels wide, and all but the main picture go through `pngquant --quality 80-98`; then all of them go through `oxipng -o 4`.
+
 What is in the account is all in `showcase.mjs`: Hector and six friends from the Iliad, ten rooms and direct chats with their conversations, Home's sections (Starred, 📚 Clubs, 🌱 Neighbours), what Hector has read (so three rooms show unread counts, one with a mention), a draft, three scheduled messages and a sticker pack. The avatars, stickers and the picnic picture are drawn in code by `showcase-art.mjs`. Change the words there and run the sequence again.
 
 Time stands still in the pictures. The browser's clock is fixed at Friday 16 May 2031, 10:30 UTC, and the seed sends every message with its own timestamp through an application service `synapse.sh` registers (`?user_id=…&ts=…`), so the same run gives the same pictures. The date is in the future because the rooms' creation events carry the real time, and the messages must come after them. Scheduled messages wait on the server's real clock from when the seed ran, so the capture answers the app's list of them with each delay counted from the fixed clock instead.
