@@ -39,7 +39,16 @@ npx vite preview --outDir ~/.cache/build/iris/a/dist --port 5191 &
 CHROME=$(which google-chrome) node test/e2e-app/showcase-capture.mjs <playwright-core dir> ~/.cache/build/iris/a/shots http://localhost:5191
 ```
 
-Use your own slot in place of `a`. The capture takes under a minute and writes sixteen PNGs, each picture in Iris light and Iris dark (`<picture>-light.png`, `<picture>-dark.png`), at a device scale factor of 2: `desktop-overview`, `desktop-scheduled`, `desktop-stickers`, `desktop-image-editor`, `desktop-draft` (1440×900), and `phone-home`, `phone-conversation`, `phone-scheduled` (390×844, touch). `ONLY=desktop-draft,phone-home` takes just those. It prints each file with what it shows, and exits 1 if any picture failed (keeping a `.failed.png` of where it stopped).
+Use your own slot in place of `a`. The capture takes under a minute and writes sixteen PNGs, each picture in Iris light and Iris dark (`<picture>-light.png`, `<picture>-dark.png`), at a device scale factor of 2: `desktop-overview`, `desktop-scheduled`, `desktop-stickers`, `desktop-image-editor`, `desktop-draft` (1440×900), and `phone-home`, `phone-conversation`, `phone-scheduled` (390×844, touch). `ONLY=desktop-draft,phone-home` takes just those. It prints each file with what it shows, and exits 1 if any picture failed (keeping a `.failed.png` of where it stopped). On a wide screen it closes each room's members panel with its Close button, so the conversation has the width; phone Home is scrolled to the end of its list, so the round + button sits below the last row and covers no text.
+
+The README's main picture puts the desktop overview and phone Home together, made from those captures:
+
+```sh
+CHROME=$(which google-chrome) node test/e2e-app/showcase-compose.mjs <playwright-core dir> ~/.cache/build/iris/a/shots all
+CHROME=$(which google-chrome) node test/e2e-app/showcase-compose.mjs <playwright-core dir> ~/.cache/build/iris/a/shots b --main
+```
+
+The first writes `hero-<a|b|c>-<light|dark>.png`, three placements of the phone (described at the top of the script); the second makes one of them again and also writes it as `hero-light.png` and `hero-dark.png`. The background is transparent, so each suits GitHub's light or dark page.
 
 What is in the account is all in `showcase.mjs`: Hector and six friends from the Iliad, ten rooms and direct chats with their conversations, Home's sections (Starred, 📚 Clubs, 🌱 Neighbours), what Hector has read (so three rooms show unread counts, one with a mention), a draft, three scheduled messages and a sticker pack. The avatars, stickers and the picnic picture are drawn in code by `showcase-art.mjs`. Change the words there and run the sequence again.
 

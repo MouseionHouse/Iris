@@ -150,6 +150,18 @@ const openRoom = async (page, name) => {
   await press(page, page.getByRole('link', { name: new RegExp(`^${name}`) }).first());
   await page.locator('[data-slate-editor]').waitFor({ timeout: T });
 };
+/** Closes the members panel with its own Close button, as a user would, on a wide screen. */
+const closeMembers = async (page) => {
+  const heading = page.getByText(/^\d+ Members$/);
+  await heading.waitFor({ timeout: T });
+  await press(page, heading.locator('xpath=ancestor::*[.//button][1]').locator('button').last());
+  await heading.waitFor({ state: 'detached', timeout: T });
+};
+/** Opens a room on a wide screen, with the members panel closed so the conversation is wide. */
+const openRoomWide = async (page, name) => {
+  await openRoom(page, name);
+  await closeMembers(page);
+};
 /** The composer: the box holding the text field and its buttons (attach first). */
 const composer = (page) =>
   page.locator('[data-slate-editor]').locator('xpath=ancestor::*[.//button[@aria-pressed]][1]');
@@ -162,13 +174,13 @@ const openScheduled = async (page) => {
 const SHOTS = {
   'desktop-overview': [
     'desktop',
-    (page) => openRoom(page, 'Saturday picnic'),
+    (page) => openRoomWide(page, 'Saturday picnic'),
     'The room list with its sections, the picnic conversation and the composer',
   ],
   'desktop-scheduled': [
     'desktop',
     async (page) => {
-      await openRoom(page, 'Saturday picnic');
+      await openRoomWide(page, 'Saturday picnic');
       await openScheduled(page);
     },
     'Three scheduled messages, listed above the composer',
@@ -176,7 +188,7 @@ const SHOTS = {
   'desktop-stickers': [
     'desktop',
     async (page) => {
-      await openRoom(page, 'Saturday picnic');
+      await openRoomWide(page, 'Saturday picnic');
       await press(page, composer(page).locator('button[aria-pressed]').first());
       await page.getByText('Doodles', { exact: true }).waitFor({ timeout: T });
     },
@@ -185,7 +197,7 @@ const SHOTS = {
   'desktop-image-editor': [
     'desktop',
     async (page) => {
-      await openRoom(page, 'Saturday picnic');
+      await openRoomWide(page, 'Saturday picnic');
       const chooser = page.waitForEvent('filechooser');
       await composer(page).locator('button').first().click();
       await (await chooser).setFiles(attachment);
@@ -200,15 +212,34 @@ const SHOTS = {
   'desktop-draft': [
     'desktop',
     async (page) => {
-      await openRoom(page, 'Patroclus');
+      await openRoomWide(page, 'Patroclus');
       await page.locator('[data-slate-editor]').getByText('spare pump').waitFor({ timeout: T });
     },
     "A draft waiting in Patroclus's composer (its pencil in the room list is in desktop-overview)",
   ],
   'phone-home': [
     'phone',
-    async () => undefined,
-    'Home on a phone: sections, unread counts, the tab bar',
+    async (page) => {
+      // to the end of the list, with a swipe of the wheel: the round + button then sits in the
+      // space the list leaves below its last row, where it covers no text
+      await page.mouse.move(195, 400);
+      await page.mouse.wheel(0, 2000);
+      await page.waitForFunction(
+        () => {
+          const list = Array.from(document.querySelectorAll('*')).find((el) => {
+            const { overflowY } = getComputedStyle(el);
+            return (
+              (overflowY === 'auto' || overflowY === 'scroll') && el.scrollHeight > el.clientHeight
+            );
+          });
+          return list && list.scrollTop + list.clientHeight >= list.scrollHeight - 1;
+        },
+        undefined,
+        { timeout: T }
+      );
+      await page.mouse.move(page.viewportSize().width - 1, page.viewportSize().height - 1);
+    },
+    'Home on a phone, scrolled to the end: sections, unread counts, the draft, the tab bar',
   ],
   'phone-conversation': [
     'phone',
@@ -225,7 +256,7 @@ const SHOTS = {
   ],
 };
 
-const only = process.env.ONLY?.split(',');
+const only = process.env.ONLY ? process.env.ONLY.split(',') : undefined;
 let failed = 0;
 for (const [name, [form, act, what]] of Object.entries(SHOTS)) {
   if (only && !only.includes(name)) continue;
