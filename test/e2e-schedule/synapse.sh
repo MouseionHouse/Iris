@@ -34,6 +34,20 @@ rc_login:
 rc_delayed_event_mgmt:
   per_second: 1000
   burst_count: 1000
+# test/e2e-app/showcase-seed.mjs: an application service may send as any user, with a set
+# timestamp (?user_id=…&ts=…), so the README pictures show the same times on every run
+app_service_config_files: [/data/showcase-appservice.yaml]
+EOF
+    cat >"$DATA/showcase-appservice.yaml" <<EOF
+id: iris-showcase
+url: null
+as_token: iris-showcase-as
+hs_token: iris-showcase-hs
+sender_localpart: showcase-seed
+rate_limited: false
+namespaces:
+  users: [{ exclusive: false, regex: '@.*:localhost' }]
+  aliases: [{ exclusive: false, regex: '#showcase-.*:localhost' }]
 EOF
   fi
   docker run -d --name "$NAME" -v "$DATA:/data" -p "127.0.0.1:$PORT:8008" \

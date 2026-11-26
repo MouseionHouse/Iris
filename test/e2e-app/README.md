@@ -25,3 +25,22 @@ What `run.mjs` checks:
 A step fails on a wrong URL or a missing element, and also on any page error or `console.error` but the known ones listed at the top of `run.mjs` (network errors from asking matrix.org about itself, and `AsyncCallbackHook: Request replaced!`). A render crash fails the walk even where the page still shows something.
 
 It prints `PASS` or `FAIL` per step, keeps a screenshot of each walk step in the screenshot directory, and exits 1 if any step failed. Each run sends one message to `#general`; nothing else changes between runs.
+
+## The README pictures
+
+`showcase-seed.mjs` and `showcase-capture.mjs` take the pictures of Iris for the README from the real app: a production build, signed in as Hector on the same local Synapse, with a made-up account worth photographing. They are not a test and are not run in CI.
+
+```sh
+test/e2e-schedule/synapse.sh down     # start from nothing: the seed's times need a fresh server
+test/e2e-schedule/synapse.sh up
+node test/e2e-app/showcase-seed.mjs   # once; a second run sees #showcase-picnic and stops
+npx vite build --outDir ~/.cache/build/iris/a/dist
+npx vite preview --outDir ~/.cache/build/iris/a/dist --port 5191 &
+CHROME=$(which google-chrome) node test/e2e-app/showcase-capture.mjs <playwright-core dir> ~/.cache/build/iris/a/shots http://localhost:5191
+```
+
+Use your own slot in place of `a`. The capture takes under a minute and writes sixteen PNGs, each picture in Iris light and Iris dark (`<picture>-light.png`, `<picture>-dark.png`), at a device scale factor of 2: `desktop-overview`, `desktop-scheduled`, `desktop-stickers`, `desktop-image-editor`, `desktop-draft` (1440×900), and `phone-home`, `phone-conversation`, `phone-scheduled` (390×844, touch). `ONLY=desktop-draft,phone-home` takes just those. It prints each file with what it shows, and exits 1 if any picture failed (keeping a `.failed.png` of where it stopped).
+
+What is in the account is all in `showcase.mjs`: Hector and six friends from the Iliad, ten rooms and direct chats with their conversations, Home's sections (Starred, 📚 Clubs, 🌱 Neighbours), what Hector has read (so three rooms show unread counts, one with a mention), a draft, three scheduled messages and a sticker pack. The avatars, stickers and the picnic picture are drawn in code by `showcase-art.mjs`. Change the words there and run the sequence again.
+
+Time stands still in the pictures. The browser's clock is fixed at Friday 16 May 2031, 10:30 UTC, and the seed sends every message with its own timestamp through an application service `synapse.sh` registers (`?user_id=…&ts=…`), so the same run gives the same pictures. The date is in the future because the rooms' creation events carry the real time, and the messages must come after them. Scheduled messages wait on the server's real clock from when the seed ran, so the capture answers the app's list of them with each delay counted from the fixed clock instead.
