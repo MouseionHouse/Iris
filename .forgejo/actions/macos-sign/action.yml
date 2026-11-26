@@ -1,5 +1,5 @@
-# Copied from mouseion/common, actions/macos-sign at 8e4cad7a87312f4c3954c6fb8840341bdb5f9b23
-# (macos-sign-v1.0.0), without its README. A change upstream reaches Iris only when it is copied
+# Copied from mouseion/common, actions/macos-sign at e0c2c7a7ab96e76c111f833e80831891c05428f0
+# (macos-sign-v1.2.1), without its README. A change upstream reaches Iris only when it is copied
 # here again.
 name: macos-sign
 description: >-
@@ -10,8 +10,17 @@ description: >-
   (`mouseion-macos`), on the host.
 inputs:
   app:
-    description: Path to the .app to sign.
-    required: true
+    description: Path to the .app to sign. Not with run.
+    required: false
+    default: ''
+  run:
+    description: >-
+      A command (bash) to run in place of the signing here, for an app that signs itself: the
+      keychain (and a notarytool profile from the API key) exist while it runs, and it gets
+      MACOS_SIGN_IDENTITY, MACOS_SIGN_IDENTITY_SHA1, MACOS_SIGN_KEYCHAIN and MACOS_NOTARY_PROFILE.
+      Not run without a certificate.
+    required: false
+    default: ''
   entitlements:
     description: Entitlements plist for the app's executables (the main one, helpers, nested apps).
     required: false
@@ -58,10 +67,10 @@ inputs:
     default: ''
 outputs:
   signed:
-    description: "'true' when the app was signed with the certificate, 'false' when it was left ad-hoc."
+    description: "'true' when the app was signed with the certificate (with run: the command ran and succeeded), 'false' when it was left ad-hoc."
     value: ${{ steps.sign.outputs.signed }}
   notarized:
-    description: "'true' when Apple accepted it and the ticket is stapled."
+    description: "'true' when Apple accepted it and the ticket is stapled (with run: the command had a notary profile and succeeded)."
     value: ${{ steps.sign.outputs.notarized }}
   package:
     description: Path to the zip or dmg made from the signed app (empty when not signed or package is none).
@@ -78,6 +87,7 @@ runs:
       # Inputs reach the script as env, never spliced into the command line.
       env:
         MS_APP: ${{ inputs.app }}
+        MS_RUN: ${{ inputs.run }}
         MS_ENTITLEMENTS: ${{ inputs.entitlements }}
         MS_PACKAGE: ${{ inputs.package }}
         MS_OUTPUT: ${{ inputs.output }}
