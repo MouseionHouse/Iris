@@ -43,15 +43,18 @@ rm -f "$files/SHA256SUMS"
   echo
   echo '| File | What it is | Size |'
   echo '| --- | --- | --- |'
+  # The files, then their sums.
   for f in "$files"/*; do
     name=$(basename "$f")
+    [ "$name" != SHA256SUMS ] || continue
     echo "| \`$name\` | $(describe "$name") | $(size "$(stat -c %s "$f")") |"
   done
+  echo "| \`SHA256SUMS\` | $(describe SHA256SUMS) | $(size "$(stat -c %s "$files/SHA256SUMS")") |"
   echo
   echo 'SHA-256:'
   echo
   echo '```'
-  grep -v ' SHA256SUMS$' "$files/SHA256SUMS" || true
+  cat "$files/SHA256SUMS"
   echo '```'
 } > "$out/body.md"
 
