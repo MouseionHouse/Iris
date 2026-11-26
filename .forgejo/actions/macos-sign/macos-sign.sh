@@ -153,10 +153,10 @@ rm -f "$work/id.p12"
 # The intermediate a Developer ID Application certificate is issued under (Apple's, public),
 # for when the Mac has no copy: codesign needs the whole chain. A .p12 exported with its chain
 # brings the intermediate itself, and then the keychain has it already: that is no failure.
-if ! out="$(security import "$here/DeveloperIDG2CA.cer" -k "$kc" 2>&1)"; then
-	case $out in
+if ! intermediate_import="$(security import "$here/DeveloperIDG2CA.cer" -k "$kc" 2>&1)"; then
+	case $intermediate_import in
 		*"already exists in the keychain"*) log "the intermediate came with the certificate" ;;
-		*) die "Apple's intermediate would not import: $out" ;;
+		*) die "Apple's intermediate would not import: $intermediate_import" ;;
 	esac
 fi
 # Lets codesign use the key without a dialog, which nobody would answer.
